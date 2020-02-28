@@ -1,0 +1,111 @@
+Option Compare Database
+Option Explicit
+
+
+Sub subFixExportedReport(strFileIn As String, strFileOut As String)
+    Dim lngCount As Long
+    Dim intFileIn As Integer
+    Dim intFileOut As Integer
+    Dim strLine As String
+    intFileIn = FreeFile
+    Open strFileIn For Input As intFileIn
+    intFileOut = FreeFile
+    Open strFileOut For Output As intFileOut
+    Do Until EOF(intFileIn)
+        Line Input #intFileIn, strLine
+        If Trim(strLine) = "GUID = Begin" Then
+            Do Until Trim(strLine) = "End"
+                Line Input #intFileIn, strLine
+            Loop
+        ElseIf Left(Trim(strLine), 11) = "FELineBreak" Then
+            ' skip this
+        Else
+            Print #intFileOut, strLine
+        End If
+    Loop
+    Close intFileIn, intFileOut
+End Sub
+
+
+
+Sub RepairFormsReports(MyObject As String, MyObjectType As String)
+
+    DoCmd.Rename MyObject & "_OLD", MyObjectType, MyObject
+
+    Application.SaveAsText MyObjectType, MyObject & "_OLD", "C:\Temp\" & MyObject & "_OLD.txt"
+
+    subFixExportedReport "C:\Temp\" & MyObject & "_OLD.txt", "C:\Temp\" & MyObject & ".txt"
+
+    Application.LoadFromText MyObjectType, MyObject, "C:\Temp\" & MyObject & ".txt"
+
+End Sub
+
+
+Sub CheckIt()
+On Error GoTo CheckIt_ErrorHandler
+
+DoCmd.Echo False
+
+Dim dbs As Database, ctr As Container, doc As Document
+Dim FileList As String
+
+Dim MyOb As String
+FileList = "C:\temp\Checkit.txt"
+
+
+Open FileList For Output As #1
+    ' Return reference to current database.
+    Set dbs = CurrentDb
+
+    
+    
+    Set ctr = dbs.Containers!Forms
+        MyOb = acForm
+    ' Enumerate through Documents collection of Forms container.
+    For Each doc In ctr.Documents
+        ' Print Document object name and value of LastUpdated property.
+        Write #1, doc.Name
+        DoCmd.OpenForm doc.Name, acViewDesign
+        DoCmd.Close acForm, doc.Name
+    Next doc
+        ' Return referenct to Reports container.
+    Set ctr = dbs.Containers!Reports
+        MyOb = acReport
+    ' Enumerate through Documents collection of Reports container.
+    For Each doc In ctr.Documents
+        ' Print Document object name and value of LastUpdated property.
+        Write #1, doc.Name
+        DoCmd.OpenReport doc.Name, acViewDesign
+        DoCmd.Close acReport, doc.Name
+    Next doc
+    ' Return reference to Modules container.
+    
+    Set dbs = Nothing
+
+CheckIt_Exit:
+
+Close #1
+DoCmd.Echo True
+
+Exit Sub        ' Exit to avoid handler.
+
+CheckIt_ErrorHandler:    ' Error-handling routine.
+    Select Case Err.Number    ' Evaluate error number.
+        Case 2121    ' Microsoft Access can't open the form. It contains data that Microsoft Access doesn't recognize.Re-create the form or, if you maintain backup copies of your database, retrieve a copy of the form
+        
+            MsgBox "Repairing .... " & doc.Name, vbOKOnly, "Oh oh"
+            
+            RepairFormsReports doc.Name, MyOb
+            Resume
+            
+        Case Else
+            MsgBox Err.Number & " " & Err.Description, vbOKOnly
+            GoTo CheckIt_Exit
+            
+    End Select
+    
+End Sub
+
+
+
+

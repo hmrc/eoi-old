@@ -1,0 +1,1221 @@
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private ClassType As String
+
+
+Private Sub Ctl16_17_Click_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      :  10/03/2016
+' Reason    : 16/17 tax year
+
+Dim var As String
+
+    If ClassType = "Class2" Then
+        var = "Class 2 16/17"
+        
+    ElseIf ClassType = "Class3" Then
+        var = "Class 3 16/17"
+        
+    End If
+     
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "Class 2 16/17"
+
+End Sub
+
+Private Sub Ctl17_18_Click_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      :  10/03/2016
+' Reason    : 16/17 tax year
+
+Dim var As String
+
+    If ClassType = "Class2" Then
+        var = "Class 2 17/18"
+        
+    ElseIf ClassType = "Class3" Then
+        var = "Class 3 17/18"
+        
+    End If
+     
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "Class 2 17/18"
+
+End Sub
+
+Private Sub Ctl18_19_Click_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      :  08/02/2018
+' Reason    : 18/19 tax year
+
+Dim var As String
+
+    If ClassType = "Class2" Then
+        var = "Class 2 18/19"
+        
+    ElseIf ClassType = "Class3" Then
+        var = "Class 3 18/19"
+        
+    End If
+     
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "Class 2 18/19"
+
+End Sub
+
+Private Sub Command77_Click()
+' Modification history
+' Author    : Chris Sneddon
+' Date      : 10/03/2016
+' Reason    : update for 16/17
+
+    On Error GoTo Err_Ctl16_17_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "16/17"
+
+Exit_Ctl16_17_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl16_17_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl16_17_Reckoner_Bu_Click
+End Sub
+
+Private Sub Command80_Click()
+' Modification history
+' Author    : Chris Sneddon
+' Date      : 10/03/2016
+' Reason    : update for 16/17
+
+    On Error GoTo Err_Ctl17_18_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "17/18"
+
+Exit_Ctl17_18_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl17_18_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl17_18_Reckoner_Bu_Click
+End Sub
+
+Private Sub Command82_Click()
+' Modification history
+' Author    : Chris Sneddon
+' Date      : 08/02/2018
+' Reason    : update for 18/19
+
+    On Error GoTo Err_Ctl18_19_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "18/19"
+
+Exit_Ctl18_19_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl18_19_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl18_19_Reckoner_Bu_Click
+End Sub
+
+Private Sub Ctl12_13_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 9 january 2012
+' Reason    : 12/13 tax year
+
+Dim var As String
+
+    If ClassType = "Class2" Then
+        var = "Class 2 12/13"
+        
+    ElseIf ClassType = "Class3" Then
+        var = "Class 3 12/13"
+        
+    End If
+     
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "Class 2 12/13"
+
+End Sub
+
+Private Sub Ctl13_14_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 8 january 2013
+' Reason    : 13/14 tax year
+
+Dim var As String
+
+    If ClassType = "Class2" Then
+        var = "Class 2 13/14"
+        
+    ElseIf ClassType = "Class3" Then
+        var = "Class 3 13/14"
+        
+    End If
+     
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "Class 2 13/14"
+
+End Sub
+Private Sub Ctl15_16_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 12 December 2014
+' Reason    : 15/16 tax year
+
+Dim var As String
+
+    If ClassType = "Class2" Then
+        var = "Class 2 15/16"
+        
+    ElseIf ClassType = "Class3" Then
+        var = "Class 3 15/16"
+        
+    End If
+     
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "Class 2 15/16"
+End Sub
+Private Sub Ctl14_15_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 16 january 2013
+' Reason    : 14/15 tax year
+
+Dim var As String
+
+    If ClassType = "Class2" Then
+        var = "Class 2 14/15"
+        
+    ElseIf ClassType = "Class3" Then
+        var = "Class 3 14/15"
+        
+    End If
+     
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "Class 2 14/15"
+End Sub
+
+Private Sub btn11_12_Click()
+' Author  : Ben Stephenson
+' Date    : 22/06/2011
+' Project : CCA10512
+Dim var As String
+
+    If ClassType = "Class2" Then
+        var = "Class 2 11/12"
+        
+    ElseIf ClassType = "Class3" Then
+        var = "Class 3 11/12"
+        
+    End If
+     
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "Class 2 11/12"
+
+End Sub
+
+Private Sub Command48_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 14 November 2007
+' Reason    : Add support for 08/09, using only one common form
+
+    On Error GoTo Err_Ctl09_10_Demand_Butt_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "09/10"
+    
+
+
+Exit_Ctl09_10_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl09_10_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl09_10_Demand_Butt_Click
+    
+
+
+End Sub
+
+Private Sub Command49_Click()
+
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 23 january 2009
+' Reason    : update for 09/10
+
+    On Error GoTo Err_Ctl09_10_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "09/10"
+
+Exit_Ctl09_10_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl09_10_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl09_10_Reckoner_Bu_Click
+    
+End Sub
+
+Private Sub Button26_Click()
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 98/99, using only one common form
+
+    On Error GoTo Err_Ctl98_99_Demand_Butt_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "98/99"
+    
+
+
+Exit_Ctl98_99_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl98_99_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl98_99_Demand_Butt_Click
+    
+
+
+End Sub
+
+
+
+Private Sub Command46_Click()
+
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 14 November 2007
+' Reason    : update for 08/09
+
+    On Error GoTo Err_Ctl08_09_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "08/09"
+
+Exit_Ctl08_09_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl08_09_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl08_09_Reckoner_Bu_Click
+    
+End Sub
+
+
+Private Sub Command47_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 14 November 2007
+' Reason    : Add support for 08/09, using only one common form
+
+    On Error GoTo Err_Ctl08_09_Demand_Butt_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "08/09"
+    
+
+
+Exit_Ctl08_09_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl08_09_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl08_09_Demand_Butt_Click
+    
+
+
+End Sub
+
+
+Private Sub Command50_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 14 November 2007
+' Reason    : Add support for 10/11, using only one common form
+
+    On Error GoTo Err_Ctl10_11_Demand_Butt_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "10/11"
+    
+
+
+Exit_Ctl10_11_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl10_11_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl10_11_Demand_Butt_Click
+    
+End Sub
+
+
+
+Private Sub Command51_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 23 january 2009
+' Reason    : update for 10/11
+
+    On Error GoTo Err_Ctl10_11_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "10/11"
+
+Exit_Ctl10_11_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl10_11_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl10_11_Reckoner_Bu_Click
+
+End Sub
+Private Sub Command52_Click()
+' Modification history
+' Author    : Tunde Akinnuwa
+' Date      : 27 January 2011
+' Reason    : update for 11/12
+
+    On Error GoTo Err_Ctl10_11_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "11/12"
+
+Exit_Ctl10_11_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl10_11_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl10_11_Reckoner_Bu_Click
+
+End Sub
+
+Private Sub Command68_Click()
+' Modification history
+' Author    : Christopher Sneddon
+' Date      : 23 january 2009
+' Reason    : update for 10/11
+
+    On Error GoTo Err_Ctl10_11_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "12/13"
+
+Exit_Ctl10_11_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl10_11_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl10_11_Reckoner_Bu_Click
+End Sub
+
+Private Sub Command69_Click()
+' Modification history
+' Author    : Chris Sneddon
+' Date      : 9 January 2012
+' Reason    : update for 12/13
+
+    On Error GoTo Err_Ctl10_11_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "12/13"
+
+Exit_Ctl10_11_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl10_11_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl10_11_Reckoner_Bu_Click
+
+End Sub
+
+Private Sub Command71_Click()
+' Modification history
+' Author    : Chris Sneddon
+' Date      : 9 January 2012
+' Reason    : update for 12/13
+
+    On Error GoTo Err_Ctl10_11_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "13/14"
+
+Exit_Ctl10_11_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl10_11_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl10_11_Reckoner_Bu_Click
+
+End Sub
+
+
+Private Sub Command73_Click()
+
+' Modification history
+' Author    : Chris Sneddon
+' Date      : 16 January 2014
+' Reason    : update for 12/13
+
+    On Error GoTo Err_Ctl10_11_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "14/15"
+
+Exit_Ctl10_11_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl10_11_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl10_11_Reckoner_Bu_Click
+
+End Sub
+
+Private Sub Command75_Click()
+
+' Modification history
+' Author    : Chris Sneddon
+' Date      : 12 December 2014
+' Reason    : update for 15/16
+
+    On Error GoTo Err_Ctl10_11_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "15/16"
+
+Exit_Ctl10_11_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl10_11_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl10_11_Reckoner_Bu_Click
+
+End Sub
+
+Private Sub Ctl00_01_Demand_Butt_Click()
+
+' Author    : Christopher Schuler
+' Date      : 18 November 1999
+' Reason    : Add support for 00/01, using only one common form
+
+    On Error GoTo Err_Ctl00_01_Demand_Butt_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "00/01"
+    
+
+
+Exit_Ctl00_01_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl00_01_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl00_01_Demand_Butt_Click
+    
+
+End Sub
+
+Private Sub Ctl00_01_Reckoner_Bu_Click()
+
+' Author    : Christopher Schuler
+' Date      : 18 November 1999
+' Reason    : Add support for 00/01, using only one common form
+
+    On Error GoTo Err_Ctl00_01_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "00/01"
+
+Exit_Ctl00_01_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl00_01_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl00_01_Reckoner_Bu_Click
+
+End Sub
+
+Private Sub Ctl01_02_Demand_Butt_Click()
+
+
+' Author    : Christopher Schuler
+' Date      : 21 November 2000
+' Reason    : Add support for 01/02, using only one common form
+
+    On Error GoTo Err_Ctl01_02_Demand_Butt_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "01/02"
+    
+    
+
+Exit_Ctl01_02_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl01_02_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl01_02_Demand_Butt_Click
+    
+
+
+
+End Sub
+
+Private Sub Ctl01_02_Reckoner_Bu_Click()
+
+' Author    : Christopher Schuler
+' Date      : 21 November 2000
+' Reason    : Add support for 01/02, using only one common form
+
+    On Error GoTo Err_Ctl01_02_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "01/02"
+
+Exit_Ctl01_02_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl01_02_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl01_02_Reckoner_Bu_Click
+
+
+End Sub
+
+Private Sub Ctl02_03_Demand_Button_Click()
+
+
+' Author    : Christopher Schuler
+' Date      : 11 Dec 2002
+' Reason    : Add support for 02/03, using only one common form
+
+    On Error GoTo Err_Ctl02_03_Demand_Button_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "02/03"
+    
+    
+
+Exit_Ctl02_03_Demand_Button_Click:
+    Exit Sub
+
+Err_Ctl02_03_Demand_Button_Click:
+    MsgBox Error$
+    Resume Exit_Ctl02_03_Demand_Button_Click
+    
+
+
+
+End Sub
+
+Private Sub Ctl02_03_Reckoner_Bu_Click()
+
+' Author    : Christopher Schuler
+' Date      : 11 Dec 2002
+' Reason    : Add support for 02/03, using only one common form
+
+    On Error GoTo Err_Ctl02_03_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "02/03"
+
+Exit_Ctl02_03_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl02_03_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl02_03_Reckoner_Bu_Click
+End Sub
+
+Private Sub Ctl03_04_Demand_Button_Click()
+' Author    : Christopher Schuler
+' Date      : 11 Dec 2002
+' Reason    : Add support for 03/04, using only one common form
+
+    On Error GoTo Err_Ctl03_04_Demand_Button_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "03/04"
+    
+    
+
+Exit_Ctl03_04_Demand_Button_Click:
+    Exit Sub
+
+Err_Ctl03_04_Demand_Button_Click:
+    MsgBox Error$
+    Resume Exit_Ctl03_04_Demand_Button_Click
+End Sub
+
+Private Sub Ctl03_04_Reckoner_Bu_Click()
+' Author    : Christopher Schuler
+' Date      : 11 Dec 2002
+' Reason    : Add support for 03/04, using only one common form
+
+    On Error GoTo Err_Ctl03_04_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "03/04"
+
+Exit_Ctl03_04_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl03_04_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl03_04_Reckoner_Bu_Click
+End Sub
+
+Private Sub Ctl04_05_Demand_Button_Click()
+' Author    : Christopher Schuler
+' Date      : 23 Dec 2003
+' Reason    : Add support for 04/05, using only one common form
+
+    On Error GoTo Err_Ctl04_05_Demand_Button_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "04/05"
+    
+    
+
+Exit_Ctl04_05_Demand_Button_Click:
+    Exit Sub
+
+Err_Ctl04_05_Demand_Button_Click:
+    MsgBox Error$
+    Resume Exit_Ctl04_05_Demand_Button_Click
+End Sub
+
+Private Sub Ctl04_05_Reckoner_Bu_Click()
+' Author    : Christopher Schuler
+' Date      : 23 Dec 2003
+' Reason    : Add support for 04/05, using only one common form
+
+    On Error GoTo Err_Ctl04_05_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "04/05"
+
+Exit_Ctl04_05_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl04_05_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl04_05_Reckoner_Bu_Click
+End Sub
+
+Private Sub Ctl05_06_Demand_Button_Click()
+' Author    : Christopher Schuler
+' Date      : 14 Dec 2004
+' Reason    : Add support for 05/06, using only one common form
+
+    On Error GoTo Err_Ctl05_06_Demand_Button_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "05/06"
+    
+    
+
+Exit_Ctl05_06_Demand_Button_Click:
+    Exit Sub
+
+Err_Ctl05_06_Demand_Button_Click:
+    MsgBox Error$
+    Resume Exit_Ctl05_06_Demand_Button_Click
+End Sub
+
+Private Sub Ctl05_06_Reckoner_Bu_Click()
+' Author    : Christopher Schuler
+' Date      : 14 Dec 2004
+' Reason    : Add support for 05/06, using only one common form
+
+    On Error GoTo Err_Ctl05_06_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "05/06"
+
+Exit_Ctl05_06_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl05_06_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl05_06_Reckoner_Bu_Click
+End Sub
+
+Private Sub Ctl06_07_Demand_Button_Click()
+' Author    : Christopher Schuler
+' Date      : 03 January 2006
+' Reason    : Add support for 06/07, using only one common form
+
+    On Error GoTo Err_Ctl06_07_Demand_Button_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "06/07"
+    
+    
+
+Exit_Ctl06_07_Demand_Button_Click:
+    Exit Sub
+
+Err_Ctl06_07_Demand_Button_Click:
+    MsgBox Error$
+    Resume Exit_Ctl06_07_Demand_Button_Click
+End Sub
+
+Private Sub Ctl06_07_Reckoner_Bu_Click()
+' Author    : Christopher Schuler
+' Date      : 03 January 2006
+' Reason    : Add support for 06/07, using only one common form
+
+    On Error GoTo Err_Ctl06_07_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "06/07"
+
+Exit_Ctl06_07_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl06_07_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl06_07_Reckoner_Bu_Click
+End Sub
+
+Private Sub Ctl07_08_Demand_Button_Click()
+' Author    : Christopher Schuler
+' Date      : 08 January 2007
+' Reason    : Add support for 07/08, using only one common form
+
+    On Error GoTo Err_Ctl07_08_Demand_Button_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "07/08"
+    
+    
+
+Exit_Ctl07_08_Demand_Button_Click:
+    Exit Sub
+
+Err_Ctl07_08_Demand_Button_Click:
+    MsgBox Error$
+    Resume Exit_Ctl07_08_Demand_Button_Click
+    
+End Sub
+
+Private Sub Ctl07_08_Reckoner_Bu_Click()
+' Author    : Christopher Schuler
+' Date      : 08 January 2007
+' Reason    : Add support for 07/08, using only one common form
+
+    On Error GoTo Err_Ctl07_08_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "07/08"
+
+Exit_Ctl07_08_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl07_08_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl07_08_Reckoner_Bu_Click
+End Sub
+
+
+
+Private Sub Ctl91_92_Demand_Butt_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+On Error GoTo Err_Ctl91_92_Demand_Butt_Click
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "91/92"
+    
+
+Exit_Ctl91_92_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl91_92_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl91_92_Demand_Butt_Click
+    
+End Sub
+
+Private Sub Ctl91_92_Reckoner_Bu_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+    On Error GoTo Err_Ctl91_92_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "91/92"
+    
+
+Exit_Ctl91_92_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl91_92_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl91_92_Reckoner_Bu_Click
+
+End Sub
+
+    
+
+Private Sub Ctl92_93_Demand_Butt_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+On Error GoTo Err_Ctl92_93_Demand_Butt_Click
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "92/93"
+    
+
+Exit_Ctl92_93_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl92_93_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl92_93_Demand_Butt_Click
+    
+End Sub
+
+Private Sub Ctl92_93_Reckoner_Bu_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+    On Error GoTo Err_Ctl92_93_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "92/93"
+    
+
+Exit_Ctl92_93_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl92_93_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl92_93_Reckoner_Bu_Click
+    
+End Sub
+
+Private Sub Ctl93_94_Demand_Butt_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+On Error GoTo Err_Ctl93_94_Demand_Butt_Click
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "93/94"
+    
+
+Exit_Ctl93_94_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl93_94_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl93_94_Demand_Butt_Click
+    
+End Sub
+
+Private Sub Ctl93_94_Reckoner_Bu_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+    On Error GoTo Err_Ctl93_94_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "93/94"
+    
+
+Exit_Ctl93_94_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl93_94_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl93_94_Reckoner_Bu_Click
+    
+End Sub
+
+Private Sub Ctl94_95_Demand_Butt_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+On Error GoTo Err_Ctl94_95_Demand_Butt_Click
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "94/95"
+    
+
+Exit_Ctl94_95_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl94_95_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl94_95_Demand_Butt_Click
+    
+End Sub
+
+Private Sub Ctl94_95_Reckoner_Bu_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+    On Error GoTo Err_Ctl94_95_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "94/95"
+    
+
+Exit_Ctl94_95_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl94_95_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl94_95_Reckoner_Bu_Click
+    
+End Sub
+
+Private Sub Ctl95_96_Demand_Butt_Click()
+
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 23 August 1995
+' Reason    : RFC 202, add support for 95/96, built as other demand buttons.
+'           : Initial version.
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+On Error GoTo Err_Ctl95_96_Demand_Butt_Click
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "95/96"
+    
+
+Exit_Ctl95_96_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl95_96_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl95_96_Demand_Butt_Click
+    
+
+End Sub
+
+Private Sub Ctl95_96_Reckoner_Bu_Click()
+
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 23 August 1995
+' Reason    : RFC 202, add support for 95/96, built as other reckoner buttons.
+'           : Initial version.
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+    On Error GoTo Err_Ctl95_96_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "95/96"
+
+Exit_Ctl95_96_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl95_96_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl95_96_Reckoner_Bu_Click
+    
+End Sub
+
+Private Sub Ctl96_97_Demand_Butt_Click()
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 15 February 1996
+' Reason    : Add support for 96/97
+
+    On Error GoTo Err_Ctl96_97_Demand_Butt_Click
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "96/97"
+    
+
+Exit_Ctl96_97_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl96_97_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl96_97_Demand_Butt_Click
+    
+
+End Sub
+
+Private Sub Ctl96_97_Reckoner_Bu_Click()
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 15 February 1996
+' Reason    : Add support for 96/97
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+    On Error GoTo Err_Ctl96_97_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "96/97"
+
+Exit_Ctl96_97_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl96_97_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl96_97_Reckoner_Bu_Click
+    
+End Sub
+
+Private Sub Ctl97_98_Demand_Click()
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+    On Error GoTo Err_Ctl97_98_Demand_Butt_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "97/98"
+    
+
+
+Exit_Ctl97_98_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl97_98_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl97_98_Demand_Butt_Click
+    
+
+End Sub
+
+Private Sub Ctl97_98_Reckoner_Bu_Click()
+' Modification History
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 97/98, using only one common form
+
+    On Error GoTo Err_Ctl97_98_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "97/98"
+
+Exit_Ctl97_98_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl97_98_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl97_98_Reckoner_Bu_Click
+    
+End Sub
+
+Private Sub Ctl98_99_Reckoner_Bu_Click()
+' Modification History
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : Add support for 98/99, using only one common form
+
+    On Error GoTo Err_Ctl98_99_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "98/99"
+
+Exit_Ctl98_99_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl98_99_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl98_99_Reckoner_Bu_Click
+    
+
+End Sub
+
+Private Sub Ctl99_00_Demand_Butt_Click()
+' Modification history
+' Author    : Christopher Schuler
+' Date      : 20 May 1999
+' Reason    : Add support for 99/00, using only one common form
+
+    On Error GoTo Err_Ctl99_00_Demand_Butt_Click
+
+
+    DoCmd.OpenForm "frmCalendarDemand", , , , , , "99/00"
+    
+
+
+Exit_Ctl99_00_Demand_Butt_Click:
+    Exit Sub
+
+Err_Ctl99_00_Demand_Butt_Click:
+    MsgBox Error$
+    Resume Exit_Ctl99_00_Demand_Butt_Click
+    
+
+
+End Sub
+
+Private Sub Ctl99_00_Reckoner_Bu_Click()
+
+' Author    : Christopher Schuler
+' Date      : 20 May 1999
+' Reason    : Add support for 99/00, using only one common form
+
+    On Error GoTo Err_Ctl99_00_Reckoner_Bu_Click
+
+    DoCmd.OpenForm "frmCalendarReckoner", , , , , , "99/00"
+
+Exit_Ctl99_00_Reckoner_Bu_Click:
+    Exit Sub
+
+Err_Ctl99_00_Reckoner_Bu_Click:
+    MsgBox Error$
+    Resume Exit_Ctl99_00_Reckoner_Bu_Click
+    
+
+
+End Sub
+
+Private Sub Exit_Button_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Exit_Button_Click
+
+    DoCmd.Close
+
+Exit_Exit_Button_Click:
+    Exit Sub
+
+Err_Exit_Button_Click:
+    MsgBox Error$
+    Resume Exit_Exit_Button_Click
+    
+End Sub
+
+Private Sub Form_Load()
+    DoCmd.Maximize
+    
+End Sub

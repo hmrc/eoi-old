@@ -1,0 +1,30 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+    
+
+Cancel = bInvalidPIWRecord()
+
+End Sub
+
+Private Sub Qualify_Days_Click()
+    SetQualifyingDays
+End Sub
+
+Private Sub Qualify_Days_GotFocus()
+    SetQualifyingDays
+End Sub
+
+Private Sub Qualifying_Days_Click()
+        SetQualifyingDays
+End Sub
+
+Private Sub Qualifying_Days_GotFocus()
+        
+        SetQualifyingDays
+    
+End Sub

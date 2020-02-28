@@ -1,0 +1,548 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+      Option Explicit
+
+
+
+Private Sub Calculatebutton_Click()
+Dim PrevControl As Control
+
+On Error GoTo Err_CalculateButton_Click
+
+Set PrevControl = Screen.PreviousControl
+
+' Force an update to calculations.
+DoCmd.Hourglass True
+
+If IsNull(Forms!frmOSCWeeks!cboTaxYear) Or Forms!frmOSCWeeks!cboTaxYear = "" Then
+    MsgBox "Please enter the required tax year.", 0 + 48, "Information"
+    Forms!frmOSCWeeks!cboTaxYear.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+
+If IsNull(Forms!frmOSCWeeks!txtDateEnteredNI) Or Forms!frmOSCWeeks!txtDateEnteredNI = "" Then
+    MsgBox "Please enter the Date Entered NI.", 0 + 48, "Information"
+    Forms!frmOSCWeeks!txtDateEnteredNI.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+
+
+Recalc
+
+DoCmd.Hourglass False
+
+Exit_CalculateButton_Click:
+    PrevControl.SetFocus
+    Exit Sub
+
+Err_CalculateButton_Click:
+    MsgBox Error$
+    Resume Exit_CalculateButton_Click
+
+End Sub
+
+Private Sub cboTaxYear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cboTaxYear_Click
+
+If Forms!frmOSCWeeks!cboTaxYear < "1985" Then
+    Forms!frmOSCWeeks!SubOSCWeeks.Form.Text15.Caption = "Primary Contributions"
+Else
+    Forms!frmOSCWeeks!SubOSCWeeks.Form.Text15.Caption = "Earnings Factor"
+End If
+
+Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Contribution Period Table] WHERE TaxYear = """ & Forms!frmOSCWeeks!cboTaxYear & """;")
+    
+    MyStartDate = CVDate(MyRecordSet![Period Start Date])
+    MyEndDate = CVDate(MyRecordSet![Period End Date])
+
+If IsNull(Forms!frmOSCWeeks!txtDateEnteredNI) Or (Forms!frmOSCWeeks!txtDateEnteredNI) = "" Then
+    Forms!frmOSCWeeks!SubOSCWeeks.Form![Start Date] = MyRecordSet![Period Start Date]
+Else
+    MyDateEnteredNI = CVDate(Forms!frmOSCWeeks!txtDateEnteredNI)
+    If (MyDateEnteredNI > MyStartDate) And (MyDateEnteredNI < MyEndDate) Then
+        Forms!frmOSCWeeks!SubOSCWeeks.Form![Start Date] = Forms!frmOSCWeeks!txtDateEnteredNI
+    Else
+        Forms!frmOSCWeeks!SubOSCWeeks.Form![Start Date] = MyRecordSet![Period Start Date]
+    End If
+End If
+Forms!frmOSCWeeks!SubOSCWeeks.Form![End Date] = MyRecordSet![Period End Date]
+Forms!frmOSCWeeks!SubOSCWeeks.Form![Check Date] = MyRecordSet![Period Start Date] - 1
+
+NIsuffix_AfterUpdate
+
+Exit_cboTaxYear_Click:
+    MyRecordSet.Close
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub close_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_close_Click
+
+Newbutton_Click
+
+DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cmdPrint_Click
+
+    Dim DocName As String
+
+    If Forms!frmOSCWeeks!cboTaxYear = "" Or IsNull(Forms!frmOSCWeeks!cboTaxYear) Then
+        MsgBox "Print not available, please enter required Tax Year.", 0 + 48, "Information"
+        Forms!frmOSCWeeks.cboTaxYear.SetFocus
+        Exit Sub
+    End If
+
+    DocName = "Weekly Contributions Report"
+    DoCmd.OpenReport DocName, A_NORMAL
+
+Exit_cmdPrint_Click:
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+    
+End Sub
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History
+' Author    : Mustaq Hussain
+' Date      : 25 February 1997
+' Reason    : RFC 515 : Current tax year as the default
+
+On Error GoTo err_Form_Load
+
+DoCmd.SetWarnings False
+
+Dim Sname As String
+Dim Fname As String
+Dim X
+DoCmd.Maximize
+
+Set myDB = CurrentDb()                 'Sets the database to the current open database
+ 
+X = OpenMyReferenceTables()
+
+Sname = getsurname()
+Fname = getinitials()
+Forms![frmOSCWeeks]!PreparedBy.Enabled = True
+
+Forms![frmOSCWeeks]![PreparedBy] = Fname & " " & Sname
+Forms![frmOSCWeeks]!PreparedBy.Enabled = False
+
+Forms![frmOSCWeeks]!cboTaxYear = strCurrentEarningsFactorTaxYear()
+
+cboTaxYear_Click
+Forms!frmOSCWeeks!SubOSCWeeks.Form.Requery
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+
+
+Private Sub Form_Unload(Cancel As Integer)
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Form_Unload
+
+Newbutton_Click
+Dim X
+X = CloseMyReferenceTables()
+
+Exit_Form_Unload:
+    Exit Sub
+
+Err_Form_Unload:
+    MsgBox Error$
+    Resume Exit_Form_Unload
+
+End Sub
+
+Private Sub Newbutton_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' Author        : Jane Mullen
+' Date          : 29 January 1997
+' Purpose       : RFC 515 - To be able to clear txtRef field
+
+    On Error GoTo Err_NewButton_Click
+    
+    DoCmd.SetWarnings False
+    
+    DoCmd.Hourglass True
+    
+'Runs the required SQL to delete all of the data input on the subform
+    
+    DoCmd.RunSQL "DELETE * FROM [ContTotalTable]"
+    With Forms![frmOSCWeeks]
+        ![SubOSCWeeks].Form.Requery
+    
+    
+    'Re-initialises all of the input fields and set focus back to first input field
+        
+        Forms!frmOSCWeeks.Surname = ""
+        Forms!frmOSCWeeks.Initial = ""
+        Forms!frmOSCWeeks.NIPrefix = ""
+        Forms!frmOSCWeeks.NInumber = ""
+        Forms!frmOSCWeeks.NIsuffix = ""
+        Forms!frmOSCWeeks.txtDateEnteredNI = ""
+        Forms!frmOSCWeeks.txtRef = ""
+    
+        Forms!frmOSCWeeks.cboTaxYear = strCurrentEarningsFactorTaxYear()
+    
+        Forms!frmOSCWeeks.Surname.Locked = False
+        Forms!frmOSCWeeks.Initial.Locked = False
+        Forms!frmOSCWeeks.NIPrefix.Locked = False
+        Forms!frmOSCWeeks.NInumber.Locked = False
+        Forms!frmOSCWeeks.NIsuffix.Locked = False
+        Forms!frmOSCWeeks.cboTaxYear.Locked = False
+        Forms!frmOSCWeeks.txtDateEnteredNI.Locked = False
+    
+        Forms!frmOSCWeeks.Surname.SetFocus
+    End With
+    
+    
+    
+Exit_NewButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NewButton_Click:
+    MsgBox Error$
+    Resume Exit_NewButton_Click
+
+End Sub
+
+Private Sub NIPrefix_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_NIPrefix_LostFocus
+
+Forms![frmOSCWeeks]![NIPrefix] = UCase(Forms![frmOSCWeeks]![NIPrefix])
+
+Exit_NIPrefix_LostFocus:
+    Exit Sub
+
+Err_NIPrefix_LostFocus:
+    MsgBox Error$
+    Resume Exit_NIPrefix_LostFocus
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub NIsuffix_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_NIsuffix_LostFocus
+
+Forms![frmOSCWeeks]![NIsuffix] = UCase(Forms![frmOSCWeeks]![NIsuffix])
+
+Exit_NIsuffix_LostFocus:
+    Exit Sub
+
+Err_NIsuffix_LostFocus:
+    MsgBox Error$
+    Resume Exit_NIsuffix_LostFocus
+
+End Sub
+
+Private Sub PCGprint_Click()
+End Sub
+
+
+Private Sub PCGreport_Click()
+On Error GoTo Err_PCGreport_Click
+
+DoCmd.SetWarnings False
+
+    Dim DocName As String
+
+    Recalc
+
+    DoCmd.OpenQuery "Cat Sum"
+    DocName = "PCG Report"
+    DoCmd.OpenReport DocName, A_NORMAL
+
+Exit_PCGreport_Click:
+    Exit Sub
+
+Err_PCGreport_Click:
+    MsgBox Error$
+    Resume Exit_PCGreport_Click
+    
+End Sub
+
+Private Sub RepeatButton_Click()
+
+On Error GoTo Err_RepeatButton_Click
+
+Dim DB As Database
+Dim DataTable As DAO.Recordset
+Dim DataTableClone As DAO.Recordset
+Dim PrevControl As Control
+
+Set PrevControl = Screen.PreviousControl
+
+DoCmd.Hourglass True
+
+Set DB = CurrentDb()
+Set DataTable = DB.OpenRecordset("Contributions Holding Table")
+Set DataTableClone = DataTable.Clone()
+
+' If no records at all, then quit.
+If DataTable.BOF And DataTable.EOF Then
+    
+        MsgBox "No last record to copy.", 48, "Information"
+        PrevControl.SetFocus
+        DoCmd.Hourglass False
+        Exit Sub
+
+Else
+    DataTable.MoveLast
+    
+    If ((DataTable![Period] = "M") And (DataTable![Period Number] = 12)) Or ((DataTable![Period] = "W") And (DataTable![Period Number] = 53)) Then
+        
+        MsgBox IIf(DataTable![Period] = "M", "Month", "Week") & " number out of range", 48, "Information"
+        DoCmd.Hourglass False
+        Exit Sub
+
+    Else
+    
+        DataTableClone.AddNew
+        DataTableClone![Period] = DataTable![Period]
+        DataTableClone![Period Number] = DataTable![Period Number] + 1
+        DataTableClone![Category] = DataTable![Category]
+        DataTableClone![Gross Pay] = DataTable![Gross Pay]
+        DataTableClone![Tables Used] = DataTable![Tables Used]
+        DataTableClone.Update
+        
+        ' Close both references.
+        DataTableClone.Close
+        DataTable.Close
+        DB.Close
+
+    End If
+
+End If
+
+' Show the new record.
+'Contributions.Requery
+
+Recalc
+
+DoCmd.Hourglass False
+
+Exit_RepeatButton_Click:
+    PrevControl.SetFocus
+    Exit Sub
+
+Err_RepeatButton_Click:
+    MsgBox Error$
+    Resume Exit_RepeatButton_Click
+
+
+End Sub
+
+Private Sub SubOSCWeeks_Enter()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_SubOSCWeeks_Enter
+
+If IsNull(Forms!frmOSCWeeks!cboTaxYear) Or Forms!frmOSCWeeks!cboTaxYear = "" Then
+    MsgBox "Please enter the required tax year.", 0 + 48, "Information"
+    Forms!frmOSCWeeks!cboTaxYear.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+
+cboTaxYear_Click
+Forms!frmOSCWeeks.Recalc
+
+Exit_SubOSCWeeks_Enter:
+    Exit Sub
+
+Err_SubOSCWeeks_Enter:
+    MsgBox Error$
+    Resume Exit_SubOSCWeeks_Enter
+
+End Sub
+
+Private Sub Summary_Click()
+On Error GoTo Err_Summary_Click
+
+DoCmd.SetWarnings False
+
+    Dim DocName As String
+
+    Recalc
+
+    DoCmd.OpenQuery "Cat Sum"
+    DocName = "PCGSummaryForm"
+    DoCmd.OpenForm DocName, A_NORMAL, , , A_READONLY, A_DIALOG
+
+Exit_Summary_Click:
+    Exit Sub
+
+Err_Summary_Click:
+    MsgBox Error$
+    Resume Exit_Summary_Click
+
+End Sub
+
+Private Sub Taxyear_DblClick(Cancel As Integer)
+
+On Error GoTo Err_Taxyear_DblClick
+
+Forms!frmOSCWeeks!Taxyear.Locked = False
+
+Exit_Taxyear_DblClick:
+    Exit Sub
+
+Err_Taxyear_DblClick:
+    MsgBox Error$
+    Resume Exit_Taxyear_DblClick
+
+End Sub
+
+Private Sub Taxyear_GotFocus()
+
+On Error GoTo Err_Taxyear_GotFocus
+
+Forms!frmOSCWeeks!NIPrefix.Locked = True
+Forms!frmOSCWeeks!NInumber.Locked = True
+Forms!frmOSCWeeks!NIsuffix.Locked = True
+
+Exit_Taxyear_GotFocus:
+    Exit Sub
+
+Err_Taxyear_GotFocus:
+    MsgBox Error$
+    Resume Exit_Taxyear_GotFocus
+
+End Sub
+
+Private Sub Taxyear_LostFocus()
+
+On Error GoTo Err_Taxyear_LostFocus
+
+Forms!frmOSCWeeks!Taxyear.Locked = True
+
+Exit_Taxyear_LostFocus:
+    Exit Sub
+
+Err_Taxyear_LostFocus:
+    MsgBox Error$
+    Resume Exit_Taxyear_LostFocus
+
+End Sub
+
+Private Sub Taxyear_NotInList(NewData As String, Response As Integer)
+
+On Error GoTo Err_Taxyear_NotInList
+
+    Forms!frmOSCWeeks!Taxyear = ""
+
+Exit_Taxyear_NotInList:
+    Exit Sub
+
+Err_Taxyear_NotInList:
+    MsgBox Error$
+    Resume Exit_Taxyear_NotInList
+End Sub

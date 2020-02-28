@@ -1,0 +1,162 @@
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Global Const gcPAY_PERIOD_WEEKLY = 1
+Global Const gcPAY_PERIOD_MONTHLY = 2
+Global Const gcPAY_PERIOD_IRREGULAR = 3
+
+Global Const gcPERIOD_FIRST = "1st"
+Global Const gcPERIOD_SECOND = "2nd"
+Global Const gcPERIOD_YEAR = "Year"
+
+
+
+
+
+Function curGetLEL(dtmDate)
+' Author        : Mustaq Hussain
+' Date          : 14 December 1995
+' Fuction Name  : curGetLEL
+' Purpose       : Get LEL
+            
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Currency
+    Dim nYear As Integer
+    
+
+    On Error GoTo Err_curGetLEL
+
+    ' Get the Tax Year
+    
+    nYear = nTaxYear(dtmDate)
+
+    ' Query to get LEL for week
+    If nYear < 1999 Then
+        SQLQuery = "SELECT [Wk Band 1] FROM [BAND TABLE] "
+        SQLQuery = SQLQuery + "WHERE [Tax Yr] = '" + Format(nYear) + "' ; "
+    Else
+        SQLQuery = "SELECT [WkLEL] FROM [tblBandLimits1999] "
+        SQLQuery = SQLQuery + "WHERE [Tax Yr] = '" + Format(nYear) + "' ; "
+    End If
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    vReturnedValue = mySet.Fields(0).value
+    curGetLEL = IIf(IsNull(vReturnedValue), 0, vReturnedValue)
+    
+    mySet.Close
+'    MyDB.Close
+
+
+Exit_curGetLEL:
+    Exit Function
+    
+Err_curGetLEL:
+    MsgBox Error$
+    Resume Exit_curGetLEL
+
+End Function
+
+Sub EnablePayPeriodOptions(strForm As String)
+' Author        : Mustaq Hussain
+' Date          : 3 November 1995
+' Fuction Name  : EnablePayPeriodOptions
+' Purpose       : Enables and disables secondary options in Pay Periods
+            
+    Dim frmForm As Form
+    
+    On Error GoTo Err_EnablePayPeriodOptions
+
+    Set frmForm = Forms(strForm)
+    With frmForm
+        Select Case .grpPayPeriod
+            Case gcPAY_PERIOD_WEEKLY
+                .txtNoOfWeeks.Enabled = True
+                .txtNoOfMonths.Enabled = False
+                .txtIrregularFrom.Enabled = False
+                .txtIrregularTo.Enabled = False
+            Case gcPAY_PERIOD_MONTHLY
+                .txtNoOfWeeks.Enabled = False
+                .txtNoOfMonths.Enabled = True
+                .txtIrregularFrom.Enabled = False
+                .txtIrregularTo.Enabled = False
+    
+            Case gcPAY_PERIOD_IRREGULAR
+                .txtNoOfWeeks.Enabled = False
+                .txtNoOfMonths.Enabled = False
+                .txtIrregularFrom.Enabled = True
+                .txtIrregularTo.Enabled = True
+    
+        End Select
+    End With
+
+Exit_EnablePayPeriodOptions:
+    Exit Sub
+    
+Err_EnablePayPeriodOptions:
+    MsgBox Error$
+    Resume Exit_EnablePayPeriodOptions
+
+End Sub
+
+Sub SetEachUnderOverpayment(ctrDue, ctrPaid, ctrUnder, ctrOver)
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : SetEachUnderOverpayment
+' Purpose       : Set under/overpayments
+            
+    On Error GoTo Err_SetEachUnderOverpayment
+
+    ' Ensurre nulls treated as 0
+    If IsNull(ctrPaid) Then
+        ctrPaid = 0
+    End If
+    If IsNull(ctrDue) Then
+        ctrDue = 0
+    End If
+
+    ctrUnder = IIf((ctrPaid - ctrDue) < 0, ctrDue - ctrPaid, 0)
+    ctrOver = IIf((ctrPaid - ctrDue) >= 0, ctrPaid - ctrDue, 0)
+
+Exit_SetEachUnderOverpayment:
+    Exit Sub
+    
+Err_SetEachUnderOverpayment:
+    MsgBox Error$
+    Resume Exit_SetEachUnderOverpayment
+
+End Sub
+
+Sub SetUnderOverpayment(ctrDue As Control, ctrPaid As Control, ctrUnder As Control, ctrOver As Control, curTolerance As Currency)
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : SetUnderOverpayment
+' Purpose       : Set under/overpayments
+            
+    On Error GoTo Err_SetUnderOverpayment
+
+    ' Ensurre nulls treated as 0
+    If IsNull(ctrPaid) Then
+        ctrPaid = 0
+    End If
+    If IsNull(ctrDue) Then
+        ctrDue = 0
+    End If
+
+    ctrUnder = IIf((ctrPaid - ctrDue - curTolerance) < 0, ctrDue - ctrPaid, 0)
+    ctrOver = IIf((ctrPaid - ctrDue - curTolerance) >= 0, ctrPaid - ctrDue, 0)
+
+Exit_SetUnderOverpayment:
+    Exit Sub
+    
+Err_SetUnderOverpayment:
+    MsgBox Error$
+    Resume Exit_SetUnderOverpayment
+
+End Sub

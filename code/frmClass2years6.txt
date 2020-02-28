@@ -1,0 +1,36 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cmdClose_Click()
+On Error GoTo Err_cmdClose_Click
+DoCmd.Hourglass True
+DoCmd.RunSQL ("DELETE * FROM [Class 2 Civil Breakdown Table]")
+DoCmd.Close
+Exit_cmdClose_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdClose_Click:
+    MsgBox Error$
+    Resume Exit_cmdClose_Click
+End Sub
+
+Private Sub cmdPrint_Click()
+On Error GoTo Err_cmdPrint_Click
+DoCmd.Hourglass True
+    Dim DocName As String
+
+    DocName = "rptClass2Civil"
+    DoCmd.OpenReport DocName, A_NORMAL
+
+
+Exit_cmdPrint_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+
+End Sub

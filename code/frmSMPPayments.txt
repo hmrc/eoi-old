@@ -1,0 +1,507 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+
+Const cLIABILITY_INITIALISE = "Initalise"
+Const cLIABILITY_UPDATE = "Updated"
+
+Private Function bYearSet() As Integer
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : bYearSet
+' Purpose       : Move to Year, if not valid
+            
+    On Error GoTo Err_bYearSet
+
+    ' Assume has been set
+    bYearSet = True
+
+    If IsNull(Forms!frmSMPRecoverable!subPayments.Form!Year) Or (Forms!frmSMPRecoverable!subPayments.Form!Year < 1991) Then
+        ' Has not been set
+        bYearSet = False
+        Forms!frmSMPRecoverable!subPayments.Form!Year.SetFocus
+    End If
+
+Exit_bYearSet:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bYearSet:
+    MsgBox Error$
+    Resume Exit_bYearSet
+
+End Function
+
+Private Sub EnterLiabilityIfAllowed()
+    
+    ' Can not enter condition
+    If Forms!frmSMPRecoverable!subPayments.Form!Period = gcPERIOD_FIRST Or Forms!frmSMPRecoverable!subPayments.Form!Year < 94 Then
+        Screen.PreviousControl.SetFocus
+    End If
+    
+
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 13 December 1995
+' Fuction Name  : Form_BeforeUpdate
+' Purpose       : Ensure a valid record available
+            
+    On Error GoTo Err_Form_BeforeUpdate
+
+    Cancel = Not bYearSet()
+
+Exit_Form_BeforeUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Form_BeforeUpdate:
+    MsgBox Error$
+    Resume Exit_Form_BeforeUpdate
+
+End Sub
+
+Private Sub Liability_Enter()
+' Author        : Mustaq Hussain
+' Date          : 13 December 1995
+' Fuction Name  : Liability_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Liability_Enter
+
+    bNotUsed = bYearSet()
+
+Exit_Liability_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Liability_Enter:
+    MsgBox Error$
+    Resume Exit_Liability_Enter
+
+End Sub
+
+Private Sub Liability_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Liability_Exit
+' Purpose       : Ensure Liability set correctly
+            
+    Dim bNotUsed As Integer
+    
+    On Error GoTo Err_Liability_Exit
+    
+    ' Assume can leave
+    Cancel = False
+
+    SetClass1NICLiability (cLIABILITY_UPDATE)
+
+
+Exit_Liability_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Liability_Exit:
+    MsgBox Error$
+    Resume Exit_Liability_Exit
+
+End Sub
+
+Private Sub NIC_Comp__Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : NIC_Comp__Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_NIC_Comp__Enter
+
+    bNotUsed = bYearSet()
+
+
+Exit_NIC_Comp__Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NIC_Comp__Enter:
+    MsgBox Error$
+    Resume Exit_NIC_Comp__Enter
+
+End Sub
+
+Private Sub Paid_Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : Paid_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Paid_Enter
+
+    bNotUsed = bYearSet()
+
+
+Exit_Paid_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Paid_Enter:
+    MsgBox Error$
+    Resume Exit_Paid_Enter
+
+End Sub
+
+Private Sub Payment_Enter()
+' Author        : Mustaq Hussain
+' Date          : 29 November 1995
+' Fuction Name  : Payment_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Payment_Enter
+
+    bNotUsed = bYearSet()
+
+
+Exit_Payment_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Payment_Enter:
+    MsgBox Error$
+    Resume Exit_Payment_Enter
+
+End Sub
+
+Private Sub Period_Enter()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Period_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Period_Enter
+
+    bNotUsed = bYearSet()
+
+Exit_Period_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Period_Enter:
+    MsgBox Error$
+    Resume Exit_Period_Enter
+
+End Sub
+
+Private Sub Period_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 December 1995
+' Fuction Name  : Period_Exit
+' Purpose       : Update Liability
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Period_Exit
+    
+    ' Assume can exit
+    Cancel = False
+
+    SetClass1NICLiability (cLIABILITY_INITIALISE)
+
+Exit_Period_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Period_Exit:
+    MsgBox Error$
+    Resume Exit_Period_Exit
+
+End Sub
+
+Private Sub Period_GotFocus()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Period_GotFocus
+' Purpose       : Repopulate
+            
+    On Error GoTo Err_Period_GotFocus
+
+    Forms!frmSMPRecoverable!subPayments.Form!Period.Requery
+
+Exit_Period_GotFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Period_GotFocus:
+    MsgBox Error$
+    Resume Exit_Period_GotFocus
+
+End Sub
+
+Private Sub SetClass1NICLiability(strState As String)
+' Author        : Mustaq Hussain
+' Date          : 7 december 1995
+' Fuction Name  : SetInitialClass1NICLiability
+' Purpose       : Update Liability
+            
+    On Error GoTo Err_SetInitialClass1NICLiability
+
+    ' Set Liability
+    If Forms!frmSMPRecoverable!subPayments.Form!Period = gcPERIOD_SECOND Or Forms!frmSMPRecoverable!subPayments.Form!Year >= 1995 Then
+        ' Update only if initalised
+        If strState = cLIABILITY_INITIALISE Then
+            Forms!frmSMPRecoverable!subPayments.Form!Liability = 0
+        End If
+            
+    Else
+        If Not IsNull(Forms!frmSMPRecoverable!subPayments.Form!Liability) Then
+            Forms!frmSMPRecoverable!subPayments.Form!Liability = Null
+        End If
+    End If
+    
+    Forms!frmSMPRecoverable!subPayments.Form!Liability.Requery
+
+
+Exit_SetInitialClass1NICLiability:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_SetInitialClass1NICLiability:
+    MsgBox Error$
+    Resume Exit_SetInitialClass1NICLiability
+
+End Sub
+
+Private Function SetPeriodCombo(fld As Control, ID As Long, row As Long, col As Long, code As Integer)
+' Author        : Mustaq Hussain
+' Date          : 21 November 1995
+' Fuction Name  : SetPeriodCombo
+' Purpose       : Sets period comb box
+            
+    On Error GoTo Err_SetPeriodCombo
+
+    Select Case code
+        Case LB_INITIALIZE          'Initialize.
+            SetPeriodCombo = True
+        Case LB_OPEN                'Open.
+            SetPeriodCombo = Timer   'Unique ID for control
+        Case LB_GETROWCOUNT         'Number of rows.
+            SetPeriodCombo = IIf(Forms!frmSMPRecoverable!subPayments.Form!Year = 1994, 2, 1)
+        Case LB_GETCOLUMNCOUNT      'Number of columns.
+            SetPeriodCombo = 1
+        Case LB_GETCOLUMNWIDTH      'Column width.
+            SetPeriodCombo = -1      'Set the default width.
+        Case LB_GETVALUE            'Get the data.
+            ' Value depends on year
+            If Forms!frmSMPRecoverable!subPayments.Form!Year = 1994 Then
+                SetPeriodCombo = IIf(row = 0, gcPERIOD_FIRST, gcPERIOD_SECOND)
+            Else
+                SetPeriodCombo = gcPERIOD_YEAR
+            End If
+    End Select
+
+
+
+Exit_SetPeriodCombo:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_SetPeriodCombo:
+    MsgBox Error$
+    Resume Exit_SetPeriodCombo
+
+End Function
+
+Private Sub SMP__Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : SMP__Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_SMP__Enter
+
+    bNotUsed = bYearSet()
+
+
+Exit_SMP__Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_SMP__Enter:
+    MsgBox Error$
+    Resume Exit_SMP__Enter
+
+End Sub
+
+Private Function txtSetReportDates(ByVal strDate As String)
+' Author        : Mustaq Hussain
+' Date          : 19 November 1995
+' Fuction Name  : txtSetReportDates
+' Purpose       : Sets on the report dates
+            
+    On Error GoTo Err_txtSetReportDates
+    
+    Select Case Forms![frmSMPPayable]!grpPayPeriod
+        Case gcPAY_PERIOD_IRREGULAR
+            txtSetReportDates = IIf(strDate = "From", Forms![frmSMPPayable]!txtIrregularFrom, Forms![frmSMPPayable]!txtIrregularTo)
+        Case Else
+            txtSetReportDates = Null
+    End Select
+
+Exit_txtSetReportDates:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_txtSetReportDates:
+    MsgBox Error$
+    Resume Exit_txtSetReportDates
+
+End Function
+
+Private Function txtSetReportLabelDates(ByVal strLabel As String)
+' Author        : Mustaq Hussain
+' Date          : 19 November 1995
+' Fuction Name  : txtSetReportLabelDates
+' Purpose       : Sets on the report the from label
+            
+    On Error GoTo Err_txtSetReportLabelDates
+    
+    Select Case Forms![frmSMPPayable]!grpPayPeriod
+        Case gcPAY_PERIOD_IRREGULAR
+            txtSetReportLabelDates = strLabel
+        Case Else
+            txtSetReportLabelDates = ""
+    End Select
+
+Exit_txtSetReportLabelDates:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_txtSetReportLabelDates:
+    MsgBox Error$
+    Resume Exit_txtSetReportLabelDates
+
+End Function
+
+Private Function txtSetReportLabelNoOf() As String
+' Author        : Mustaq Hussain
+' Date          : 19 November 1995
+' Fuction Name  : txtSetReportLabelNoOf
+' Purpose       : Sets on the report the pay period
+            
+    On Error GoTo Err_txtSetReportLabelNoOf
+    
+    Select Case Forms![frmSMPPayable]!grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            txtSetReportLabelNoOf = "No of weeks :"
+        Case gcPAY_PERIOD_MONTHLY
+            txtSetReportLabelNoOf = "No of months :"
+    End Select
+
+
+Exit_txtSetReportLabelNoOf:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_txtSetReportLabelNoOf:
+    MsgBox Error$
+    Resume Exit_txtSetReportLabelNoOf
+
+End Function
+
+Private Function txtSetReportNoOfWeeksMonths()
+' Author        : Mustaq Hussain
+' Date          : 19 November 1995
+' Fuction Name  : txtSetReportNoOfWeeksMonths
+' Purpose       : Sets the number of weeks
+            
+    On Error GoTo Err_txtSetReportNoOfWeeksMonths
+    
+    Select Case Forms![frmSMPPayable]!grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            txtSetReportNoOfWeeksMonths = Forms![frmSMPPayable]!txtNoOfWeeks
+        Case gcPAY_PERIOD_MONTHLY
+            txtSetReportNoOfWeeksMonths = Forms![frmSMPPayable]!txtNoOfMonths
+        Case Else
+            txtSetReportNoOfWeeksMonths = Null
+    End Select
+
+Exit_txtSetReportNoOfWeeksMonths:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_txtSetReportNoOfWeeksMonths:
+    MsgBox Error$
+    Resume Exit_txtSetReportNoOfWeeksMonths
+
+End Function
+
+Private Function txtSetReportPayPeriod() As String
+' Author        : Mustaq Hussain
+' Date          : 19 November 1995
+' Fuction Name  : txtSetReportPayPeriod
+' Purpose       : Sets on the report the pay period
+            
+    On Error GoTo Err_txtSetReportPayPeriod
+    
+    Select Case Forms![frmSMPPayable]!grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            txtSetReportPayPeriod = "Weekly"
+        Case gcPAY_PERIOD_MONTHLY
+            txtSetReportPayPeriod = "Monthly"
+        Case gcPAY_PERIOD_IRREGULAR
+            txtSetReportPayPeriod = "Irregular"
+    End Select
+
+Exit_txtSetReportPayPeriod:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_txtSetReportPayPeriod:
+    MsgBox Error$
+    Resume Exit_txtSetReportPayPeriod
+
+End Function
+
+Private Sub Year_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Year_AfterUpdate
+' Purpose       : Set Period and Liability defaults
+            
+    On Error GoTo Err_Year_AfterUpdate
+
+    ' Set Period
+    If Forms!frmSMPRecoverable!subPayments.Form!Year = 1994 Then
+        Forms!frmSMPRecoverable!subPayments.Form!Period = gcPERIOD_FIRST
+    Else
+        Forms!frmSMPRecoverable!subPayments.Form!Period = gcPERIOD_YEAR
+    End If
+
+    ' Set Liability
+    SetClass1NICLiability (cLIABILITY_INITIALISE)
+
+
+Exit_Year_AfterUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Year_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Year_AfterUpdate
+
+End Sub

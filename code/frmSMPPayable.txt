@@ -1,0 +1,413 @@
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Dim MppTest As Boolean 'pmor Jan03 - used when running MPPStart BeforeUpdate
+                       'when populated automatically after DOB entered
+   'Dim strNextField As String
+
+
+
+Private Sub chkPRI_AfterUpdate()
+'if checked then disable ActDOB
+If chkPRI = True Then
+    txtActDOB.Enabled = False
+    chkBornEarly = True
+    lblBornEarlyPRI.Caption = "PRI"
+    lblBornEarlyPRI.Visible = True
+Else
+    txtActDOB.Enabled = True
+    chkBornEarly = False
+    lblBornEarlyPRI.Visible = False
+End If
+
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : cmdClear_Click
+' Purpose       : Resets the screeen
+            
+    On Error GoTo Err_cmdClear_Click
+
+    ClearSMPPayable
+
+Exit_cmdClear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the SMP Payable form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+
+    On Error GoTo Err_cmdPrint_Click
+
+    If bValidSMPPayableCalculation() = True Then
+        DoCmd.OpenReport "rptSMPPayable", A_NORMAL
+        'DoCmd.OpenReport "rptSMPPayable", acViewPreview 'pmor test
+    End If
+
+Exit_cmdPrint_Click:
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+    
+End Sub
+
+Private Sub cmdRecoverable_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 December 1995
+' Fuction Name  : cmdRecoverable_Click
+' Purpose       : Close Payable and open Recoverable
+
+    On Error GoTo Err_cmdRecoverable_Click
+
+    DoCmd.OpenForm "frmSMPRecoverable"
+    DoCmd.Close acForm, "frmSMPPayable"
+
+Exit_cmdRecoverable_Click:
+    Exit Sub
+
+Err_cmdRecoverable_Click:
+    MsgBox Error$
+    Resume Exit_cmdRecoverable_Click
+    
+End Sub
+
+Private Sub cmdTest_Click()
+Dim strSQL As String
+
+txtPreparedBy = "P. Morton"
+txtName = "Test"
+txtInitials = "A"
+NIPrefix = "AB"
+NInumber = "123456"
+NIsuffix = "C"
+txtRef = "TestRef"
+
+txtDueBorn = #5/15/2007#
+txtDueBorn_AfterUpdate
+
+txtActDOB = #5/15/2007#
+
+txtNoOfWeeks = 1
+
+
+strSQL = "INSERT INTO tblSMPEarnings ([Date],Earnings) VALUES " & _
+        "(#04/05/2007#,1000)"
+CurrentDb.Execute (strSQL)
+
+'txtMPPStarts = #3/3/2007#
+Me!subEarnings.Form.Requery
+'SetMPPDates
+
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+
+    On Error GoTo err_Form_Load
+    
+    
+    Dim Sname As String
+    Dim Fname As String
+    
+    DoCmd.SetWarnings True 'in case failed when off when testing
+    DoCmd.Hourglass False 'in case failed when on when testing
+    DoCmd.Maximize
+    
+    ' Set the prepared by field
+    Forms![frmSMPPayable]!txtPreparedBy.Enabled = True
+    
+    Forms![frmSMPPayable]![txtPreparedBy] = getinitials() & " " & getsurname()
+    Forms![frmSMPPayable]!txtPreparedBy.Enabled = False
+
+    ClearSMPPayable
+    
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub grpPayPeriod_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : grpPayPeriod_AfterUpdate
+' Purpose       : Enable and disable pay period fields
+
+    On Error GoTo Err_grpPayPeriod_AfterUpdate
+    
+    EnablePayPeriodOptions ("frmSMPPayable")
+    
+    If Not IsNull(txtMPPStarts) Then
+        
+        If grpPayPeriod = 2 Then
+            SetMPPDates
+        End If
+    End If
+
+Exit_grpPayPeriod_AfterUpdate:
+    Exit Sub
+
+Err_grpPayPeriod_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_grpPayPeriod_AfterUpdate
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) And Not IsNull(txtDueBorn) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If nTaxYear(txtDueBorn) > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtDueBorn.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If nTaxYear(txtDueBorn) > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtDueBorn.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtDueBorn.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub subEarnings_Enter()
+' Purpose       : Hides Class1b column before 1999
+' Author        : Christopher Schuler
+' Date          : 9 July 1999
+
+    
+    If txtQW >= #4/6/1999# Then
+        Forms!frmSMPPayable!subEarnings.Form![Class1B].ColumnHidden = 0
+        Forms!frmSMPPayable!subEarnings.Width = 3700
+    Else
+        Forms!frmSMPPayable!subEarnings.Form![Class1B].ColumnHidden = -1
+        Forms!frmSMPPayable!subEarnings.Width = 2400
+    End If
+
+End Sub
+
+Private Sub txtActDOB_BeforeUpdate(Cancel As Integer)
+    If txtActDOB > CVDate(Format$(Date, "dd/mm/yyyy")) Then
+        Cancel = True
+        MsgBox "Actual date of birth cannot be in the future", vbInformation
+        Exit Sub
+    End If
+    
+    If txtActDOB < txtDueBorn Then
+        chkBornEarly = True
+        txtMPPStarts = DateAdd("d", 1, txtActDOB)
+        MppTest = False
+        txtMPPStarts_BeforeUpdate (0)
+        If MppTest = False Then
+            txtMPPStarts = Null
+            Cancel = True
+            Exit Sub ' msg already sent from MPP Before Update
+        End If
+        SetMPPDates
+        txtMPPStarts.Enabled = False
+        lblBornEarlyPRI.Caption = "Born Early"
+        lblBornEarlyPRI.Visible = True
+    Else
+        chkBornEarly = False
+        txtMPPStarts.Enabled = True
+        lblBornEarlyPRI.Visible = False
+    End If
+'if updated then disable PRI as ActDOB and PRI are mutually exclusive
+ If IsNull(txtActDOB) Then
+    chkPRI.Enabled = True
+ Else
+    chkPRI = False
+    chkPRI.Enabled = False
+
+End If
+
+End Sub
+
+Private Sub txtDueBorn_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : txtDueBorn_AfterUpdate
+' Purpose       : Set EWC, QW and MPP Start
+            
+    On Error GoTo Err_txtDueBorn_AfterUpdate
+    
+    SetEWCQWAndMPPStart
+    
+    'pmor Jan 03
+    If txtDueBorn >= #4/6/2003# Then
+        txtActDOB.Enabled = True
+        chkPRI.Enabled = True
+    Else
+        txtActDOB = Null
+        txtActDOB.Enabled = False
+        chkPRI = False
+        chkPRI.Enabled = False
+    End If
+    
+    NIsuffix_AfterUpdate
+
+Exit_txtDueBorn_AfterUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_txtDueBorn_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_txtDueBorn_AfterUpdate
+
+End Sub
+
+Private Sub txtMPPStarts_AfterUpdate()
+' Author        : Christopher Schuler
+' Date          : 1June 1999
+' Function Name  : txtMPPStarts_AfterUpdate
+' Purpose       : Set tag for comparison on entry to frmSMPMPP
+            
+    On Error GoTo Err_txtMPPStarts_AfterUpdate
+
+Dim frmSMPPayable As Form
+Dim txtMPPStarts  As Control
+Set frmSMPPayable = Forms!frmSMPPayable
+Set txtMPPStarts = frmSMPPayable!txtMPPStarts
+  
+    SetMPPDates
+     
+
+
+Exit_txtMPPStarts_AfterUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_txtMPPStarts_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_txtMPPStarts_AfterUpdate
+
+End Sub
+
+Private Sub txtMPPStarts_BeforeUpdate(Cancel As Integer)
+ 
+Dim result As Integer
+ 
+' Check date within range
+    If txtEWC > CVDate("9 October 1994") Then
+        ' EWC>9/10/94 check
+        If txtMPPStarts > (txtEWC + 7) Then
+            Cancel = True
+            MsgBox ("MPP starts must be within EWC + 1 week")
+            Exit Sub
+        End If
+    Else
+        ' EWC<=9/10/94 check
+        If txtMPPStarts > (txtEWC - 6 * 7) Then
+            Cancel = True
+            MsgBox ("MPP starts must be within EWC - 6 weeks ")
+            Exit Sub
+        End If
+
+    End If
+
+    'if PRI set then MMPstarts cannot be more than 4 weeks before EWC
+    If chkPRI = True Then
+        If txtEWC > DateAdd("d", 27, txtMPPStarts) Then
+            Cancel = True
+            MsgBox "If PRI indicator is selected, MPP start date has to be " & _
+                    "within 27 days of the EWC", vbInformation
+            Exit Sub
+        End If
+    End If
+
+
+    If txtMPPStarts < (txtEWC - 16 * 7) Then
+        result = MsgBox("The MPP Start date is more than 16 weeks before the EWC." & vbCrLf & _
+                "Do you wish to continue?", vbQuestion + vbYesNoCancel)
+                'continue
+        Select Case result
+        
+            Case vbYes
+                'continue
+            Case vbNo
+                Cancel = True
+                Exit Sub
+            Case vbCancel
+                Cancel = True
+                Exit Sub
+                
+        End Select
+
+    End If
+
+    ' Check is a Sunday
+    If bValidationOftxtMPPStarts() = False Then
+      '  MsgBox ("MPP must be a Sunday")
+       Cancel = True
+       Exit Sub
+    End If
+
+    MppTest = True 'used when called from DOB
+
+End Sub
+
+
+

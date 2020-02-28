@@ -1,0 +1,9 @@
+
+
+
+Option Compare Database
+Option Explicit
+
+Private Sub Form_AfterUpdate()
+Forms!frmClass1_09!txtCalc_on = ""
+End Sub

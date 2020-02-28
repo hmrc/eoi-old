@@ -1,0 +1,170 @@
+
+' Author    : Ben Stephenson
+' Date      : 23/06/2011
+' Project   : CCA10512
+' Desc      : For post 2010 TY, move to the new C2Payments_C3QB screen
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+
+Private Sub cboTaxYear_Click()
+
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+' History
+' Author    : Lisa Scothern
+' Date      : 12 May 1997
+' Purpose   : Populate new form field "numWksFinalQtr", RFC 650
+
+On Error GoTo Err_cboTaxYear_Click
+
+If cboTaxYear > 2010 Then
+    DoCmd.OpenForm "frmC2Payments_C3QB", , , , , , 2011
+    DoCmd.Close acForm, "frmQuarterlyBilling"
+
+Else
+
+    Dim MyRecordSet As DAO.Recordset
+    
+    Set myDB = CurrentDb()
+    
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Quarterly Billing Table] WHERE [Tax Year] = """ & Forms!frmQuarterlyBilling!cboTaxYear & """;")
+    
+    MyRecordSet.MoveFirst
+    With Forms!frmQuarterlyBilling
+        ![Quarter Covered] = MyRecordSet![Quarter Covered]
+        ![Class 3 Rate] = MyRecordSet![Class 3 Rate]
+        ![Class 3 Amount] = MyRecordSet![Class 3 Amount]
+        ![Class 2 Rate] = MyRecordSet![Class 2 Rate]
+        ![Class 2 Amount] = MyRecordSet![Class 2 Amount]
+        ![Sharefish Rate] = MyRecordSet![Sharefish Rate]
+        ![Sharefish Amount] = MyRecordSet![Sharefish Amount]
+        
+        MyRecordSet.MoveNext
+        
+        ![Quarter Covered2] = MyRecordSet![Quarter Covered]
+        ![Class 3 Rate2] = MyRecordSet![Class 3 Rate]
+        ![Class 3 Amount2] = MyRecordSet![Class 3 Amount]
+        ![Class 2 Rate2] = MyRecordSet![Class 2 Rate]
+        ![Class 2 Amount2] = MyRecordSet![Class 2 Amount]
+        ![Sharefish Rate2] = MyRecordSet![Sharefish Rate]
+        ![Sharefish Amount2] = MyRecordSet![Sharefish Amount]
+        
+        MyRecordSet.MoveNext
+        
+        ![Quarter Covered3] = MyRecordSet![Quarter Covered]
+        ![Class 3 Rate3] = MyRecordSet![Class 3 Rate]
+        ![Class 3 Amount3] = MyRecordSet![Class 3 Amount]
+        ![Class 2 Rate3] = MyRecordSet![Class 2 Rate]
+        ![Class 2 Amount3] = MyRecordSet![Class 2 Amount]
+        ![Sharefish Rate3] = MyRecordSet![Sharefish Rate]
+        ![Sharefish Amount3] = MyRecordSet![Sharefish Amount]
+        
+        MyRecordSet.MoveNext
+        
+        ![Quarter Covered4] = MyRecordSet![Quarter Covered]
+        ![Class 3 Rate4] = MyRecordSet![Class 3 Rate]
+        ![Class 3 Amount4] = MyRecordSet![Class 3 Amount]
+        ![Class 2 Rate4] = MyRecordSet![Class 2 Rate]
+        ![Class 2 Amount4] = MyRecordSet![Class 2 Amount]
+        ![Sharefish Rate4] = MyRecordSet![Sharefish Rate]
+        ![Sharefish Amount4] = MyRecordSet![Sharefish Amount]
+        
+        ![numWksFinalQtr] = strNumWeeksFinalQuarter(MyRecordSet![Quarter Covered])
+     End With
+    
+    MyRecordSet.Close
+    
+    If cboTaxYear = 2012 Then
+        Label115.Visible = True
+    Else
+        Label115.Visible = False
+    End If
+
+End If
+
+Exit_cboTaxYear_Click:
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cmdClose_Click
+
+
+    DoCmd.Close
+
+Exit_cmdClose_Click:
+    Exit Sub
+
+Err_cmdClose_Click:
+    MsgBox Error$
+    Resume Exit_cmdClose_Click
+    
+End Sub
+
+Private Sub Form_Load()
+
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+'History    : Jane Mullen
+'Date       : 11 February 1997
+'Purpose    : Removed prepared by field and references
+
+    On Error GoTo err_Form_Load
+    
+    DoCmd.SetWarnings False
+    
+    Dim Sname As String
+    Dim Fname As String
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim strReturnedValue As Integer
+
+
+    If OpenArgs <> "" Then
+        Forms!frmQuarterlyBilling!cboTaxYear = OpenArgs
+    Else
+        ' Query to get max tax year
+        SQLQuery = "SELECT Max([Tax Year]) FROM [Quarterly Billing Table] WHERE [Tax Year] <= '2010'; "
+    
+        Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset(SQLQuery)
+    
+        mySet.MoveFirst
+            
+        ' Ensure NULL treated as 0
+        strReturnedValue = mySet.Fields(0).value
+        Forms!frmQuarterlyBilling!cboTaxYear = IIf(IsNull(strReturnedValue), 0, strReturnedValue)
+        mySet.Close
+    End If
+
+DoCmd.Maximize
+
+
+cboTaxYear_Click
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+

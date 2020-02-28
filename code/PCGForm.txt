@@ -1,0 +1,1422 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+Option Explicit
+
+Private Function b1999NICalc()
+' Author            : Christopher schuler
+' Date              : 30 July 1999
+' Purpose           : To calculate NI contributions from 1999
+' Author            : Christopher Sneddon
+' Date              : 15 December 2011
+' Purpose           : Modified for EARS17923775
+
+
+
+    Dim strNextRecord As String
+    Const cstrAll_RECORDS_PROCESSED = "All the records processed"
+    
+    On Error GoTo Err_b1999NICalc
+    
+    Dim PrevControl As Control
+    Set PrevControl = Screen.PreviousControl
+    
+    DoCmd.Hourglass True
+    
+
+    Dim DB As Database
+    Dim DataTable As DAO.Recordset
+    Dim DataTableClone As DAO.Recordset
+    Dim test As String
+    Dim LEL As Double
+    Dim Period As String
+    Dim rateBand
+    ' Assume correct
+    b1999NICalc = True
+    
+    If TaxYearCatCombinationInvalid() Then
+       GoTo Exit_b1999NICalc
+    End If
+    
+    Set DB = CurrentDb()
+    
+    Set DataTable = DB.OpenRecordset("tblContributions")
+   
+    Set DataTableClone = DataTable.Clone()
+    
+    
+    ' Check yaer set
+    If IsNull(Forms!PCGForm.Taxyear) Or Forms!PCGForm.Taxyear = "" Then
+        
+            MsgBox "Tax Year not set.", 48, "Information"
+            ' Close both references.
+            DataTableClone.Close
+            DataTable.Close
+            DB.Close
+
+            b1999NICalc = False
+            GoTo Exit_b1999NICalc
+    
+    End If
+
+    
+    ' If no records at all, then quit.
+    ' Carry out the calculations
+    If DataTable.BOF And DataTable.EOF Then
+        
+            MsgBox "No entries in table.", 48, "Information"
+            ' Close both references.
+            DataTableClone.Close
+            DataTable.Close
+            DB.Close
+
+            b1999NICalc = False
+            GoTo Exit_b1999NICalc
+    
+    End If
+    
+    DataTable.MoveFirst
+    Do Until DataTable.EOF
+        If ((DataTable![Period] = "M") And (DataTable![Period Number] > 12)) Or ((DataTable![Period] = "W") And (DataTable![Period Number] > 53)) Or ((DataTable![Period] = "4W") And (DataTable![Period Number] > 13)) Then
+            MsgBox IIf(DataTable![Period] = "M", "Month", IIf(DataTable![Period] = "4W", "4 Weekly", "Week")) & " number out of range", 48, "Information"
+            DataTableClone.Close
+            DataTable.Close
+            DB.Close
+
+            b1999NICalc = False
+            GoTo Exit_b1999NICalc
+        End If
+        If IsNull(DataTable![Category]) Or DataTable![Category] = "" Then
+            MsgBox "Category not set", 48, "Information"
+            DataTableClone.Close
+            DataTable.Close
+            DB.Close
+
+            b1999NICalc = False
+            GoTo Exit_b1999NICalc
+        End If
+        DataTable.MoveNext
+    Loop
+
+    DataTable.MoveLast
+    Do Until DataTable.EOF Or DataTable.BOF
+
+        ' If '4W' then process AS 4 'W's
+        If DataTable![Period] = "4W" Then
+
+
+            ' Insert duplicate Ws ( 4xNo4Ws ), at bottom of the table
+            DataTableClone.AddNew
+            DataTableClone![Period] = "W"
+            DataTableClone![Period Number] = (DataTable![Period Number] - 1) * 4 + 1
+            DataTableClone![Gross Pay] = Int(DataTable![Gross Pay] * 100 / 4) / 100
+            DataTableClone![Category] = DataTable![Category]
+            DataTableClone![Tables Used] = DataTable![Tables Used]
+            DataTableClone.Update
+            ' Add another 3 at the bottom of the file
+            Dim i  As Integer
+            For i = 1 To 3
+                If bRepeatButton() = False Then
+                    ' Unable to add, so delete inserted 4W
+                    b1999NICalc = False
+                    DataTableClone.MoveLast
+                    DataTableClone.Delete
+                    Forms!PCGForm.Recalc
+                    GoTo Exit_b1999NICalc
+                End If
+            
+            Next
+            DoCmd.Hourglass True
+    
+
+            ' delete the original '4W' and go up to previous record
+            DataTable.Delete
+            DataTable.MovePrevious
+    
+            ' Set a bookmark to this new current record
+            If Not DataTable.BOF Then
+                strNextRecord = DataTable.Bookmark
+            Else
+                ' Bookmark cannot be set, as has reached the BOF
+                strNextRecord = cstrAll_RECORDS_PROCESSED
+            End If
+    
+            With DataTable
+            ' Update the 4 newly created 'W's, which will be at the bottom of the table
+                .MoveLast
+                
+                For i = 1 To 4
+                    .Edit
+                    ![UpToLEL] = GetUpToLEL(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ![LELtoET] = GetLELToET(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ![ETtoUEL] = GetETToUEL(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ![EEConts] = GetEEConts(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ![ERConts] = GetERConts(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ![TotalConts] = IIf(IsNull(![ERConts]), 0, (![ERConts])) + IIf(IsNull(![EEConts]), 0, (![EEConts]))
+                    '![TotalConts] = IIf(IsNull(![ERConts]), 0, CCur(![ERConts])) + IIf(IsNull(![EEConts]), 0, CCur(![EEConts]))
+                    ![NIRebate] = GetNIRebate(Me![Taxyear], ![Tables Used], ![Period], ![Category], ![Gross Pay])
+                    .Update
+                    .MovePrevious
+                Next
+                
+                .MoveNext
+            End With
+            
+            With DataTableClone
+            ' Insert 4W to replace the 4 'W's
+                .AddNew
+                ![Period] = "4W"
+                ![Period Number] = (DataTable![Period Number] - 1) / 4 + 1
+                ![Category] = DataTable![Category]
+                ![Tables Used] = DataTable![Tables Used]
+                
+                ![Gross Pay] = 0
+                ![UpToLEL] = 0
+                ![LELtoET] = 0
+                ![ETtoUEL] = 0
+                ![EEConts] = 0
+                ![ERConts] = 0
+                ![TotalConts] = 0
+                ![NIRebate] = 0
+                
+                ' Update 4W and delete its 4 'W's
+                For i = 1 To 4
+                    ![Gross Pay] = ![Gross Pay] + DataTable![Gross Pay]
+                    ![UpToLEL] = ![UpToLEL] + DataTable![UpToLEL]
+                    ![LELtoET] = ![LELtoET] + DataTable![LELtoET]
+                    ![ETtoUEL] = ![ETtoUEL] + DataTable![ETtoUEL]
+                    ![EEConts] = ![EEConts] + DataTable![EEConts]
+                    ![ERConts] = ![ERConts] + DataTable![ERConts]
+                    ![TotalConts] = ![TotalConts] + DataTable![TotalConts]
+                    ![NIRebate] = ![NIRebate] + DataTable![NIRebate]
+                    DataTable.Delete
+                    DataTable.MoveNext
+                Next
+                .Update
+            End With
+            ' Set the current record to the previouly saved bookmark
+            If Not strNextRecord = cstrAll_RECORDS_PROCESSED Then
+                DataTable.Bookmark = strNextRecord
+            End If
+       
+        Else
+
+            ' W or M period
+            ' Update table entries
+            'With DataTable
+                'Period = ![Period] 'EARS17923775
+                
+                'rateBand = getRates(LEL, Period, rateType)
+            
+            'End With
+            
+            
+                
+            With DataTable
+                'Period = ![Period] 'EARS17923775
+                'rateBand = getRates_1999(LEL, Period)
+                .Edit
+                     Period = ![Period]
+                     rateBand = getRates(LEL, Period, "UpToLEL")
+                    ![UpToLEL] = GetUpToLEL(Me![Taxyear], ![Tables Used], ![Period], ![Category], ![Gross Pay], rateBand)
+                  '   rateBand = getRates(LEL, Period, "LELtoET")
+                    ![LELtoET] = GetLELToET(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ' rateBand = getRates(LEL, Period, "ETtoUEL")
+                    ![ETtoUEL] = GetETToUEL(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ' rateBand = getRates(LEL, Period, "EEConts")
+                    ![EEConts] = GetEEConts(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ' rateBand = getRates(LEL, Period, "ERConts")
+                    ![ERConts] = GetERConts(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ![TotalConts] = IIf(IsNull(![ERConts]), 0, (![ERConts])) + _
+                                    IIf(IsNull(![EEConts]), 0, (![EEConts]))
+                    ![NIRebate] = GetNIRebate(Me![Taxyear], ![Tables Used], ![Period], ![Category], ![Gross Pay])
+                .Update
+            End With
+            
+            With DataTableClone
+            ' Copy to record at the bottom of the table
+                .AddNew
+                
+                ![Period] = DataTable![Period]
+                ![Period Number] = DataTable![Period Number]
+                ![Category] = DataTable![Category]
+                ![Gross Pay] = DataTable![Gross Pay]
+                ![Tables Used] = DataTable![Tables Used]
+                
+                ![UpToLEL] = DataTable![UpToLEL]
+                ![LELtoET] = DataTable![LELtoET]
+                ![ETtoUEL] = DataTable![ETtoUEL]
+                ![EEConts] = DataTable![EEConts]
+                ![ERConts] = DataTable![ERConts]
+                ![TotalConts] = DataTable![TotalConts]
+                ![NIRebate] = DataTable![NIRebate]
+                
+                .Update
+            End With
+            ' Remove the original record W or M
+            DataTable.Delete
+            DataTable.MovePrevious
+        End If
+
+    Loop
+
+
+    ' Put back records in correct order
+    DataTable.MoveLast
+    With DataTableClone
+        Do Until DataTable.BOF
+        
+            .AddNew
+            
+            ![Period] = DataTable![Period]
+            ![Period Number] = DataTable![Period Number]
+            ![Category] = DataTable![Category]
+            ![Gross Pay] = DataTable![Gross Pay]
+            ![Tables Used] = DataTable![Tables Used]
+            
+            ![UpToLEL] = DataTable![UpToLEL]
+            ![LELtoET] = DataTable![LELtoET]
+            ![ETtoUEL] = DataTable![ETtoUEL]
+            ![EEConts] = DataTable![EEConts]
+            ![ERConts] = DataTable![ERConts]
+            ![TotalConts] = DataTable![TotalConts]
+            ![NIRebate] = DataTable![NIRebate]
+            
+            .Update
+        
+            DataTable.Delete
+            DataTable.MovePrevious
+        Loop
+    End With
+
+
+    ' Close both references.
+    DataTableClone.Close
+    DataTable.Close
+    DB.Close
+    
+    
+    ' Update subform
+    Forms!PCGForm.Recalc
+    calcTotals
+
+Exit_b1999NICalc:
+    DoCmd.Hourglass False
+    PrevControl.SetFocus
+    Exit Function
+
+Err_b1999NICalc:
+    DoCmd.Hourglass False
+    MsgBox Error$
+    Resume Exit_b1999NICalc
+
+
+End Function
+
+
+Private Function bCalculatePCG() As Integer
+' Author            : Mustaq Hussain
+' Date              : 13 February 1996
+' Reason            : RFC 269(4W) : Results calculated only when Calculate pressed, not requeried automatically as in original
+'                     This aproach has been used, as a '4W' will create 4 'W's which will be processed. These 4 'W's then
+'                     Modified to be function returning true or false.
+'                     summed to re-create the '4W'. The result is at the bottom of the table. As a consequence of this, the results
+'                     are in reverse order. As a consequence of this all other periods will be copied to the bottom, so all results
+'                     can be reversed to put back into the correct order.
+
+    
+    Dim strNextRecord As String
+    Const cstrAll_RECORDS_PROCESSED = "All the records processed"
+    
+    On Error GoTo Err_bCalculatePCG
+    
+    Dim PrevControl As Control
+    Set PrevControl = Screen.PreviousControl
+    
+    DoCmd.Hourglass True
+    
+
+    Dim DB As Database
+    Dim DataTable As DAO.Recordset
+    Dim DataTableClone As DAO.Recordset
+    
+    ' Assume correct
+    bCalculatePCG = True
+    
+    If TaxYearCatCombinationInvalid() Then
+        GoTo Exit_bCalculatePCG
+    End If
+    
+    Set DB = CurrentDb()
+    Set DataTable = DB.OpenRecordset("Contributions Holding Table")
+    Set DataTableClone = DataTable.Clone()
+    
+    
+    ' Check yaer set
+    If IsNull(Taxyear) Or Taxyear = "" Then
+        
+            MsgBox "Tax Year not set.", 48, "Information"
+            ' Close both references.
+            DataTableClone.Close
+            DataTable.Close
+            DB.Close
+
+            bCalculatePCG = False
+            GoTo Exit_bCalculatePCG
+    
+    End If
+
+    
+    ' If no records at all, then quit.
+    ' Carry out the calculations
+    If DataTable.BOF And DataTable.EOF Then
+        
+            MsgBox "No entries in table.", 48, "Information"
+            ' Close both references.
+            DataTableClone.Close
+            DataTable.Close
+            DB.Close
+
+            bCalculatePCG = False
+            GoTo Exit_bCalculatePCG
+    
+    End If
+    
+    DataTable.MoveFirst
+    Do Until DataTable.EOF
+        If ((DataTable![Period] = "M") And (DataTable![Period Number] > 12)) Or ((DataTable![Period] = "W") And (DataTable![Period Number] > 53)) Or ((DataTable![Period] = "4W") And (DataTable![Period Number] > 13)) Then
+            MsgBox IIf(DataTable![Period] = "M", "Month", IIf(DataTable![Period] = "4W", "4 Weekly", "Week")) & " number out of range", 48, "Information"
+            DataTableClone.Close
+            DataTable.Close
+            DB.Close
+
+            bCalculatePCG = False
+            GoTo Exit_bCalculatePCG
+        End If
+        If IsNull(DataTable![Category]) Or DataTable![Category] = "" Then
+            MsgBox "Category not set", 48, "Information"
+            DataTableClone.Close
+            DataTable.Close
+            DB.Close
+
+            bCalculatePCG = False
+            GoTo Exit_bCalculatePCG
+        End If
+        DataTable.MoveNext
+    Loop
+
+    DataTable.MoveLast
+    Do Until DataTable.EOF Or DataTable.BOF
+
+        ' If '4W' then process AS 4 'W's
+        If DataTable![Period] = "4W" Then
+
+
+            ' Insert duplicate Ws ( 4xNo4Ws ), at bottom of the table
+            With DataTableClone
+                .AddNew
+                
+                ![Period] = "W"
+                ![Period Number] = (DataTable![Period Number] - 1) * 4 + 1
+                ![Gross Pay] = Int(DataTable![Gross Pay] * 100 / 4) / 100
+                ![Category] = DataTable![Category]
+                ![Tables Used] = DataTable![Tables Used]
+                
+                .Update
+            End With
+            ' Add another 3 at the bottom of the file
+            Dim i  As Integer
+            For i = 1 To 3
+                If bRepeatButton() = False Then
+                    ' Unable to add, so delete inserted 4W
+                    bCalculatePCG = False
+                    DataTableClone.MoveLast
+                    DataTableClone.Delete
+                    Recalc
+                    GoTo Exit_bCalculatePCG
+                End If
+            
+            Next
+            DoCmd.Hourglass True
+    
+
+            ' delete the original '4W' and go up to previous record
+            DataTable.Delete
+            DataTable.MovePrevious
+    
+            ' Set a bookmark to this new current record
+            If Not DataTable.BOF Then
+                strNextRecord = DataTable.Bookmark
+            Else
+                ' Bookmark cannot be set, as has reached the BOF
+                strNextRecord = cstrAll_RECORDS_PROCESSED
+            End If
+    
+    
+            ' Update the 4 newly created 'W's, which will be at the bottom of the table
+            DataTable.MoveLast
+            For i = 1 To 4
+                With DataTable
+                    .Edit
+                    
+                    ![Earnings] = GetEarnings(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ![Employer NI] = GetEmployerNI(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                    ![Employee NI] = GetEmployeeNI(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category])
+                    ![Total NI] = IIf(IsNull(![Employer NI]), 0, CCur(![Employer NI])) + IIf(IsNull(![Employee NI]), 0, CCur(![Employee NI]))
+                    ![Contracted Out Earnings] = GetContractedOutEarnings(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category])
+                    ![Contracted Out NI] = GetContractedOutNI(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category])
+                    
+                    .Update
+                    .MovePrevious
+                End With
+            Next
+            DataTable.MoveNext
+    
+            ' Insert 4W to replace the 4 'W's
+            With DataTableClone
+                .AddNew
+                
+                ![Period] = "4W"
+                ![Period Number] = (DataTable![Period Number] - 1) / 4 + 1
+                ![Category] = DataTable![Category]
+                ![Tables Used] = DataTable![Tables Used]
+                
+                ![Gross Pay] = 0
+                ![Earnings] = 0
+                ![Employer NI] = 0
+                ![Employee NI] = 0
+                ![Total NI] = 0
+                ![Contracted Out Earnings] = 0
+                ![Contracted Out NI] = 0
+                ' Update 4W and delete its 4 'W's
+                For i = 1 To 4
+                    ![Gross Pay] = ![Gross Pay] + DataTable![Gross Pay]
+                    ![Earnings] = ![Earnings] + DataTable![Earnings]
+                    ![Employer NI] = ![Employer NI] + DataTable![Employer NI]
+                    ![Employee NI] = ![Employee NI] + DataTable![Employee NI]
+                    ![Total NI] = ![Total NI] + DataTable![Total NI]
+                    ![Contracted Out Earnings] = ![Contracted Out Earnings] + DataTable![Contracted Out Earnings]
+                    ![Contracted Out NI] = ![Contracted Out NI] + DataTable![Contracted Out NI]
+                    DataTable.Delete
+                    DataTable.MoveNext
+                Next
+                .Update
+            End With
+            ' Set the current record to the previouly saved bookmark
+            If Not strNextRecord = cstrAll_RECORDS_PROCESSED Then
+                DataTable.Bookmark = strNextRecord
+            End If
+        Else
+
+            ' W or M period
+            ' Update table entries
+            With DataTable
+                .Edit
+                
+                ![Earnings] = GetEarnings(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                ![Employer NI] = GetEmployerNI(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category], ![Gross Pay])
+                ![Employee NI] = GetEmployeeNI(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category])
+                ![Total NI] = IIf(IsNull(![Employer NI]), 0, CCur(![Employer NI])) + IIf(IsNull(![Employee NI]), 0, CCur(![Employee NI]))
+                ![Contracted Out Earnings] = GetContractedOutEarnings(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category])
+                ![Contracted Out NI] = GetContractedOutNI(Me![Taxyear], ![Tables Used], ![Period], ![Period Number], ![Category])
+                .Update
+            End With
+            ' Copy to record at the bottom of the table
+            With DataTableClone
+                .AddNew
+                
+                ![Period] = DataTable![Period]
+                ![Period Number] = DataTable![Period Number]
+                ![Category] = DataTable![Category]
+                ![Gross Pay] = DataTable![Gross Pay]
+                ![Tables Used] = DataTable![Tables Used]
+                
+                ![Earnings] = DataTable![Earnings]
+                ![Employer NI] = DataTable![Employer NI]
+                ![Employee NI] = DataTable![Employee NI]
+                ![Total NI] = DataTable![Total NI]
+                ![Contracted Out Earnings] = DataTable![Contracted Out Earnings]
+                ![Contracted Out NI] = DataTable![Contracted Out NI]
+                
+                .Update
+            End With
+            ' Remove the original record W or M
+            DataTable.Delete
+            DataTable.MovePrevious
+        End If
+
+    Loop
+
+
+    ' Put back records in correct order
+    DataTable.MoveLast
+    Do Until DataTable.BOF
+        With DataTableClone
+            .AddNew
+        
+            ![Period] = DataTable![Period]
+            ![Period Number] = DataTable![Period Number]
+            ![Category] = DataTable![Category]
+            ![Gross Pay] = DataTable![Gross Pay]
+            ![Tables Used] = DataTable![Tables Used]
+            
+            ![Earnings] = DataTable![Earnings]
+            ![Employer NI] = DataTable![Employer NI]
+            ![Employee NI] = DataTable![Employee NI]
+            ![Total NI] = DataTable![Total NI]
+            ![Contracted Out Earnings] = DataTable![Contracted Out Earnings]
+            ![Contracted Out NI] = DataTable![Contracted Out NI]
+            
+            .Update
+        End With
+        DataTable.Delete
+        DataTable.MovePrevious
+    Loop
+
+
+
+    ' Close both references.
+    DataTableClone.Close
+    DataTable.Close
+    DB.Close
+    
+    
+    ' Update subform
+    Recalc
+    calcTotals
+
+Exit_bCalculatePCG:
+    DoCmd.Hourglass False
+    PrevControl.SetFocus
+    Exit Function
+
+Err_bCalculatePCG:
+    DoCmd.Hourglass False
+    MsgBox Error$
+    Resume Exit_bCalculatePCG
+
+End Function
+
+Private Function bRepeatButton() As Integer
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' Modified History  :
+' Author            : Mustaq Hussain
+' Date              : 9 January 1996
+' Reason            : RFC 269 : 4 Weekly period
+' Author            : Mustaq Hussain
+' Date              : 13 February 1996
+' Reason            : RFC 269 : 4 Weekly period, limit to 13 and as a function returning true or false and extra validation of periods
+
+On Error GoTo Err_bRepeatButton
+
+Dim DB As Database
+Dim DataTable As DAO.Recordset
+Dim DataTableClone As DAO.Recordset
+Dim PrevControl As Control
+
+Set PrevControl = Screen.PreviousControl
+
+DoCmd.Hourglass True
+
+
+'Assume corect
+bRepeatButton = True
+
+Set DB = CurrentDb()
+'Set Datatable = DB.OpenRecordset("Contributions Holding Table")
+    If Me!Taxyear < 1999 Then
+        Set DataTable = DB.OpenRecordset("Contributions Holding Table")
+    ElseIf Me!Taxyear = 1999 Then
+        Set DataTable = DB.OpenRecordset("tblContributions")
+    Else
+        Set DataTable = DB.OpenRecordset("tblContributions2000")
+
+    End If
+
+Set DataTableClone = DataTable.Clone()
+
+' If no records at all, then quit.
+If DataTable.BOF And DataTable.EOF Then
+    
+        MsgBox "No last record to copy.", 48, "Information"
+        PrevControl.SetFocus
+        bRepeatButton = False
+        GoTo Exit_bRepeatButton
+
+Else
+    DataTable.MoveLast
+    
+    If ((DataTable![Period] = "M") And (DataTable![Period Number] >= 12)) Or ((DataTable![Period] = "W") And (DataTable![Period Number] >= 53)) Or ((DataTable![Period] = "4W") And (DataTable![Period Number] >= 13)) Then
+        
+        MsgBox IIf(DataTable![Period] = "M", "Month", IIf(DataTable![Period] = "4W", "4 Weekly", "Week")) & " number out of range", 48, "Information"
+        DoCmd.Hourglass False
+        bRepeatButton = False
+        GoTo Exit_bRepeatButton
+
+    Else
+        With DataTableClone
+            .AddNew
+            
+            ![Period] = DataTable![Period]
+            ![Period Number] = DataTable![Period Number] + 1
+            ![Category] = DataTable![Category]
+            ![Gross Pay] = DataTable![Gross Pay]
+            ![Tables Used] = DataTable![Tables Used]
+            
+            .Update
+        
+            ' Close both references.
+            .Close
+        End With
+        DataTable.Close
+        DB.Close
+
+    End If
+
+End If
+
+
+
+Exit_bRepeatButton:
+    DoCmd.Hourglass False
+    PrevControl.SetFocus
+    Exit Function
+
+Err_bRepeatButton:
+    MsgBox Error$
+    Resume Exit_bRepeatButton
+
+End Function
+
+Private Sub Calculatebutton_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+On Error GoTo Err_CalculateButton_Click
+DoCmd.Echo False
+    Dim nOK
+    If IsNull(Taxyear) Or Taxyear = "" Then
+        MsgBox "Tax Year not set.", 48, "Information"
+    Else
+        
+        If Me!txtCalc_on = "Calc_Done" Then
+            
+            MsgBox "The calculation has been completed please amend the details" & vbCrLf & " or press the CLEAR button and enter new details"
+            
+        Else
+            If Taxyear < 1999 Then
+                OpenReferenceTables
+                nOK = bCalculatePCG()
+            ElseIf Taxyear = 1999 Then
+                OpenReferenceTables1999
+                nOK = b1999NICalc()
+            
+            End If
+            
+            CloseReferenceTables
+            
+            Me!txtCalc_on = "Calc_Done"
+        End If
+    
+        
+    End If
+
+Exit_CalculateButton_Click:
+    DoCmd.Echo True
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_CalculateButton_Click:
+    MsgBox Error$
+    Resume Exit_CalculateButton_Click
+
+End Sub
+
+Private Sub close_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_close_Click
+
+
+DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+ 
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub Contributions_Enter()
+
+If Taxyear = "" Then
+    MsgBox "Please enter tax year"
+    Forms!PCGForm.Taxyear.SetFocus
+    Exit Sub
+End If
+Me![Contributions].Form![cboPeriod].SetFocus
+End Sub
+
+Private Sub Contributions_Exit(Cancel As Integer)
+
+Recalc
+
+
+End Sub
+
+
+
+Private Sub Form_AfterUpdate()
+Me!txtCalc_on = ""
+End Sub
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_Form_Load
+
+DoCmd.SetWarnings False
+
+Dim Sname As String
+Dim Fname As String
+
+DoCmd.Maximize
+
+Taxyear = OpenArgs
+taxyear_AfterUpdate                        'set the subform and titles
+
+
+Sname = getsurname()
+Fname = getinitials()
+
+Forms!PCGForm!PreparedBy.Enabled = True
+
+Forms!PCGForm![PreparedBy] = Fname & " " & Sname
+Forms!PCGForm!PreparedBy.Enabled = False
+
+Forms!PCGForm!Surname.SetFocus
+Recalc
+Me!txtCalc_on = ""
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub Newbutton_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' Modified History  :
+' Author            : Jane Mullen
+' Date              : 27 January 1997
+' Reason            : RFC 515 : Added Ref field
+' Author            : Christopher Schuler
+' Date              : 12 July 1999
+' Reason            : Changes for tax year 1999
+' Author            : Christopher Schuler
+' Date              : 2 November 1999
+' Reason            : Changes for tax year 2000
+
+
+    On Error GoTo Err_NewButton_Click
+    
+    DoCmd.SetWarnings False
+    
+    DoCmd.Hourglass True
+    
+'Runs the required SQL to delete all of the data input on the subform
+    
+    DoCmd.RunSQL "DELETE * FROM [Contributions Holding Table]"
+    DoCmd.RunSQL "DELETE * FROM [tblContributions]"
+    'DoCmd.RunSQL "DELETE * FROM [tblContributions2000]"
+
+'Re-initialises all of the input fields and set focus back to first input field
+    ClearpCG
+    
+    With Forms!PCGForm
+        !Taxyear = ""
+        !Surname = ""
+        !Initial = ""
+        !NIPrefix = ""
+        !NInumber = ""
+        !NIsuffix = ""
+        !txtRef = ""
+        !Surname.Locked = False
+        !Initial.Locked = False
+        !NIPrefix.Locked = False
+        !NInumber.Locked = False
+        !NIsuffix.Locked = False
+        !Taxyear.Locked = False
+    
+        !Surname.SetFocus
+    End With
+    Recalc
+    Me!txtCalc_on = ""
+    
+Exit_NewButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NewButton_Click:
+    MsgBox Error$
+    Resume Exit_NewButton_Click
+
+End Sub
+Sub ClearpCG()
+
+With Forms!PCGForm
+    !txtNITotalInput = 0
+    !txtEENITotalInput = 0
+    !txtTotalUnderpayment = 0
+    !txtTotalOverpayment = 0
+    !txtEEUnderpayment = 0
+    !txtEEOverpayment = 0
+    !txtERUnderpayment = 0
+    !txtEROverpayment = 0
+    
+    !TotalPay = 0
+    !TotalEarnings = 0
+    !TotalEmployeeNI = 0
+    !TotalEmployerNI = 0
+            
+  
+    !txtTotalRebate1 = 0
+    !txtRebate1Paid = 0
+    !txtRebate1UnderPaid = 0
+    !txtRebate1OverPaid = 0
+    
+    
+    
+    
+End With
+End Sub
+Private Sub NIPrefix_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_NIPrefix_LostFocus
+
+Forms![PCGForm]![NIPrefix] = UCase(Forms![PCGForm]![NIPrefix])
+
+Exit_NIPrefix_LostFocus:
+    Exit Sub
+
+Err_NIPrefix_LostFocus:
+    MsgBox Error$
+    Resume Exit_NIPrefix_LostFocus
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If Taxyear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Taxyear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If Taxyear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Taxyear.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Taxyear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub NIsuffix_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_NIsuffix_LostFocus
+
+Forms![PCGForm]![NIsuffix] = UCase(Forms![PCGForm]![NIsuffix])
+
+Exit_NIsuffix_LostFocus:
+    Exit Sub
+
+Err_NIsuffix_LostFocus:
+    MsgBox Error$
+    Resume Exit_NIsuffix_LostFocus
+
+End Sub
+
+Private Sub PCGreport_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' Modification history
+' Author            : Mustaq Hussain
+' Date              : 13 February 1996
+' Reason            : RFC 269(4W) : Calculate then print
+
+    On Error GoTo Err_PCGreport_Click
+
+    DoCmd.SetWarnings False
+
+    Dim DocName As String
+    
+    If Me!txtCalc_on = "" Then
+        Calculatebutton_Click
+    End If
+    
+    If Forms!PCGForm.Taxyear < 1999 Then
+        
+            DocName = "PCG Report"
+            DoCmd.OpenReport DocName, A_NORMAL
+            
+    
+    
+    Else
+            
+            DocName = "rptClass1"
+            DoCmd.OpenReport DocName, A_NORMAL
+            
+    
+    End If
+
+Exit_PCGreport_Click:
+    Exit Sub
+
+Err_PCGreport_Click:
+    MsgBox Error$
+    Resume Exit_PCGreport_Click
+    
+End Sub
+
+Private Sub RepeatButton_Click()
+DoCmd.Echo False
+If bRepeatButton() = False Then
+End If
+Recalc
+Me!txtCalc_on = ""
+DoCmd.Echo True
+End Sub
+
+Private Sub Summary_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Summary_Click
+
+DoCmd.SetWarnings False
+
+    Dim DocName As String
+
+    Recalc
+    If Me!txtCalc_on = "" Then
+        Calculatebutton_Click
+    End If
+    
+    If Taxyear < 1999 Then
+       
+       DocName = "PCGSummaryForm"
+    
+    Else
+    
+       DocName = "frmSummaryClass1"
+    
+    End If
+
+    
+    DoCmd.OpenForm DocName, A_NORMAL, , , A_READONLY, A_DIALOG
+
+Exit_Summary_Click:
+    Exit Sub
+
+Err_Summary_Click:
+    MsgBox Error$
+    Resume Exit_Summary_Click
+
+End Sub
+
+Private Sub taxyear_AfterUpdate()
+
+'               : Jane Mullen
+' Date          : 16 May 1997
+' Purpose       : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+' Author        : Christopher Schuler
+' Date          : 30 July 1999
+' Purpose       : New subform required from 1999
+' Author        : Christopher Schuler
+' Date          : 2 November 1999
+' Purpose       : New subform required from 2000
+' Author        : Christopher Schuler
+' Date          : 2 November 2000
+' Purpose       : New subform required from 2001
+
+
+On Error GoTo Err_Taxyear_AfterUpdate
+
+DoCmd.Hourglass True
+With Forms!PCGForm
+    !txtRebate1Paid.TabStop = True
+    !Box46.Visible = True
+    
+End With
+'Select subform depending on year selected
+Select Case Forms!PCGForm!Taxyear
+
+
+Case Is > 2015
+        
+        DoCmd.OpenForm "frmClass1_16", , , , , , Taxyear
+        With Forms!frmClass1_16
+            !Surname = Forms!PCGForm!Surname
+            !Initial = Forms!PCGForm!Initial
+            !NIPrefix = Forms!PCGForm!NIPrefix
+            !NInumber = Forms!PCGForm!NInumber
+            !NIsuffix = Forms!PCGForm!NIsuffix
+            !txtRef = Forms!PCGForm!txtRef
+            !txtNITotalInput.SetFocus
+        End With
+        DoCmd.Close acForm, "PCGForm"
+        
+        GoTo Exit_Taxyear_AfterUpdate
+
+Case Is > 2008
+        
+        DoCmd.OpenForm "frmClass1_09", , , , , , Taxyear
+        With Forms!frmClass1_09
+            !Surname = Forms!PCGForm!Surname
+            !Initial = Forms!PCGForm!Initial
+            !NIPrefix = Forms!PCGForm!NIPrefix
+            !NInumber = Forms!PCGForm!NInumber
+            !NIsuffix = Forms!PCGForm!NIsuffix
+            !txtRef = Forms!PCGForm!txtRef
+            !txtNITotalInput.SetFocus
+        End With
+        DoCmd.Close acForm, "PCGForm"
+        
+        GoTo Exit_Taxyear_AfterUpdate
+        
+Case Is > 2002
+        
+        DoCmd.OpenForm "frmClass1_03", , , , , , Taxyear
+        With Forms!frmClass1_03
+            !Surname = Forms!PCGForm!Surname
+            !Initial = Forms!PCGForm!Initial
+            !NIPrefix = Forms!PCGForm!NIPrefix
+            !NInumber = Forms!PCGForm!NInumber
+            !NIsuffix = Forms!PCGForm!NIsuffix
+            !txtRef = Forms!PCGForm!txtRef
+            !txtNITotalInput.SetFocus
+        End With
+        DoCmd.Close acForm, "PCGForm"
+        
+        GoTo Exit_Taxyear_AfterUpdate
+
+Case Is > 1999
+        
+        DoCmd.OpenForm "frmClass1_01", , , , , , Taxyear
+        With Forms!frmClass1_01
+            !Surname = Forms!PCGForm!Surname
+            !Initial = Forms!PCGForm!Initial
+            !NIPrefix = Forms!PCGForm!NIPrefix
+            !NInumber = Forms!PCGForm!NInumber
+            !NIsuffix = Forms!PCGForm!NIsuffix
+            !txtRef = Forms!PCGForm!txtRef
+            !txtNITotalInput.SetFocus
+        End With
+        DoCmd.Close acForm, "PCGForm"
+        
+        GoTo Exit_Taxyear_AfterUpdate
+
+Case 1999
+
+    With Forms!PCGForm
+        !Contributions.SourceObject = "fsubClass1"
+        DoCmd.RunSQL "DELETE * FROM [tblContributions]"
+        !Text52.Visible = True
+        
+        !Text54.Visible = True
+        
+        !Text47.Visible = True
+        !Text49.Visible = True
+        
+        !Box46.Visible = False
+        !Text16.Visible = False
+        
+
+        !Text49.Caption = "          | LEL- |    ET-"
+        !TotalEarnings.Visible = False
+        !Text26.Caption = "NI Paid/Rebate Claimed"
+        
+        
+    End With
+    
+    NIsuffix_AfterUpdate
+    
+  Case Else
+  
+    With Forms!PCGForm
+        !Contributions.SourceObject = "PCGSubForm"
+        DoCmd.RunSQL "DELETE * FROM [Contributions Holding Table]"
+        !Text52.Visible = False
+        !Text54.Visible = False
+        !Text47.Visible = False
+        !Text49.Visible = False
+        !Box46.Visible = True
+        !Text16.Visible = True
+        !TotalEarnings.Visible = True
+        !Text26.Caption = "NI Paid"
+        !txtRebate1Paid.TabStop = False
+        
+    End With
+    
+    NIsuffix_AfterUpdate
+    
+End Select
+
+'Clear main form
+    ClearpCG
+
+
+
+    If Forms!PCGForm!Taxyear > 1996 Then
+        Forms!PCGForm!Contributions.Form!cboCategory.RowSource = "A;B;C;D;E;F;G;S"
+    ElseIf Forms!PCGForm!Taxyear > 1977 Then
+        Forms!PCGForm!Contributions.Form!cboCategory.RowSource = "A;B;C;D;E"
+    Else
+        Forms!PCGForm!Contributions.Form!cboCategory.RowSource = "A;B;C"
+    End If
+
+Forms!PCGForm!Contributions.Requery
+Forms!PCGForm!txtNITotalInput.SetFocus
+
+
+
+Exit_Taxyear_AfterUpdate:
+DoCmd.Hourglass False
+    Exit Sub
+
+Err_Taxyear_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Taxyear_AfterUpdate
+
+End Sub
+
+Private Sub Taxyear_NotInList(NewData As String, Response As Integer)
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Taxyear_NotInList
+
+    Forms!PCGForm!Taxyear = ""
+
+Exit_Taxyear_NotInList:
+    Exit Sub
+
+Err_Taxyear_NotInList:
+    MsgBox Error$
+    Resume Exit_Taxyear_NotInList
+End Sub
+
+Private Function TaxYearCatCombinationInvalid() As Integer
+
+' Author    : Lisa Scothern
+' Date      : 23/05/97
+' Purpose   : Check whether a newly selected tax year makes a previously selected category invalid
+'           : If it does, return True, else return False if all previously selected categories are OK
+
+    On Error GoTo Err_TaxYearCat
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim BoolInvalid As Integer
+
+    If Forms!PCGForm!Taxyear < 1997 Then
+        BoolInvalid = True     ' be pessimistic!
+    Else
+        BoolInvalid = False    ' All categories valid for '97 onwards
+        GoTo Exit_TaxYearCat
+    End If
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("SELECT [Category] FROM [Contributions Holding Table]")
+
+    If mySet.Recordcount = 0 Then
+        BoolInvalid = False   ' Contributions have already been cleared, no categories to check - OK
+        mySet.Close
+        myDB.Close
+        GoTo Exit_TaxYearCat
+    End If
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+        Select Case mySet![Category]
+            Case "F", "G", "S"
+                GoTo Invalid_TaxYearCat
+
+            Case "D", "E"
+                If Forms!PCGForm!Taxyear < 1978 Then
+                    GoTo Invalid_TaxYearCat
+                End If
+
+        End Select
+
+        mySet.MoveNext
+    Loop
+    BoolInvalid = False   ' As invalid category for this tax year was NOT found - everything OK
+    GoTo Closedown_DB
+
+Invalid_TaxYearCat:
+    BoolInvalid = True
+    MsgBox "A calculation for this category is not appropriate for this tax year.", 48, "Warning"
+    Newbutton_Click
+    
+Closedown_DB:
+    mySet.Close
+    'MyDB.Close  - can't close, as being used elsewhere
+
+Exit_TaxYearCat:
+    TaxYearCatCombinationInvalid = BoolInvalid
+    Exit Function
+
+Err_TaxYearCat:
+    MsgBox Error$
+    Resume Exit_TaxYearCat
+
+End Function
+
+Private Sub txtEENITotalInput_AfterUpdate()
+Me!txtCalc_on = ""
+End Sub
+
+Private Sub txtEENITotalInput_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_txtEENITotalInput_LostFocus
+If IsNull(Forms![PCGForm]![txtEENITotalInput]) Then
+    Forms![PCGForm]![txtEENITotalInput] = 0
+End If
+exit_txtEENITotalInput_LostFocus:
+    Exit Sub
+err_txtEENITotalInput_LostFocus:
+    MsgBox Error$
+    Resume err_txtEENITotalInput_LostFocus
+End Sub
+
+Private Sub txtNITotalInput_AfterUpdate()
+Me!txtCalc_on = ""
+End Sub
+
+Private Sub txtNITotalInput_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_txtNITotalInput_LostFocus
+If IsNull(Forms![PCGForm]![txtNITotalInput]) Then
+    Forms![PCGForm]![txtNITotalInput] = 0
+End If
+exit_txtNITotalInput_LostFocus:
+    Exit Sub
+err_txtNITotalInput_LostFocus:
+    MsgBox Error$
+    Resume err_txtNITotalInput_LostFocus
+End Sub
+
+Private Sub txtRebate1Paid_AfterUpdate()
+Me!txtCalc_on = ""
+End Sub
+
+Private Sub txtRebate1Paid_LostFocus()
+If IsNull(txtRebate1Paid) Then
+    txtRebate1Paid = 0
+End If
+End Sub
+
+Function getRates(LEL, Period, rateType) As Double
+
+Select Case UCase$(Period)
+    Case "w"
+        If rateType = "UpToLEL" Then
+            getRates = NIRateBandTable![WkLEL]
+        ElseIf rateType = "LELtoET" Then
+            getRates = NIRateBandTable![WkER_ET]
+        ElseIf rateType = "ETtoUEL" Then
+            getRates = NIRateBandTable![WkUEL]
+        End If
+    Case "m"
+        If rateType = "UpToLEL" Then
+            getRates = NIRateBandTable![MnthLEL]
+        ElseIf rateType = "LELtoET" Then
+            getRates = NIRateBandTable![MnthER_ET]
+        ElseIf rateType = "ETtoUEL" Then
+            getRates = NIRateBandTable![MnthUEL]
+        End If
+    Case Else
+        If rateType = "UpToLEL" Then
+            getRates = NIRateBandTable![WkLEL] * 4
+        ElseIf rateType = "LELtoET" Then
+            getRates = NIRateBandTable![WkER_ET] * 4
+        ElseIf rateType = "ETtoUEL" Then
+            getRates = NIRateBandTable![WkUEL] * 4
+        End If
+End Select
+
+
+End Function
+
+Private Sub txtTotalRebate1_LostFocus()
+If IsNull(txtTotalRebate1) Then
+    txtTotalRebate1 = 0
+End If
+End Sub

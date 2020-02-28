@@ -1,0 +1,520 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub Calculatebutton_Click()
+
+' Author            : Christopher Schuler
+' Date              : 22 January 2002
+' Reason            : Test for TaxYear added
+On Error GoTo Err_CalculateButton_Click
+
+DoCmd.Echo False
+    Dim nOK
+    Dim Category As String
+    
+    
+    Category = Me![Contributions].Form![cboCategory].value
+    
+    If IsNull(Taxyear) Or Taxyear = "" Then
+        MsgBox "Tax Year not set.", 48, "Information"
+    Else
+        
+            If Me!txtCalc_on = "Calc_Done" Then
+                MsgBox "The calculation has been completed please amend the details" & vbCrLf & " or press the CLEAR button and enter new details"
+            
+            Else
+                OpenReferenceTables1999
+                nOK = b2001NICalc(Taxyear, Category)
+                CloseReferenceTables
+                Recalc
+                calcTotals_03
+                Me!txtCalc_on = "Calc_Done"
+            End If
+    
+    End If
+
+Exit_CalculateButton_Click:
+    DoCmd.Echo True
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_CalculateButton_Click:
+    MsgBox Error$
+    Resume Exit_CalculateButton_Click
+
+End Sub
+
+Private Sub close_Click()
+
+On Error GoTo Err_close_Click
+
+
+DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+ 
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub Contributions_Enter()
+
+If Taxyear = "" Then
+    MsgBox "Please enter tax year"
+    Forms!frmClass1_03.Taxyear.SetFocus
+    Exit Sub
+End If
+Me![Contributions].Form![cboPeriod].SetFocus
+
+End Sub
+
+Private Sub Contributions_Exit(Cancel As Integer)
+
+Recalc
+
+End Sub
+
+Private Sub Form_AfterUpdate()
+Me!txtCalc_on = ""
+End Sub
+
+Private Sub Form_Load()
+
+On Error GoTo err_Form_Load
+
+DoCmd.SetWarnings False
+
+Dim Sname As String
+Dim Fname As String
+
+DoCmd.Maximize
+
+Newbutton_Click                         'initialise the form on load
+
+'Set the year to current
+If OpenArgs Then
+    Taxyear = OpenArgs
+Else
+    Forms!frmClass1_03!Taxyear = strCurrentTaxYear("CLASS 1 RATE TABLE")
+End If
+
+taxyear_AfterUpdate                       'set the subform and titles
+
+Sname = getsurname()
+Fname = getinitials()
+Forms![frmClass1_03]!PreparedBy.Enabled = True
+
+Forms![frmClass1_03]![PreparedBy] = Fname & " " & Sname
+Forms![frmClass1_03]!PreparedBy.Enabled = False
+
+Forms!frmClass1_03!Surname.SetFocus
+Recalc
+Me!txtCalc_on = ""
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub Newbutton_Click()
+
+' Author            : Christopher Schuler
+' Date              : 14 November 2000
+' Reason            : Changes for tax year 2001
+
+    On Error GoTo Err_NewButton_Click
+    Dim ctl As Control
+    
+    DoCmd.SetWarnings False
+    
+    DoCmd.Hourglass True
+    
+'Runs the required SQL to delete all of the data input on the subform
+    
+    DoCmd.RunSQL "DELETE * FROM [tblContributions2001]"
+
+'Re-initialises all of the input fields and set focus back to first input field
+    ClearForm
+    With Forms!frmClass1_03
+        !Taxyear = ""
+        !Surname = ""
+        !Initial = ""
+        !NIPrefix = ""
+        !NInumber = ""
+        !NIsuffix = ""
+        !txtRef = ""
+        
+        !Surname.Locked = False
+        !Initial.Locked = False
+        !NIPrefix.Locked = False
+        !NInumber.Locked = False
+        !NIsuffix.Locked = False
+        !Taxyear.Locked = False
+    
+        !Surname.SetFocus
+    End With
+    Recalc
+    Me!txtCalc_on = ""
+    
+Exit_NewButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NewButton_Click:
+    MsgBox Error$
+    Resume Exit_NewButton_Click
+
+End Sub
+
+Private Sub NIPrefix_LostFocus()
+
+On Error GoTo Err_NIPrefix_LostFocus
+
+Forms![frmClass1_03]![NIPrefix] = UCase(Forms![frmClass1_03]![NIPrefix])
+
+Exit_NIPrefix_LostFocus:
+    Exit Sub
+
+Err_NIPrefix_LostFocus:
+    MsgBox Error$
+    Resume Exit_NIPrefix_LostFocus
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+    Select Case NIsuffix
+    
+    
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If Taxyear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Taxyear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If Taxyear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Taxyear.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Taxyear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+End If
+End Sub
+
+Private Sub NIsuffix_LostFocus()
+
+On Error GoTo Err_NIsuffix_LostFocus
+
+Forms![frmClass1_03]![NIsuffix] = UCase(Forms![frmClass1_03]![NIsuffix])
+
+Exit_NIsuffix_LostFocus:
+    Exit Sub
+
+Err_NIsuffix_LostFocus:
+    MsgBox Error$
+    Resume Exit_NIsuffix_LostFocus
+
+End Sub
+
+Private Sub PrintReport_Click()
+
+' Author            : Christopher Schuler
+' Date              : 14 November 2000
+' Reason            : Option for year 2001 added
+' Author            : Christopher Schuler
+' Date              : 17 December 2002
+' Reason            : Option for year 2003 added
+
+    On Error GoTo Err_PrintReport_Click
+
+    DoCmd.SetWarnings False
+
+    Dim DocName As String
+    Dim Category As String
+    
+    Category = Me![Contributions].Form![cboCategory].value
+    
+    If Me!txtCalc_on = "Calc_Done" Then
+        DocName = "rptClass1_2003"
+        
+        DoCmd.OpenReport DocName, A_NORMAL
+    Else
+        ' Recalculate then print
+        OpenReferenceTables1999
+        If b2001NICalc(Taxyear, Category) = True Then
+            Recalc
+            calcTotals_03
+            DocName = "rptClass1_2003"
+            
+            DoCmd.OpenReport DocName, A_NORMAL
+        End If
+        CloseReferenceTables
+    End If
+
+
+Exit_PrintReport_Click:
+    Exit Sub
+
+Err_PrintReport_Click:
+    MsgBox Error$
+    Resume Exit_PrintReport_Click
+    
+End Sub
+
+Private Sub RepeatButton_Click()
+DoCmd.Echo False
+If bRepeatButton(Taxyear) = False Then
+End If
+Recalc
+Me!txtCalc_on = ""
+DoCmd.Echo True
+End Sub
+
+Private Sub Summary_Click()
+
+On Error GoTo Err_Summary_Click
+DoCmd.Echo False
+DoCmd.SetWarnings False
+
+    Dim DocName As String
+
+    'Recalc
+    If Me!txtCalc_on = "" Then
+        Calculatebutton_Click
+    End If
+    
+    DocName = "frmSummaryClass1_2003"
+    
+    DoCmd.OpenForm DocName, A_NORMAL, , , A_READONLY, A_DIALOG
+
+Exit_Summary_Click:
+    DoCmd.Echo True
+    Exit Sub
+
+Err_Summary_Click:
+    MsgBox Error$
+    Resume Exit_Summary_Click
+
+End Sub
+
+Private Sub taxyear_AfterUpdate()
+
+' Author        : Christopher Schuler
+' Date          : 17 December 2002
+' Purpose       : New subform required from 2003
+
+On Error GoTo Err_Taxyear_AfterUpdate
+
+DoCmd.Echo False
+
+If Forms!frmClass1_03.Taxyear < 2000 Then
+
+    DoCmd.OpenForm "PCGForm", , , , , , Taxyear
+        
+    With Forms!PCGForm
+        !Surname = Forms!frmClass1_03!Surname
+        !Initial = Forms!frmClass1_03!Initial
+        !NIPrefix = Forms!frmClass1_03!NIPrefix
+        !NInumber = Forms!frmClass1_03!NInumber
+        !NIsuffix = Forms!frmClass1_03!NIsuffix
+        !txtRef = Forms!frmClass1_03!txtRef
+        !txtNITotalInput.SetFocus
+    End With
+        
+    DoCmd.Close acForm, "frmClass1_03"
+        
+    'GoTo Exit_Taxyear_AfterUpdate
+        
+ElseIf Forms!frmClass1_03.Taxyear < 2003 Then
+
+    DoCmd.OpenForm "frmClass1_01", , , , , , Taxyear
+        
+    With Forms!frmClass1_01
+        !Surname = Forms!frmClass1_03!Surname
+        !Initial = Forms!frmClass1_03!Initial
+        !NIPrefix = Forms!frmClass1_03!NIPrefix
+        !NInumber = Forms!frmClass1_03!NInumber
+        !NIsuffix = Forms!frmClass1_03!NIsuffix
+        !txtRef = Forms!frmClass1_03!txtRef
+        !txtNITotalInput.SetFocus
+    End With
+        
+    DoCmd.Close acForm, "frmClass1_03"
+        
+ ElseIf Forms!frmClass1_03.Taxyear > 2008 And Forms!frmClass1_03.Taxyear < 2016 Then 'additions for 2009 CSNE 06/02/09
+
+    DoCmd.OpenForm "frmClass1_09", , , , , , Taxyear
+        
+    With Forms!frmClass1_09
+        !Surname = Forms!frmClass1_03!Surname
+        !Initial = Forms!frmClass1_03!Initial
+        !NIPrefix = Forms!frmClass1_03!NIPrefix
+        !NInumber = Forms!frmClass1_03!NInumber
+        !NIsuffix = Forms!frmClass1_03!NIsuffix
+        !txtRef = Forms!frmClass1_03!txtRef
+        !txtNITotalInput.SetFocus
+         Newbutton_Click
+    
+    End With
+        
+    DoCmd.Close acForm, "frmClass1_03"
+        
+ ElseIf Forms!frmClass1_03.Taxyear > 2015 Then 'additions for 2016 changes CSNE 07/04/2016
+
+    DoCmd.OpenForm "frmClass1_16", , , , , , Taxyear
+        
+    With Forms!frmClass1_16
+        !Surname = Forms!frmClass1_03!Surname
+        !Initial = Forms!frmClass1_03!Initial
+        !NIPrefix = Forms!frmClass1_03!NIPrefix
+        !NInumber = Forms!frmClass1_03!NInumber
+        !NIsuffix = Forms!frmClass1_03!NIsuffix
+        !txtRef = Forms!frmClass1_03!txtRef
+        !txtNITotalInput.SetFocus
+         Newbutton_Click
+    
+    End With
+        
+    DoCmd.Close acForm, "frmClass1_03"
+Else
+       
+    DoCmd.RunSQL "DELETE * FROM [tblContributions2001]"
+
+'Clear main form
+    ClearForm
+
+    Forms!frmClass1_03!Contributions.Requery
+    
+    Forms!frmClass1_03!txtNITotalInput.SetFocus
+    
+    NIsuffix_AfterUpdate
+    
+End If
+
+
+
+Exit_Taxyear_AfterUpdate:
+DoCmd.Echo True
+
+    Exit Sub
+
+Err_Taxyear_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Taxyear_AfterUpdate
+
+End Sub
+
+Private Sub Taxyear_NotInList(NewData As String, Response As Integer)
+
+On Error GoTo Err_Taxyear_NotInList
+
+    Forms!frmClass1_03!Taxyear = ""
+
+Exit_Taxyear_NotInList:
+    Exit Sub
+
+Err_Taxyear_NotInList:
+    MsgBox Error$
+    Resume Exit_Taxyear_NotInList
+End Sub
+
+Private Sub txtEENITotalInput_AfterUpdate()
+Me!txtCalc_on = ""
+End Sub
+
+Private Sub txtEENITotalInput_LostFocus()
+
+On Error GoTo err_txtEENITotalInput_LostFocus
+
+If IsNull(Forms![frmClass1_03]![txtEENITotalInput]) Then
+    Forms![frmClass1_03]![txtEENITotalInput] = 0
+End If
+
+exit_txtEENITotalInput_LostFocus:
+    Exit Sub
+err_txtEENITotalInput_LostFocus:
+    MsgBox Error$
+    Resume err_txtEENITotalInput_LostFocus
+End Sub
+
+Private Sub txtNITotalInput_AfterUpdate()
+Me!txtCalc_on = ""
+End Sub
+
+Private Sub txtNITotalInput_LostFocus()
+
+On Error GoTo err_txtNITotalInput_LostFocus
+
+If IsNull(Forms![frmClass1_03]![txtNITotalInput]) Then
+    Forms![frmClass1_03]![txtNITotalInput] = 0
+End If
+
+exit_txtNITotalInput_LostFocus:
+    Exit Sub
+err_txtNITotalInput_LostFocus:
+    MsgBox Error$
+    Resume err_txtNITotalInput_LostFocus
+End Sub
+
+Private Sub txtRebate1Paid_LostFocus()
+
+If IsNull(Forms![frmClass1_03]![txtRebate1Paid]) Then
+    Forms![frmClass1_03]![txtRebate1Paid] = 0
+End If
+
+End Sub
+
+Private Sub txtRebate2Paid_LostFocus()
+
+If IsNull(Forms![frmClass1_03]![txtRebate2Paid]) Then
+    Forms![frmClass1_03]![txtRebate2Paid] = 0
+End If
+
+End Sub
+Sub ClearForm()
+
+'Clear main form
+With Forms!frmClass1_03
+    !txtNITotalInput = 0
+    !txtEENITotalInput = 0
+    !TotalPay = 0
+    !TotalEmployeeNI = 0
+    !TotalEmployerNI = 0
+    !TotalUnderPayment = 0
+    !TotalOverPayment = 0
+    !EEContUnderPayment = 0
+    !EEContOverPayment = 0
+    !ERContUnderPayment = 0
+    !ERContOverPayment = 0
+End With
+
+End Sub

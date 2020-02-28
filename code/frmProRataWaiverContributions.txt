@@ -1,0 +1,60 @@
+
+
+
+' Author        : Mustaq Hussain
+' Date          : 26 December 1995
+' Purpose       : Local functions to SEE table
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Function bYearSet() As Integer
+' Author        : Mustaq Hussain
+' Date          : 26 December 1995
+' Fuction Name  : bYearSet
+' Purpose       : Move to Year, if not valid
+            
+    On Error GoTo Err_bYearSet
+
+    ' Assume has been set
+    bYearSet = True
+
+    If IsNull(Forms!FrmSEE!subSEEContributions.Form!Year) Then '
+    'Or (Forms!frmSMPRecoverable!subPayments.form!Year < 91) Then
+        ' Has not been set
+        bYearSet = False
+        Forms!FrmSEE!subSEEContributions.Form!Year.SetFocus
+    End If
+
+Exit_bYearSet:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bYearSet:
+    MsgBox Error$
+    Resume Exit_bYearSet
+
+End Function
+
+Private Sub End_Of_Trading_Enter()
+' Author        : Mustaq Hussain
+' Date          : 5 January 1996
+' Fuction Name  : End_Of_Trading_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_End_Of_Trading_Enter
+
+    bNotUsed = bYearSet()
+
+Exit_End_Of_Trading_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_End_Of_Trading_Enter:
+    MsgBox Error$
+    Resume Exit_End_Of_Trading_Enter
+
+End Sub

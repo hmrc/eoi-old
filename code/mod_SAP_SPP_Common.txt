@@ -1,0 +1,2221 @@
+Option Compare Database
+Option Explicit
+Public SAPSPPValid As Boolean 'used to check if any individual check fails when they're
+                              'ran when calculating
+Global Const gcENTITLEMENT_SAP_DUE = "SAP Due"
+Global Const gcENTITLEMENT_IR_TO_PAY = "IR to Pay"
+Global Const gcENTITLEMENT_SPP_DUE = "SPP Due" ' common to both birth and adoption SPP
+Global Const gcENTITLEMENT_SSP_PAID = "SSP Paid"
+
+Public StartPayPeriod_SAP_SPP As Boolean
+Public StartPayPeriodDays_SAP_SPP As Integer
+Public StartPayPeriod As Boolean
+Public StartPayPeriodMonthly As Boolean
+Public StartPayPeriodDays As Integer
+
+Public Function SAPSPPReset(inForm As Form)
+Dim frmName As String
+frmName = inForm.Name
+    Forms(frmName)!txtAverageWeeklyEarnings = Null
+    'Forms(frmName)!txtAmountPaidByEmployer = Null
+    Forms(frmName)!txt5DPAverageWeeklyEarnings = Null
+    
+    'Forms(frmName)!txtAmountPaidByEmployer = Null
+
+    Forms(frmName)!txtTotalAmountDue = Null
+    Forms(frmName)!txtUnderpaymentOfAmount = Null
+    Forms(frmName)!txtOverpaymentOfAmount = Null
+
+End Function
+ 
+
+
+'Common functions for SAP, SPP birth and adoption
+'pmor Jan 03
+
+Public Function SAPSPPClear(inForm As Form)
+    
+Dim frmName As String
+    
+    DoCmd.SetWarnings False
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblSAPSPPEarnings]"
+    DoCmd.RunSQL "DELETE * FROM [tblSAPSPPWeeksAmounts]"
+    
+    frmName = inForm.Name
+    
+        With Forms(frmName)
+        ' Update Details section, no records
+        ![subEarnings].Form.Requery
+        ![subWeeklyPayments].Form.Requery
+    
+        'Re-initialises all of the input fields and set focus back to first input field
+        
+        ' Clear information only fields
+        !txtName = Null
+        !txtInitials = Null
+        !txtRef = Null
+        !NIPrefix = Null
+        !NInumber = Null
+        !NIsuffix = Null
+        
+        !txtAverageWeeklyEarnings = Null
+        !txtAmountPaidByEmployer = Null
+        !txt5DPAverageWeeklyEarnings = Null
+        
+        !txtAmountPaidByEmployer = Null
+    
+        !txtTotalAmountDue = Null
+        !txtUnderpaymentOfAmount = Null
+        !txtOverpaymentOfAmount = Null
+    
+        
+        !txtPeriodStarts = Null
+        
+    
+        !grpPayPeriod = gcPAY_PERIOD_WEEKLY
+        !txtNoOfWeeks = 1
+        !txtNoOfMonths = 1
+        !txtIrregularFrom = Null
+        !txtIrregularTo = Null
+    
+        !txtDisplayEntitlementAmount = Null
+        !txtDisplayEntitlementAmount.Visible = False
+        !txtLEL = Null
+        !txtClass1BInc = Null
+        !txtClass1BUsed = Null
+    
+        !txtNoOfWeeks = ""
+        !txtNoOfMonths = ""
+        !txtNoOfWeeks.Enabled = False
+        !txtNoOfMonths.Enabled = False
+        !txtIrregularFrom.Enabled = False
+        !txtIrregularTo.Enabled = False
+        !txtIrregularFrom = ""
+        !txtIrregularTo = ""
+        
+        'above are common to forms - below are individual
+        If inForm.Name = "frmSAPPayable" Then
+                !txtMatchingWeek = Null
+                !txtPlacement = Null
+        End If
+        
+        If inForm.Name = "frmSPPAdoptionPayable" Then
+            !txtMatchingWeek = Null
+            !txtPlacement = Null
+        End If
+        
+        
+        If inForm.Name = "frmSPPBirthPayable" Then
+             !txtDueBorn = Null
+             !txtActDOB = Null
+        End If
+        
+        ' Set focus
+        !txtName.SetFocus
+    End With
+    
+    SAPSPPValid = False 'not validated yet
+    DoCmd.SetWarnings True
+    
+
+End Function
+
+
+
+Public Function SetSAPSPPWeeklyDates(inForm As Form, NoOfWeeks As Integer)
+' Author        : Peter Morton
+' Date            : 8 December 2003
+' Purpose      : Calculate weekly payment dates
+' Author        : Chris Schuler
+' Date            : 27 April 2007
+' Purpose      : CCA10049 - Weekly rates can now be split into two to align payments to employees normal pay period
+
+    Dim nAPPNumber As Integer
+    Dim nDay As Integer
+    Dim nDaysToSunday As Integer
+    Dim dtmAPPStarts 'uesed for APP and PPP
+    Dim rs As DAO.Recordset
+    Dim frmName
+    Dim Entitlement As String
+    Dim PayDay_SAP_SPP
+    Dim StartDate
+    Dim PayDayMessageString As String
+    Dim strPayDay As String
+    
+    'Dim StartPayPeriod_SAP_SPP As Boolean
+    
+    frmName = inForm.Name
+            
+            
+    If frmName = "frmSAPPayable" Then
+        Entitlement = "SAP Due"
+    Else ' paternity
+        Entitlement = "SPP Due"
+    End If
+            
+            
+    ' Day of the first APP entered
+    nDay = Weekday(Forms(frmName)!txtPeriodStarts)
+
+    ' Days to Sunday
+   ' nDaysToSunday = Switch(nDay = 1, 0, nDay = 2, 6, nDay = 3, 5, nDay = 4, 4, nDay = 5, 3, nDay = 6, 2, nDay > 6, 1)
+
+    
+    DoCmd.SetWarnings False
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblSAPSPPWeeksAmounts]"
+    
+          
+    dtmAPPStarts = Forms(frmName)!txtPeriodStarts
+    
+        
+    Set rs = CurrentDb.OpenRecordset("tblSAPSPPWeeksAmounts")
+    
+    If frmName = "frmSPPBirthPayable" Then
+        
+        If IsNull(Forms(frmName)!txtActDOB) Then
+        
+                StartDate = Forms(frmName)!txtDueBorn
+        Else
+                StartDate = Forms(frmName)!txtActDOB
+        End If
+        
+        PayDayMessageString = "SPP"
+    Else
+    
+        StartDate = Forms(frmName)!txtPlacement
+        
+        If frmName = "frmSPPAdoptionPayable" Then
+          
+            PayDayMessageString = "SPP"
+          
+        Else
+            PayDayMessageString = "SAP"
+        
+        End If
+    End If
+    
+    StartPayPeriod_SAP_SPP = False
+    
+    If StartDate > #3/31/2007# Then
+        
+        If Forms(frmName)!grpPayPeriod = 1 Then
+        
+            If MsgBox("Do you wish to pay complete weeks of " & PayDayMessageString & " using the " & PayDayMessageString & " Pay Week?", vbYesNo, PayDayMessageString & " Pay Week") = vbNo Then
+            
+                strPayDay = InputBox("What is your employee's last pay date before the start of the " & PayDayMessageString & " Pay Period {In the format dd/mm/yyyy}?", "Last pay date?")
+                
+                PayDay_SAP_SPP = CDate(strPayDay)
+                                
+                
+                'No, part payments weekly
+                
+                   StartPayPeriod_SAP_SPP = True
+                
+                   StartPayPeriodDays_SAP_SPP = PayDay_SAP_SPP + 8 - dtmAPPStarts
+                 
+                    rs.AddNew
+               
+                    rs![Date] = PayDay_SAP_SPP + 7
+                    rs![DateTo] = PayDay_SAP_SPP + 13
+                    
+                    rs![Entitlement] = Entitlement
+                    rs![Amount] = 0
+                    rs.Update
+                                
+                    dtmAPPStarts = PayDay_SAP_SPP + 14
+                    
+                                    
+                          For nAPPNumber = 1 To NoOfWeeks
+
+                                rs.AddNew
+                                rs![Date] = dtmAPPStarts
+    
+                                rs![DateTo] = dtmAPPStarts + 6
+            
+                                rs![Entitlement] = Entitlement
+                                rs![Amount] = 0
+                                rs.Update
+    
+            
+                                dtmAPPStarts = dtmAPPStarts + 7
+                       
+                          Next
+                 
+                 'Yes, full payments weekly
+                          Else
+                            
+                          For nAPPNumber = 1 To NoOfWeeks
+
+                                rs.AddNew
+                                rs![Date] = dtmAPPStarts
+    
+                                rs![DateTo] = dtmAPPStarts + 6
+            
+                                rs![Entitlement] = Entitlement
+                                rs![Amount] = 0
+                                rs.Update
+    
+            
+                                dtmAPPStarts = dtmAPPStarts + 7
+              
+                           Next
+                  
+                
+          End If
+            
+            
+          ElseIf Forms(frmName)!grpPayPeriod = 2 Then
+            
+            'monthly
+            For nAPPNumber = 1 To NoOfWeeks
+
+                rs.AddNew
+                rs![Date] = dtmAPPStarts
+    
+                rs![DateTo] = dtmAPPStarts + 6
+            
+                rs![Entitlement] = Entitlement
+                rs![Amount] = 0
+                rs.Update
+
+            
+                dtmAPPStarts = dtmAPPStarts + 7
+                   
+    
+            Next
+            End If
+            'rs.close
+            If MsgBox("Do you wish to pay complete weeks of SMP using the SMP Pay Week?", vbYesNo, "SMP Pay Week") = vbNo Then
+    
+                    StartPayPeriod_SAP_SPP = True
+                    
+                    DoCmd.OpenForm "frmMonthlyPaymentDay"
+                    Exit Function
+            Else
+        
+        
+                For nAPPNumber = 1 To NoOfWeeks
+
+                rs.AddNew
+                rs![Date] = dtmAPPStarts
+    
+                rs![DateTo] = dtmAPPStarts + 6
+            
+                rs![Entitlement] = Entitlement
+                rs![Amount] = 0
+                rs.Update
+
+            
+                dtmAPPStarts = dtmAPPStarts + 7
+               
+                Next
+                
+             StartPayPeriod_SAP_SPP = False
+             
+            End If
+    Else
+    
+            For nAPPNumber = 1 To NoOfWeeks
+        
+                rs.AddNew
+                rs![Date] = dtmAPPStarts
+        
+                 If nAPPNumber = NoOfWeeks And StartPayPeriod_SAP_SPP Then
+        
+                        rs![DateTo] = dtmAPPStarts + 6 - StartPayPeriodDays_SAP_SPP
+        
+                Else
+                        rs![DateTo] = dtmAPPStarts + 6
+        
+                End If
+        
+                rs![Entitlement] = Entitlement
+                rs![Amount] = 0
+                rs.Update
+        
+        
+                 dtmAPPStarts = dtmAPPStarts + 7
+        
+        
+            Next
+    End If
+    rs.Close
+
+
+    ' Update Details section, to reflect database
+    Forms(frmName)![subWeeklyPayments].Form.Requery
+   
+     DoCmd.SetWarnings True
+    
+End Function
+Public Function SAPSPPCheckIrregularFromDate(inForm As Form)
+Dim LastDaySetPeriod As Date ' period dates to check against
+Dim StartDaySetPeriod As Date
+
+SAPSPPValid = False 'if it gets to the end then set to true -
+                    'saves having to set it after each test
+                    
+' Check pay period dates correct
+    If Forms(inForm.Name)!grpPayPeriod = gcPAY_PERIOD_IRREGULAR Then
+      ' Check dates set
+        If IsNull(Forms(inForm.Name)!txtIrregularFrom) Or _
+            Forms(inForm.Name)!txtIrregularFrom = "" Then
+            Beep
+            MsgBox ("Irregular From date not set")
+            Exit Function
+        End If
+    
+        If Forms(inForm.Name)!SMPPayable.Caption = "SAP DUE" Or _
+            Forms(inForm.Name)!SMPPayable.Caption = "SPP (Adoption) DUE" Then
+            'MsgBox "Adoption"
+            LastDaySetPeriod = Forms(inForm.Name)!txtMatchingWeek + 6
+            StartDaySetPeriod = LastDaySetPeriod - 55 ' -8 weeks + 1 day
+        
+        
+        ElseIf Forms(inForm.Name)!SMPPayable.Caption = "SPP (Birth) DUE" Then
+            'MsgBox "Birth"
+            LastDaySetPeriod = Forms(inForm.Name)!txtDueBorn - 105 ' - 15 weeks
+            'needs to be a Sat
+            LastDaySetPeriod = LastDaySetPeriod + (7 - Weekday(LastDaySetPeriod))  ' if already a Sat then 7-7=0
+         
+            StartDaySetPeriod = LastDaySetPeriod - 55
+            
+        Else 'who's been changing form labels???
+            MsgBox "Unable to determine if Birth or Adoption Period applies"
+            Exit Function
+        End If
+
+
+        If Forms(inForm.Name)!txtIrregularFrom < StartDaySetPeriod Then
+            MsgBox "Irregular From Date must be after the first day of the pay period"
+            Exit Function
+        End If
+        
+        If Forms(inForm.Name)!txtIrregularTo < Forms(inForm.Name)!txtIrregularFrom Then
+            Beep
+            MsgBox ("Irregular To date must be after Irregular From date")
+            Exit Function
+        End If
+                
+    End If
+
+    SAPSPPValid = True
+
+End Function
+
+Public Function SAPSPPCheckIrregularToDate(inForm As Form)
+
+Dim LastDaySetPeriod As Date ' period dates to check against
+Dim StartDaySetPeriod As Date
+
+SAPSPPValid = False 'if it gets to the end then set to true -
+                    'saves having to set it after each test
+                    
+' Check pay period dates correct
+    If Forms(inForm.Name)!grpPayPeriod = gcPAY_PERIOD_IRREGULAR Then
+        
+        If IsNull(Forms(inForm.Name)!txtIrregularTo) Or _
+            Forms(inForm.Name)!txtIrregularTo = "" Then
+            Beep
+            MsgBox ("Irregular To date not set")
+            Exit Function
+        End If
+    
+        If Forms(inForm.Name)!SMPPayable.Caption = "SAP DUE" Or _
+            Forms(inForm.Name)!SMPPayable.Caption = "SPP (Adoption) DUE" Then
+            'MsgBox "Adoption"
+            LastDaySetPeriod = Forms(inForm.Name)!txtMatchingWeek + 6
+            StartDaySetPeriod = LastDaySetPeriod - 55 ' -8 weeks + 1 day
+        
+        
+        ElseIf Forms(inForm.Name)!SMPPayable.Caption = "SPP (Birth) DUE" Then
+            'MsgBox "Birth"
+            LastDaySetPeriod = Forms(inForm.Name)!txtDueBorn - 105 ' - 15 weeks
+            'needs to be a Sat
+            LastDaySetPeriod = LastDaySetPeriod + (7 - Weekday(LastDaySetPeriod))  ' if already a Sat then 7-7=0
+         
+            StartDaySetPeriod = LastDaySetPeriod - 55
+            
+        Else 'who's been changing form labels???
+            MsgBox "Unable to determine if Birth or Adoption Period applies"
+            Exit Function
+        End If
+        
+        If Forms(inForm.Name)!txtIrregularTo > LastDaySetPeriod Then
+            MsgBox "Irregular To Date must be before the last day of the pay period"
+            Exit Function
+        End If
+                
+         ' Check To within valid range
+        If Forms(inForm.Name)!txtIrregularTo < Forms(inForm.Name)!txtIrregularFrom Then
+            Beep
+            MsgBox ("Irregular To date must be after Irregular From date")
+            Exit Function
+        End If
+            
+                
+    End If
+
+    SAPSPPValid = True
+
+End Function
+
+Public Function CheckSAPSPPEarningsDates()
+
+ 'Adapted from Function bValidSAPEarningsDate() As Integer
+' Author        : Mustaq Hussain
+' Date          : 8 December 1995
+' Fuction Name  : bValidSAPEarningsDate
+' Purpose       : Return TRUE
+            
+    Dim mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Variant
+    Dim nNoOfDatesFilled As Integer, nNoOfEntries As Integer
+    
+    SAPSPPValid = False
+    
+    
+    ' Query to get the number of Earnings
+    SQLQuery = "SELECT COUNT([Earnings]) FROM [tblSAPSPPEarnings] ;"
+    Set mySet = CurrentDb.OpenRecordset(SQLQuery)
+
+    mySet.MoveLast
+    nNoOfEntries = mySet.Fields(0)
+
+    ' Query to get number of Dates
+    SQLQuery = "SELECT COUNT([Date]) FROM [tblSAPSPPEarnings] ;"
+    Set mySet = CurrentDb.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+    nNoOfDatesFilled = mySet.Fields(0).value
+    
+    mySet.Close
+
+    ' Check number of entries
+    If nNoOfDatesFilled <> nNoOfEntries And nNoOfDatesFilled <> 0 Then
+        Beep
+        MsgBox ("All Dates in Earnings table must be either empty or filled")
+        Exit Function
+    End If
+
+
+    ' Is valid
+    SAPSPPValid = True
+
+End Function
+
+Public Sub SetSAPSPPAverageEarnings(inForm As Form, LELDate As Date)
+
+
+'Adapted from Sub SetAverageWeeklyEarningsSAP(strTable As String, strForm As String)
+
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : SetAverageWeeklyEarnings
+' Purpose       : Calculate average weekly earnings
+' History       : Christopher Schuler
+' Date          : 9 July 1999
+' Purpose       : Include Class 1B income (method differs from SAP)
+
+    Dim myDB As Database, mySet As DAO.Recordset, MySet2 As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Variant
+    Dim vReturnedClass1B As Variant
+    Dim curGross As Currency
+    Dim curClass1B As Currency
+    Dim frmForm As Form
+    Dim curLEL, bLELReached
+    Dim ShortFall As Currency
+
+
+    Forms(inForm.Name)!txtClass1BInc = Null
+    Forms(inForm.Name)!txtClass1BUsed.Visible = False
+    Forms(inForm.Name)!lblClass1BEarnings.Visible = False
+    Forms(inForm.Name)!txtDisplayEntitlementAmount.Visible = False
+
+    ' Query to get total earnings
+    SQLQuery = "SELECT SUM([Earnings]), SUM([Class1B])  FROM tblSAPSPPEarnings"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    vReturnedValue = mySet.Fields(0).value
+    If IsNull(vReturnedValue) Then
+        curGross = 0
+    Else
+        curGross = vReturnedValue
+    End If
+        
+    vReturnedClass1B = mySet.Fields(1).value
+    If IsNull(vReturnedClass1B) Then
+        curClass1B = 0
+    Else
+        curClass1B = vReturnedClass1B
+    End If
+    
+    mySet.Close
+    myDB.Close
+
+    Set frmForm = inForm 'use original code rather than replace
+
+    ' Set the average weekly earnings
+    frmForm.txtAverageWeeklyEarnings = 0
+    Select Case frmForm.grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            frmForm.txtAverageWeeklyEarnings = curGross / frmForm.txtNoOfWeeks
+            
+        Case gcPAY_PERIOD_MONTHLY
+            frmForm.txtAverageWeeklyEarnings = curGross / frmForm.txtNoOfMonths * 12 / 52
+
+        Case gcPAY_PERIOD_IRREGULAR
+            frmForm.txtAverageWeeklyEarnings = curGross / (CVDate(frmForm.txtIrregularTo) - CVDate(frmForm.txtIrregularFrom) + 1) * 7
+    
+    End Select
+
+    
+        ' Check if LEL reached
+        curLEL = curGetLEL(LELDate)
+        bLELReached = IIf(curLEL > Forms(inForm.Name)!txtAverageWeeklyEarnings, False, True)
+
+        
+        ' Advise about LEL
+
+        Forms(inForm.Name)!txtClass1BUsed.Visible = True
+        Forms(inForm.Name)!lblClass1BEarnings.Visible = True
+
+    If bLELReached = False Then
+    
+    Select Case frmForm.grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            ShortFall = curRound((curLEL - frmForm.txtAverageWeeklyEarnings) * frmForm.txtNoOfWeeks)
+            
+        Case gcPAY_PERIOD_MONTHLY
+            ShortFall = curRound((curLEL - frmForm.txtAverageWeeklyEarnings) * frmForm.txtNoOfMonths * 52 / 12)
+
+        Case gcPAY_PERIOD_IRREGULAR
+            ShortFall = curRound((curLEL - frmForm.txtAverageWeeklyEarnings) * (CVDate(frmForm.txtIrregularTo) - CVDate(frmForm.txtIrregularFrom) + 1) / 7)
+    
+    End Select
+    
+
+curClass1B = MinClass1BSAPSPP(ShortFall)
+
+            ' Set the average weekly earnings including Class 1B
+            frmForm.txtAverageWeeklyEarnings = 0
+            Select Case frmForm.grpPayPeriod
+                Case gcPAY_PERIOD_WEEKLY
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / frmForm.txtNoOfWeeks
+                    
+                Case gcPAY_PERIOD_MONTHLY
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / frmForm.txtNoOfMonths * 12 / 52
+        
+                Case gcPAY_PERIOD_IRREGULAR
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / (CVDate(frmForm.txtIrregularTo) - CVDate(frmForm.txtIrregularFrom) + 1) * 7
+            
+            End Select
+            Forms(inForm.Name)!txtClass1BUsed = curClass1B
+            Forms(inForm.Name)!txtClass1BInc.Visible = True
+            Forms(inForm.Name)!txtClass1BInc = "(including Class 1B)"
+        Else
+            Forms(inForm.Name)!txtClass1BUsed = 0
+            Forms(inForm.Name)!txtClass1BInc.Visible = True
+            Forms(inForm.Name)!txtClass1BInc = "(excluding Class 1B)"
+    End If
+    bLELReached = IIf(curLEL > Forms(inForm.Name)!txtAverageWeeklyEarnings, False, True)
+    If bLELReached = False Then
+        If curClass1B = 0 Then
+           
+                    Forms(inForm.Name)!txtDisplayEntitlementAmount.Visible = True
+                    Forms(inForm.Name)!txtDisplayEntitlementAmount = "Employee's earnings below : £" + (Format$(curLEL, "#0.00")) + " retry with Class 1B if any"
+                    Forms(inForm.Name)!txtLEL = curLEL
+                    Forms(inForm.Name)!txtClass1BInc.Visible = False
+                    SAPSPPValid = False
+            Else
+                    Forms(inForm.Name)!txtDisplayEntitlementAmount.Visible = True
+                    Forms(inForm.Name)!txtDisplayEntitlementAmount = "Employee's earnings below : £" + Format$(curLEL, "#0.00")
+                    Forms(inForm.Name)!txtLEL = curLEL
+                    SAPSPPValid = False
+        End If
+    Else
+        If curClass1B = 0 Then
+            Forms(inForm.Name)!txtClass1BInc.Visible = False
+        End If
+   End If
+
+
+
+End Sub
+
+Public Sub setSAPRates()
+ ' Adapted from Sub SetMPPRates()
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : SetMPPRates
+' Purpose       : Sets SAP Rates
+' History
+' Author        : Lisa Scothern
+' Date          : 22 September 1997
+' Purpose       : RFC 541C: Round with curRound() - exactly 0.5p rounded down (and not with curRoundUp())
+' Author        : Lisa Scothern
+' Date          : 28 October 1997
+' Purpose       : Change to RFC 541C: Round with curRoundUp() - any fraction of a penny -> round up to next penny
+' Author        : pmor
+' Date          : Jan 03
+' Purpose       : Rule changes for Apr 03
+' Author        : Chris Schuler
+' Date            : 27 April 2007
+' Purpose      : CCA10049 - Weekly rates can now be split into two to align payments to employees normal pay period
+         
+Dim myDB As Database, mySet As DAO.Recordset
+
+
+Dim rsSTDRate As DAO.Recordset  'pmor Jan03
+Dim strSQL As String 'pmor Jan03
+Dim StdRateDate
+Dim Firstweek As Boolean
+Dim lastweek As Integer
+Dim weeknumber As Integer
+Dim SAPDate As Date
+Dim StartingDay
+Dim StartingWeekday
+Dim StartingMonth
+Dim ThisMonth
+Dim DaysInMonth
+Dim DaysToEndOfMonth
+Dim NoOfWeeksToEndOfMonth
+Dim DaysAtEndOfMonth
+Dim PreviousWeekWasLastOfMonth As Boolean
+Dim DaysInFirstWeek
+Dim AWE
+Dim StartingDate As String
+Dim LastWorkingDay
+Dim LastDate
+Dim LastSpecifiedDay
+Dim LastSpecifiedDate
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+Set mySet = myDB.OpenRecordset("tblSAPSPPWeeksAmounts")
+
+If SAPSPPValid = False Then
+        mySet.MoveFirst
+        'mySet![Amount] = 0
+                'mySet.Update
+                'mySet.MoveNext
+                If Not mySet.EOF Then
+                    
+                    Do Until mySet.EOF
+                        mySet.Edit
+                        mySet![Amount] = 0
+                       
+                        mySet.Update
+                        mySet.MoveNext
+                    Loop
+                    
+                End If
+Else
+
+        mySet.MoveFirst
+        Firstweek = True
+        weeknumber = 0
+        lastweek = mySet.Recordcount
+        
+        Do Until mySet.EOF
+        
+        weeknumber = weeknumber + 1
+        
+        mySet.Edit
+    
+        Select Case mySet![Entitlement]
+            Case gcENTITLEMENT_EXCLUDED
+                mySet![Amount] = 0
+                mySet.Update
+                mySet.MoveNext
+                If Not mySet.EOF Then
+                    Do Until mySet.EOF
+                        mySet.Edit
+                        mySet![Amount] = 0
+                        mySet![Entitlement] = gcENTITLEMENT_EXCLUDED
+                        mySet.Update
+                        mySet.MoveNext
+                    Loop
+                End If
+                ' Back to previous so that outer loop terminated correctly
+                mySet.MovePrevious
+                mySet.Edit
+            
+            Case gcENTITLEMENT_WEEK_WORKED, gcENTITLEMENT_SSP_PAID
+                
+                mySet![Amount] = 0
+            
+            Case gcENTITLEMENT_SAP_DUE
+                '90% of Ave Weekly Earnings is paid.
+                'If 90% of Ave Weekly Earnings > 100 then payment is capped
+                'at SAP rate
+                StdRateDate = MakeUSDate(mySet!Date)
+                'MsgBox StdRateDate
+                strSQL = "SELECT SAPRate from tblSAPRates " & _
+                         "WHERE " & StdRateDate & " >= APPStartsFrom AND " & _
+                         StdRateDate & " <= APPStartsTo"
+                'MsgBox strSQL
+                Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                'MsgBox rsSTDRate!StandardRate
+                    
+                If Forms!frmSAPPayable.txtAverageWeeklyEarnings * 0.9 > rsSTDRate!SAPRate Then
+                        mySet!Amount = rsSTDRate!SAPRate
+                Else
+                        mySet!Amount = curRoundUp(Forms!frmSAPPayable.txtAverageWeeklyEarnings * 0.9)
+                End If
+                
+               If StartPayPeriod_SAP_SPP Then
+                         
+                    If Forms!frmSAPPayable!grpPayPeriod = 1 Then
+                        'weekly
+                        If Firstweek = True Then
+                                       
+                                    
+                                mySet!Amount = curRoundUp(mySet!Amount * StartPayPeriodDays_SAP_SPP / 7)
+                                    
+                                Firstweek = False
+                            
+                        ElseIf weeknumber = lastweek Then
+                                    
+                                mySet!Amount = curRoundUp(mySet!Amount * (7 - StartPayPeriodDays_SAP_SPP) / 7)
+                        
+                        Else
+                                        
+                                mySet!Amount = curRoundUp(mySet!Amount * StartPayPeriodDays_SAP_SPP / 7) + curRoundUp(mySet!Amount * (7 - StartPayPeriodDays_SAP_SPP) / 7)
+
+                        End If
+                        
+                     ElseIf Forms!frmSAPPayable!grpPayPeriod = 2 Then
+                        
+                        SAPDate = mySet!Date
+                        'monthly
+                        Select Case PaymentType
+                               
+                                    Case 1 'last calendar day
+                                        StartingDay = DatePart("d", SAPDate)
+                                        StartingWeekday = Weekday(SAPDate)
+                                        StartingMonth = Month(SAPDate)
+                                        ThisMonth = StartingMonth
+                                        DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                            
+                                        DaysToEndOfMonth = DaysInMonth - StartingDay + 1
+                                            
+                                        NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                        DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                                                                   
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Or weeknumber = 39 Then
+                                                        'mySet![Amount] = STDRate
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                
+                                                         
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                           
+                                        
+                                            SAPDate = SAPDate + 7
+                                    
+                                    Case 2 'last working day
+                                        
+                                        StartingDay = DatePart("d", SAPDate)
+                                        StartingWeekday = Weekday(SAPDate)
+                                        StartingMonth = Month(SAPDate)
+                                        ThisMonth = StartingMonth
+                                        DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                        StartingDate = CStr(SAPDate)
+                                        LastWorkingDay = LastWorkDayOfMonth(StartingDate)
+                                        LastDate = DatePart("d", CDate(LastWorkingDay))
+                                        DaysToEndOfMonth = LastDate - StartingDay + 1
+                                            
+                                        NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                        DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                        
+                                                    
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Or weeknumber = 39 Then
+                                                        'mySet![Amount] = STDRate
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                
+                                                         
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        
+                                        
+                                            SAPDate = SAPDate + 7
+
+                                    Case 3 'last specified day
+                                    
+                                        StartingDay = DatePart("d", SAPDate)
+                                        StartingWeekday = Weekday(SAPDate)
+                                        StartingMonth = Month(SAPDate)
+                                        ThisMonth = StartingMonth
+                                        DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                        StartingDate = CStr(SAPDate)
+                                        LastSpecifiedDay = LastDayOfMonth(PaymentDay, StartingDate)
+                                        
+                                        LastDate = DatePart("d", CDate(LastSpecifiedDay))
+                                        DaysToEndOfMonth = LastDate - StartingDay + 1
+                                            
+                                        NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                        DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                           
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Or weeknumber = 39 Then
+                                                        'mySet![Amount] = STDRate
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                
+                                                         
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        
+                                            SAPDate = SAPDate + 7
+
+
+                                    Case 4 'last specified date
+                                    
+                                        StartingDay = DatePart("d", SAPDate)
+                                        StartingWeekday = Weekday(SAPDate)
+                                        StartingMonth = Month(SAPDate)
+                                        ThisMonth = StartingMonth
+                                        DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                        'StartingDate = CStr(SAPDate)
+                                        
+                                        
+                                        LastDate = PaymentDate
+                                        DaysToEndOfMonth = LastDate - StartingDay + 1
+                                            
+                                        If DaysToEndOfMonth < 0 Then
+                                            DaysToEndOfMonth = DaysInMonth - StartingDay + LastDate + 1
+                                        End If
+                                        
+                                        NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                        DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                        
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Or weeknumber = 39 Then
+                                                        'mySet![Amount] = STDRate
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                
+                                                         
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                                
+                                                
+                                                mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                
+                                                
+                                                PreviousWeekWasLastOfMonth = False
+                                                
+                                            End If
+                                        
+                                        
+                                            SAPDate = SAPDate + 7
+                                    
+                                End Select
+                     End If
+                End If
+                
+            Case gcENTITLEMENT_IR_TO_PAY
+               'this and all future entries to be set to amount due
+                If Not mySet.EOF Then
+                   Do Until mySet.EOF
+                       mySet.Edit
+                       StdRateDate = MakeUSDate(mySet!Date)
+                       'MsgBox StdRateDate
+                       strSQL = "SELECT SAPRate from tblSAPRates " & _
+                                "WHERE " & StdRateDate & " >= APPStartsFrom AND " & _
+                                StdRateDate & " <= APPStartsTo"
+                       'MsgBox strSQL
+                        Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                        'MsgBox rsSTDRate!StandardRate
+                        
+                        If Forms!frmSAPPayable.txtAverageWeeklyEarnings * 0.9 > rsSTDRate!SAPRate Then
+                                    mySet!Amount = rsSTDRate!SAPRate
+                        Else
+                                    mySet!Amount = curRoundUp(Forms!frmSAPPayable.txtAverageWeeklyEarnings * 0.9)
+                        End If
+                        
+                        
+                        If StartPayPeriod_SAP_SPP Then
+                    
+                            If Firstweek = True Then
+                        
+                                mySet!Amount = curRoundUp(mySet!Amount * StartPayPeriodDays_SAP_SPP / 7)
+                        
+                                Firstweek = False
+                
+                            ElseIf StartPayPeriod_SAP_SPP And weeknumber = lastweek Then
+                        
+                                        mySet!Amount = curRoundUp(mySet!Amount * (7 - StartPayPeriodDays_SAP_SPP) / 7)
+                                              
+                        
+                            Else
+                                    
+                                    mySet!Amount = curRoundUp(mySet!Amount * StartPayPeriodDays_SAP_SPP / 7) + curRoundUp(mySet!Amount * (7 - StartPayPeriodDays_SAP_SPP) / 7)
+                             
+                             
+                             End If
+                                
+                        End If
+                        
+                        mySet![Entitlement] = gcENTITLEMENT_IR_TO_PAY
+                        mySet.Update
+                        mySet.MoveNext
+                    Loop
+                End If
+                ' Back to previous so that outer loop terminated correctly
+                mySet.MovePrevious
+                mySet.Edit
+
+            End Select
+    
+        mySet.Update
+
+        mySet.MoveNext
+    
+    Loop
+End If
+mySet.Close
+myDB.Close
+
+
+' Update Details section, to reflect database
+Forms![frmSAPPayable]![subWeeklyPayments].Form.Requery
+
+
+End Sub
+
+Public Function CheckSAPSPPEarningsSet()
+Dim rs As DAO.Recordset
+Dim strSQL As String
+
+strSQL = "SELECT COUNT(*) as CountOfEarnings FROM tblSAPSPPEarnings"
+Set rs = CurrentDb.OpenRecordset(strSQL)
+
+If rs!CountOfEarnings = 0 Then
+    MsgBox "Earnings not set", vbExclamation
+    SAPSPPValid = False
+End If
+
+rs.Close
+
+End Function
+
+
+Function MinClass1BSAPSPP(SF)
+'same function as MinClass1B  except table name changed
+' Fuction Name  : MinClass1B
+' Purpose       : Calculate the minimum Class1B income to just qualify for SMP
+'                   or return total sum of Class1B if not qualified
+' Author        : Christopher Schuler
+' Date          : 21 July 1999
+
+
+
+    Dim myDB As Database, MysetA As DAO.Recordset
+    
+    Dim Count1B As Integer
+    Dim D As Integer
+    Dim i As Integer
+    Dim J As Integer
+    Dim K As Integer
+    Dim L As Integer
+    Dim M As Integer
+    Dim N As Integer
+    Dim P As Integer
+    Dim R As Integer
+    Dim Z As Integer
+    Dim SumAll As Currency
+    ReDim mySet(10) As Currency
+    ReDim Combination(4000) As Currency
+
+    Dim curClass1B
+
+    Dim MClass1B
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set MysetA = myDB.OpenRecordset("tblSAPSPPEarnings")
+    If Not MysetA.EOF Then
+        MysetA.MoveFirst
+    End If
+     
+    
+     'how many Class1B records and if any assign to array
+    Do
+        
+
+        If MysetA.Fields(3).value > 0 Then
+
+            
+
+            Count1B = Count1B + 1
+        
+            mySet(Count1B) = MysetA.Fields(3).value
+            
+            
+        End If
+     
+        MysetA.MoveNext
+
+    Loop Until MysetA.EOF
+
+    MysetA.Close
+    
+    If Count1B = 0 Then
+        Exit Function
+    End If
+    
+     
+'Consider combinations of one element, i.e. each value of Class1B individually
+For i = 1 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i)
+
+Next i
+
+'Consider combinations of two elements, i.e. all unique combinations of two amounts of Class1B
+For i = 1 To Count1B - 1
+    
+    For J = i + 1 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J)
+
+Next J, i
+
+'Consider combinations of three elements, i.e. all unique combinations of three amounts of Class1B
+For i = 1 To Count1B - 2
+    
+    For J = i + 1 To Count1B - 1
+     
+        For K = i + 1 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K)
+
+Next K, J, i
+
+'Consider combinations of four elements, i.e. all unique combinations of four amounts of Class1B
+For i = 1 To Count1B - 3
+    
+    For J = i + 1 To Count1B - 2
+     
+        For K = i + 2 To Count1B - 1
+
+            For L = i + 3 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L)
+
+Next L, K, J, i
+
+'Consider combinations of five elements, i.e. all unique combinations of five amounts of Class1B
+For i = 1 To Count1B - 4
+    
+    For J = i + 1 To Count1B - 3
+     
+        For K = i + 2 To Count1B - 2
+
+            For L = i + 3 To Count1B - 1
+
+                 For M = i + 4 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L) + mySet(M)
+
+Next M, L, K, J, i
+        
+'Consider combinations of six elements, i.e. all unique combinations of six amounts of Class1B
+For i = 1 To Count1B - 5
+    
+    For J = i + 1 To Count1B - 4
+     
+        For K = i + 2 To Count1B - 3
+
+            For L = i + 3 To Count1B - 2
+
+                 For M = i + 4 To Count1B - 1
+
+                    For N = i + 5 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L) + mySet(M) + mySet(N)
+
+Next N, M, L, K, J, i
+
+'Consider combinations of seven elements, i.e. all unique combinations of seven amounts of Class1B
+For i = 1 To Count1B - 6
+    
+    For J = i + 1 To Count1B - 5
+     
+        For K = i + 2 To Count1B - 4
+
+            For L = i + 3 To Count1B - 3
+
+                 For M = i + 4 To Count1B - 2
+
+                    For N = i + 5 To Count1B - 1
+
+                        For P = i + 6 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L) + mySet(M) + mySet(N) + mySet(P)
+
+Next P, N, M, L, K, J, i
+
+'Consider combinations of eight elements, i.e. all unique combinations of eight amounts of Class1B
+For i = 1 To Count1B - 7
+    
+    For J = i + 1 To Count1B - 6
+     
+        For K = i + 2 To Count1B - 5
+
+            For L = i + 3 To Count1B - 4
+
+                 For M = i + 4 To Count1B - 3
+
+                    For N = i + 5 To Count1B - 2
+
+                        For P = i + 6 To Count1B - 1
+
+                            For R = i + 7 To Count1B
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L) + mySet(M) + mySet(N) + mySet(P) + mySet(R)
+
+Next R, P, N, M, L, K, J, i
+
+'Consider combinations of nine elements, i.e. the one unique combination of nine amounts of Class1B
+
+
+
+            For i = 1 To Count1B
+          
+              SumAll = SumAll + mySet(i)
+
+            Next i
+          
+
+curClass1B = SumAll
+
+For Z = 1 To D
+    
+    If Combination(Z) >= SF And Combination(Z) <= curClass1B Then
+        
+        curClass1B = Combination(Z)
+
+    End If
+
+Next Z
+
+
+MinClass1BSAPSPP = curClass1B
+
+End Function
+
+Sub SetSAPSPPDueAndUnderOverPayment(inForm As Form)
+' Adapted from Sub SetSMPDueAndUnderOverPayment()
+' Author        : Mustaq Hussain
+' Date          : 3 November 1995
+' Fuction Name  : SetSMPPayments
+' Purpose       : Sets SMP total due and under/overpayment
+            
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Variant
+    
+    ' Query to get total earnings
+    SQLQuery = "SELECT SUM([Amount]) AS vReturnedValue  FROM [tblSAPSPPWeeksAmounts] ;"
+    
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    vReturnedValue = mySet.Fields(0).value
+    Forms(inForm.Name)!txtTotalAmountDue = IIf(IsNull(vReturnedValue), 0, vReturnedValue)
+    
+    mySet.Close
+    myDB.Close
+
+    SetUnderOverpaymentSAPSPP Forms(inForm.Name)!txtTotalAmountDue, Forms(inForm.Name)!txtAmountPaidByEmployer, Forms(inForm.Name)!txtUnderpaymentOfAmount, Forms(inForm.Name)!txtOverpaymentOfAmount, 0
+   
+
+End Sub
+
+Sub SetUnderOverpaymentSAPSPP(ctrDue As Control, ctrPaid As Control, ctrUnder As Control, ctrOver As Control, curTolerance As Currency)
+' Adapted from SetUnderOverpayment
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : SetUnderOverpayment
+' Purpose       : Set under/overpayments
+            
+    ' Ensurre nulls treated as 0
+    If IsNull(ctrPaid) Then
+        ctrPaid = 0
+    End If
+    If IsNull(ctrDue) Then
+        ctrDue = 0
+    End If
+
+    ctrUnder = IIf((ctrPaid - ctrDue - curTolerance) < 0, ctrDue - ctrPaid, 0)
+    ctrOver = IIf((ctrPaid - ctrDue - curTolerance) >= 0, ctrPaid - ctrDue, 0)
+
+
+End Sub
+
+Function SAPRecoverableCalculation() As Integer
+' Adapted from bValidSMPRecoverableCalculation - pmor
+' Author        : Mustaq Hussain
+' Date          : 25 November 1995
+' Fuction Name  : bValidSMPRecoverableCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+'nic rebate not used in this calc
+' Author        : Christopher Schuler
+' Date          : 31 March 2004
+' Purpose       : SER rate can vary so lookup intoduced
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim nTaxYear As Integer
+    Dim strTaxPeriod As String
+    Dim dtmDateFrom
+    Dim ctrUnder As Currency
+    Dim ctrOver As Currency
+    Dim MinQL As Currency 'Minimum Qualifying level for Small Employers
+    
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSAPPayments")
+
+    ' Calculate amount only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+            mySet.Edit
+                
+                nTaxYear = mySet![Taxyear]
+                
+                ' Set the start period for NIC Comp and report specific objects
+                Select Case mySet![Period]
+                    Case gcPERIOD_YEAR
+                        dtmDateFrom = CVDate("6/4/" + Format$(nTaxYear))
+                        strTaxPeriod = "6/4/" + Format$(nTaxYear) + " to 5/4/" + Format$(nTaxYear + 1)
+                    Case gcPERIOD_FIRST
+                        dtmDateFrom = CVDate("6/4/" + Format$(nTaxYear))
+                        strTaxPeriod = "6/4/" + Format$(nTaxYear) + " to 3/9/" + Format$(nTaxYear)
+                    Case gcPERIOD_SECOND
+                        dtmDateFrom = "4/9/" + Format$(nTaxYear)
+                        strTaxPeriod = "4/9/" + Format$(nTaxYear) + " to 5/4/" + Format$(nTaxYear + 1)
+                End Select
+                mySet![TaxPeriod] = strTaxPeriod
+                
+                MinQL = DLookup("MinQualifyingLevel", "tblSER", "TaxYear = " & nTaxYear) 'use lookup instead of hard coding
+                
+                'If (mySet![Class1NICLiability]) <= 40000 Or IsNull(mySet![Class1NICLiability]) Then
+                If (mySet![Class1NICLiability]) <= MinQL Or IsNull(mySet![Class1NICLiability]) Then
+
+                    mySet![SAPRecoveryDue] = mySet![SAPPaid]
+                    mySet![NICCompensationRecoveryDue] = curRoundUp(mySet![SAPPaid] * flNICCompPercentageRateSAPSPP(dtmDateFrom, "tblSAPRecoveryRates"))
+                Else
+                    mySet![SAPRecoveryDue] = curRoundUp(mySet![SAPPaid] * 0.92)
+                    mySet![NICCompensationRecoveryDue] = 0
+                End If
+           
+               
+
+                ' Total SMP+NIC Due
+                mySet![TotalRecoveryDue] = mySet![SAPRecoveryDue] + mySet![NICCompensationRecoveryDue]
+
+                ' Under and Over payment
+                ctrUnder = mySet![TotalUnderRecovered]
+                ctrOver = mySet![TotalOverRecovered]
+                SetEachUnderOverpaymentSAPSPP mySet![TotalRecoveryDue], mySet![SAPRecovered] + mySet![NICCompensationRecovered], ctrUnder, ctrOver
+                mySet![TotalUnderRecovered] = ctrUnder
+                mySet![TotalOverRecovered] = ctrOver
+                
+                ' Liability field
+                If mySet![Period] = gcPERIOD_FIRST Or nTaxYear < 1994 Then
+                    mySet![Class1NICLiabilityReport] = "N/A"
+                Else
+                    mySet![Class1NICLiabilityReport] = "£" + Format$(mySet![Class1NICLiability], "#,0.00")
+                End If
+
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+    Else
+        Beep
+        MsgBox ("No entries")
+        Forms![frmSAPRecoverable]![subPayments].SetFocus
+    End If
+    
+    ' Update Details section, to reflect database
+    Forms![frmSAPRecoverable]![subPayments].Form.Recalc
+
+    mySet.Close
+    myDB.Close
+
+
+End Function
+
+Sub SetEachUnderOverpaymentSAPSPP(ctrDue, ctrPaid, ctrUnder, ctrOver)
+' Adapted from SetEachUnderOverpayment
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : SetEachUnderOverpayment
+' Purpose       : Set under/overpayments
+            
+
+    ' Ensurre nulls treated as 0
+    If IsNull(ctrPaid) Then
+        ctrPaid = 0
+    End If
+    If IsNull(ctrDue) Then
+        ctrDue = 0
+    End If
+
+    ctrUnder = IIf((ctrPaid - ctrDue) < 0, ctrDue - ctrPaid, 0)
+    ctrOver = IIf((ctrPaid - ctrDue) >= 0, ctrPaid - ctrDue, 0)
+
+End Sub
+
+Function flNICCompPercentageRateSAPSPP(dtmStartDate, inTable) As Double
+' Adapted from flSMPNICCompPercentageRateSAP
+' Author        : Mustaq Hussain
+' Date          : 14 December 1995
+' Fuction Name  : flSMPNICCompPercentageRate
+' Purpose       : Returns percentage
+            
+    Dim myDB As Database
+    Dim MyLookUp As DAO.Recordset
+    Dim SQLQuery
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+    'SQLQuery = "SELECT DISTINCTROW NICPercentageRate FROM [tblSAPRecoveryRates] "
+    SQLQuery = "SELECT DISTINCTROW NICPercentageRate FROM " & inTable
+    SQLQuery = SQLQuery + " WHERE (From<= #" + Format$(dtmStartDate, "mm/dd/yyyy") + "# And "
+    SQLQuery = SQLQuery + "(To>=#" + Format$(dtmStartDate, "mm/dd/yyyy") + "# Or To Is Null) );"
+    
+    Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+    
+    flNICCompPercentageRateSAPSPP = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+
+    MyLookUp.Close
+
+
+End Function
+
+
+Public Function MakeUSDate(inDate As Variant) As Variant
+
+    MakeUSDate = "#" & Month(inDate) & "/" & Day(inDate) & "/" & Year(inDate) & "#"
+
+End Function
+
+Public Function SetSPPAdoptionRates()
+ ' Adapted from Sub SetMPPRates()
+
+' Author        : pmor
+' Date          : Jan 03
+' Purpose       : Set rates for SPP (Adoption)
+' Author        : Chris Schuler
+' Date            : 27 April 2007
+' Purpose      : CCA10049 - Weekly rates can now be split into two to align payments to employees normal pay perriod
+        
+Dim myDB As Database, mySet As DAO.Recordset
+
+
+Dim rsSTDRate As DAO.Recordset
+Dim strSQL As String
+Dim StdRateDate
+Dim Firstweek As Boolean
+Dim lastweek As Integer
+Dim weeknumber As Integer
+Dim SPPDate
+Dim StartingDay
+Dim StartingWeekday
+Dim StartingMonth
+Dim ThisMonth
+Dim DaysInMonth
+Dim DaysToEndOfMonth
+Dim NoOfWeeksToEndOfMonth
+Dim DaysAtEndOfMonth
+Dim PreviousWeekWasLastOfMonth As Boolean
+Dim DaysInFirstWeek
+Dim StartingDate As String
+Dim LastWorkingDay
+Dim LastDate
+Dim LastSpecifiedDay
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+Set mySet = myDB.OpenRecordset("tblSAPSPPWeeksAmounts")
+If SAPSPPValid = False Then
+        mySet.MoveFirst
+       
+                If Not mySet.EOF Then
+                    
+                    Do Until mySet.EOF
+                        mySet.Edit
+                        mySet![Amount] = 0
+                       
+                        mySet.Update
+                        mySet.MoveNext
+                    Loop
+                    
+                End If
+Else
+    mySet.MoveFirst
+    
+    Firstweek = True
+    weeknumber = 0
+    lastweek = mySet.Recordcount
+    Do Until mySet.EOF
+        weeknumber = weeknumber + 1
+        mySet.Edit
+        Select Case mySet![Entitlement]
+            Case gcENTITLEMENT_EXCLUDED 'exclude all from here
+                mySet![Amount] = 0
+                mySet.Update
+                mySet.MoveNext
+                If Not mySet.EOF Then
+                    Do Until mySet.EOF
+                        mySet.Edit
+                        mySet![Amount] = 0
+                        mySet![Entitlement] = gcENTITLEMENT_EXCLUDED
+                        mySet.Update
+                        mySet.MoveNext
+                    Loop
+                End If
+                ' Back to previous so that outer loop terminated correctly
+                mySet.MovePrevious
+                mySet.Edit
+    
+            Case gcENTITLEMENT_WEEK_WORKED
+                mySet![Amount] = 0
+            
+            Case gcENTITLEMENT_SSP_PAID
+                mySet![Amount] = 0
+            
+            Case gcENTITLEMENT_SPP_DUE
+                '90% of Ave Weekly Earnings is paid.
+                'If 90% of Ave Weekly Earnings > 100 then payment is capped
+                'at SAP rate
+                StdRateDate = MakeUSDate(mySet!Date)
+                'MsgBox StdRateDate
+                strSQL = "SELECT SPPAdoptionRate from tblSPPAdoptionRates " & _
+                         "WHERE " & StdRateDate & " >= PPStartsFrom AND " & _
+                         StdRateDate & " <= PPStartsTo"
+                
+                Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                
+                If Forms!frmSPPAdoptionPayable.txtAverageWeeklyEarnings * 0.9 > rsSTDRate!SPPAdoptionRate Then
+                        mySet!Amount = rsSTDRate!SPPAdoptionRate
+                Else
+                        mySet!Amount = curRoundUp(Forms!frmSPPAdoptionPayable.txtAverageWeeklyEarnings * 0.9)
+                End If
+                            
+                
+                If StartPayPeriod_SAP_SPP Then
+                    If Forms!frmSPPAdoptionPayable!grpPayPeriod = 1 Then
+                    
+                        If Firstweek = True Then
+                    
+                            mySet!Amount = curRoundUp(mySet!Amount * StartPayPeriodDays_SAP_SPP / 7)
+                    
+                            Firstweek = False
+                    
+                        ElseIf StartPayPeriod_SAP_SPP And weeknumber = lastweek Then
+                    
+                            mySet!Amount = curRoundUp(mySet!Amount * (7 - StartPayPeriodDays_SAP_SPP) / 7)
+                        
+                        Else
+                        
+                            mySet!Amount = curRoundUp(mySet!Amount * StartPayPeriodDays_SAP_SPP / 7) + curRoundUp(mySet!Amount * (7 - StartPayPeriodDays_SAP_SPP) / 7)
+                        
+                        
+                        
+                        End If
+                        ElseIf Forms!frmSPPAdoptionPayable!grpPayPeriod = 2 Then
+                            
+                            SPPDate = mySet!Date
+                            'monthly
+                            Select Case PaymentType
+                                   
+                                        Case 1 'last calendar day
+                                            StartingDay = DatePart("d", SPPDate)
+                                            StartingWeekday = Weekday(SPPDate)
+                                            StartingMonth = Month(SPPDate)
+                                            ThisMonth = StartingMonth
+                                            DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                
+                                            DaysToEndOfMonth = DaysInMonth - StartingDay + 1
+                                                
+                                            NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                            DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                                                                       
+                                                If Not PreviousWeekWasLastOfMonth Then
+                                                    If NoOfWeeksToEndOfMonth > 0 Then
+                                                            'mySet![Amount] = STDRate
+                                                            
+                                                    Else
+                                                    
+                                                    
+                                                            'last week of month
+                                                            mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                            
+                                                            StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                    
+                                                             
+                                                            PreviousWeekWasLastOfMonth = True
+                                                            DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                    End If
+                                                Else
+                                                
+                                                    mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                    PreviousWeekWasLastOfMonth = False
+                                                End If
+                                            
+                                            
+                                                SPPDate = SPPDate + 7
+                                        
+                                        Case 2 'last working day
+                                            
+                                            StartingDay = DatePart("d", SPPDate)
+                                            StartingWeekday = Weekday(SPPDate)
+                                            StartingMonth = Month(SPPDate)
+                                            ThisMonth = StartingMonth
+                                            DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                            StartingDate = CStr(SPPDate)
+                                            LastWorkingDay = LastWorkDayOfMonth(StartingDate)
+                                            LastDate = DatePart("d", CDate(LastWorkingDay))
+                                            DaysToEndOfMonth = LastDate - StartingDay + 1
+                                                
+                                            NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                            DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                            
+                                                        
+                                                If Not PreviousWeekWasLastOfMonth Then
+                                                    If NoOfWeeksToEndOfMonth > 0 Then
+                                                            'mySet![Amount] = STDRate
+                                                            
+                                                    Else
+                                                    
+                                                    
+                                                            'last week of month
+                                                            mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                            
+                                                            StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                    
+                                                             
+                                                            PreviousWeekWasLastOfMonth = True
+                                                            DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                    End If
+                                                Else
+                                                
+                                                    mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                    PreviousWeekWasLastOfMonth = False
+                                                End If
+                                            
+                                            
+                                                SPPDate = SPPDate + 7
+    
+                                        Case 3 'last specified day
+                                        
+                                            StartingDay = DatePart("d", SPPDate)
+                                            StartingWeekday = Weekday(SPPDate)
+                                            StartingMonth = Month(SPPDate)
+                                            ThisMonth = StartingMonth
+                                            DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                            StartingDate = CStr(SPPDate)
+                                            LastSpecifiedDay = LastDayOfMonth(PaymentDay, StartingDate)
+                                            
+                                            LastDate = DatePart("d", CDate(LastSpecifiedDay))
+                                            DaysToEndOfMonth = LastDate - StartingDay + 1
+                                                
+                                            NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                            DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                               
+                                                If Not PreviousWeekWasLastOfMonth Then
+                                                    If NoOfWeeksToEndOfMonth > 0 Then
+                                                            'mySet![Amount] = STDRate
+                                                            
+                                                    Else
+                                                    
+                                                    
+                                                            'last week of month
+                                                            mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                            
+                                                            StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                    
+                                                             
+                                                            PreviousWeekWasLastOfMonth = True
+                                                            DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                    End If
+                                                Else
+                                                
+                                                    mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                    PreviousWeekWasLastOfMonth = False
+                                                End If
+                                            
+                                                SPPDate = SPPDate + 7
+    
+    
+                                        Case 4 'last specified date
+                                        
+                                            StartingDay = DatePart("d", SPPDate)
+                                            StartingWeekday = Weekday(SPPDate)
+                                            StartingMonth = Month(SPPDate)
+                                            ThisMonth = StartingMonth
+                                            DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                            'StartingDate = CStr(SPPDate)
+                                            
+                                            
+                                            LastDate = PaymentDate
+                                            DaysToEndOfMonth = LastDate - StartingDay + 1
+                                                
+                                            If DaysToEndOfMonth < 0 Then
+                                                DaysToEndOfMonth = DaysInMonth - StartingDay + LastDate + 1
+                                            End If
+                                            
+                                            NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                            DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                            
+                                                If Not PreviousWeekWasLastOfMonth Then
+                                                    If NoOfWeeksToEndOfMonth > 0 Then
+                                                            'mySet![Amount] = STDRate
+                                                            
+                                                    Else
+                                                    
+                                                    
+                                                            'last week of month
+                                                            mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                            
+                                                            StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                    
+                                                             
+                                                            PreviousWeekWasLastOfMonth = True
+                                                            DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                    End If
+                                                Else
+                                                    
+                                                    
+                                                    mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                    
+                                                    
+                                                    PreviousWeekWasLastOfMonth = False
+                                                    
+                                                End If
+                                            
+                                            
+                                                SPPDate = SPPDate + 7
+                                        
+                                    End Select
+                         End If
+                    End If
+                
+        End Select
+        mySet.Update
+
+        mySet.MoveNext
+    
+    Loop
+End If
+mySet.Close
+myDB.Close
+
+
+' Update Details section, to reflect database
+Forms![frmSPPAdoptionPayable]![subWeeklyPayments].Form.Requery
+
+End Function
+Function SPPRecoverableCalculation(PaymentsTable As String, RecTable As String, inForm As Form) As Integer
+' Adapted from bValidSMPRecoverableCalculation
+' Author        : pmor
+' Date          : Jan 03
+' Purpose       : SPP Recovery calc for birth and adoption
+' Author        : Christopher Schuler
+' Date          : 31 March 2004
+' Purpose       : SER rate can vary so lookup intoduced
+            
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim nTaxYear As Integer
+    Dim strTaxPeriod As String
+    Dim dtmDateFrom
+    Dim ctrUnder As Currency
+    Dim ctrOver As Currency
+    Dim MinQL As Currency 'Minimum Qualifying level for Small Employers
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(PaymentsTable)
+
+    ' Calculate amount only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+            mySet.Edit
+                
+                nTaxYear = mySet![Taxyear]
+                
+                ' Set the start period for NIC Comp and report specific objects
+                Select Case mySet![Period]
+                    Case gcPERIOD_YEAR
+                        dtmDateFrom = CVDate("6/4/" + Format$(nTaxYear))
+                        strTaxPeriod = "6/4/" + Format$(nTaxYear) + " to 5/4/" + Format$(nTaxYear + 1)
+                    Case Else
+                        'can't be anything else?
+                        MsgBox "Invalid period - unable to calculate", vbCritical
+                        Exit Function
+                End Select
+                mySet![TaxPeriod] = strTaxPeriod
+                
+                MinQL = DLookup("MinQualifyingLevel", "tblSER", "TaxYear = " & nTaxYear) 'use lookup instead of hard coding
+
+                'If (mySet![Class1NICLiability] - mySet!Rebate) <= 40000 Or IsNull(mySet![Class1NICLiability]) Then
+                If (mySet![Class1NICLiability] - mySet![Rebate]) <= MinQL Or IsNull(mySet![Class1NICLiability]) Then
+
+                    mySet![SPPRecoveryDue] = mySet![SPPPaid]
+                    mySet![NICCompensationRecoveryDue] = curRoundUp(mySet![SPPPaid] * flNICCompPercentageRateSAPSPP(dtmDateFrom, RecTable))
+                Else
+                    mySet![SPPRecoveryDue] = curRoundUp(mySet![SPPPaid] * 0.92)
+                    mySet![NICCompensationRecoveryDue] = 0
+                End If
+           
+               
+
+                ' Total SMP+NIC Due
+                mySet![TotalRecoveryDue] = mySet![SPPRecoveryDue] + mySet![NICCompensationRecoveryDue]
+
+                ' Under and Over payment
+                ctrUnder = mySet![TotalUnderRecovered]
+                ctrOver = mySet![TotalOverRecovered]
+                SetEachUnderOverpaymentSAPSPP mySet![TotalRecoveryDue], mySet![SPPRecovered] + mySet![NICCompensationRecovered], ctrUnder, ctrOver
+                mySet![TotalUnderRecovered] = ctrUnder
+                mySet![TotalOverRecovered] = ctrOver
+                
+                ' Liability field
+                If mySet![Period] = gcPERIOD_FIRST Or nTaxYear < 1994 Then
+                    mySet![Class1NICLiabilityReport] = "N/A"
+                Else
+                    mySet![Class1NICLiabilityReport] = "£" + Format$(mySet![Class1NICLiability], "#,0.00")
+                End If
+
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+    Else
+        Beep
+        MsgBox ("No entries")
+        Forms(inForm.Name)![subPayments].SetFocus
+    End If
+    
+    ' Update Details section, to reflect database
+    Forms(inForm.Name)![subPayments].Form.Recalc
+
+    mySet.Close
+    myDB.Close
+
+
+End Function
+
+
+Public Function SetSPPBirthRates()
+ ' Adapted from Sub SetMPPRates()
+
+' Author        : pmor
+' Date          : Jan 03
+' Purpose       : Set rates for SPP (Birth)
+' Author        : Chris Schuler
+' Date            : 27 April 2007
+' Purpose      : CCA10049 - Weekly rates can now be split into two to align payments to employees normal pay perriod
+         
+Dim myDB As Database, mySet As DAO.Recordset
+
+
+Dim rsSTDRate As DAO.Recordset
+Dim strSQL As String
+Dim StdRateDate
+Dim Firstweek As Boolean
+Dim lastweek As Integer
+Dim weeknumber As Integer
+Dim SPPDate
+Dim StartingDay
+Dim StartingWeekday
+Dim StartingMonth
+Dim ThisMonth
+Dim DaysInMonth
+Dim DaysToEndOfMonth
+Dim NoOfWeeksToEndOfMonth
+Dim DaysAtEndOfMonth
+Dim PreviousWeekWasLastOfMonth As Boolean
+Dim DaysInFirstWeek
+Dim StartingDate As String
+Dim LastWorkingDay
+Dim LastDate
+Dim LastSpecifiedDay
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+Set mySet = myDB.OpenRecordset("tblSAPSPPWeeksAmounts")
+If SAPSPPValid = False Then
+        mySet.MoveFirst
+        
+                If Not mySet.EOF Then
+                    
+                    Do Until mySet.EOF
+                        mySet.Edit
+                        mySet![Amount] = 0
+                       
+                        mySet.Update
+                        mySet.MoveNext
+                    Loop
+                    
+                End If
+Else
+    mySet.MoveFirst
+    
+    Firstweek = True
+    weeknumber = 0
+    lastweek = mySet.Recordcount
+    
+    Do Until mySet.EOF
+        
+        weeknumber = weeknumber + 1
+        
+        mySet.Edit
+        Select Case mySet![Entitlement]
+            Case gcENTITLEMENT_EXCLUDED 'exclude all from here
+                mySet![Amount] = 0
+                mySet.Update
+                mySet.MoveNext
+                If Not mySet.EOF Then
+                    Do Until mySet.EOF
+                        mySet.Edit
+                        mySet![Amount] = 0
+                        mySet![Entitlement] = gcENTITLEMENT_EXCLUDED
+                        mySet.Update
+                        mySet.MoveNext
+                    Loop
+                End If
+                ' Back to previous so that outer loop terminated correctly
+                mySet.MovePrevious
+                mySet.Edit
+    
+            Case gcENTITLEMENT_WEEK_WORKED
+                mySet![Amount] = 0
+            
+            Case gcENTITLEMENT_SSP_PAID
+                mySet![Amount] = 0
+            
+            Case gcENTITLEMENT_SPP_DUE
+                '90% of Ave Weekly Earnings is paid.
+                'If 90% of Ave Weekly Earnings > 100 then payment is capped
+                'at SPP rate
+                
+                StdRateDate = MakeUSDate(mySet!Date)
+                'MsgBox StdRateDate
+                strSQL = "SELECT SPPBirthRate from tblSPPBirthRates " & _
+                         "WHERE " & StdRateDate & " >= PPStartsFrom AND " & _
+                         StdRateDate & " <= PPStartsTo"
+                'MsgBox strSQL
+                Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                'MsgBox rsSTDRate!StandardRate
+                
+                'if baby is born before 06/04/2003 then a rate of 75.00 is paid
+                'for one or both weeks
+                If Forms!frmSPPBirthPayable!txtActDOB < #4/6/2003# Then
+                    mySet!Amount = 75
+                ElseIf StartPayPeriod_SAP_SPP Then
+                    
+                    If Forms!frmSPPBirthPayable.txtAverageWeeklyEarnings * 0.9 > rsSTDRate!SPPBirthRate Then
+                        mySet!Amount = rsSTDRate!SPPBirthRate
+                    Else
+                        mySet!Amount = curRoundUp(Forms!frmSPPBirthPayable.txtAverageWeeklyEarnings * 0.9)
+                    End If
+                    
+                    If Forms!frmSPPBirthPayable!grpPayPeriod = 1 Then
+
+                        If Firstweek = True Then
+                        
+                                mySet!Amount = curRoundUp(mySet!Amount * StartPayPeriodDays_SAP_SPP / 7)
+                    
+                                Firstweek = False
+                    
+                        ElseIf weeknumber = lastweek Then
+                    
+                                mySet!Amount = curRoundUp(mySet!Amount * (7 - StartPayPeriodDays_SAP_SPP) / 7)
+                        
+                        Else
+                        
+                                mySet!Amount = curRoundUp(mySet!Amount * StartPayPeriodDays_SAP_SPP / 7) + curRoundUp(mySet!Amount * (7 - StartPayPeriodDays_SAP_SPP) / 7)
+                        
+                        End If
+                    
+                    ElseIf Forms!frmSPPBirthPayable!grpPayPeriod = 2 Then
+                            
+                            SPPDate = mySet!Date
+                            'monthly
+                            Select Case PaymentType
+                                   
+                                        Case 1 'last calendar day
+                                            StartingDay = DatePart("d", SPPDate)
+                                            StartingWeekday = Weekday(SPPDate)
+                                            StartingMonth = Month(SPPDate)
+                                            ThisMonth = StartingMonth
+                                            DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                
+                                            DaysToEndOfMonth = DaysInMonth - StartingDay + 1
+                                                
+                                            NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                            DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                                                                       
+                                                If Not PreviousWeekWasLastOfMonth Then
+                                                    If NoOfWeeksToEndOfMonth > 0 Then
+                                                            'mySet![Amount] = STDRate
+                                                            
+                                                    Else
+                                                    
+                                                    
+                                                            'last week of month
+                                                            mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                            
+                                                            StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                    
+                                                             
+                                                            PreviousWeekWasLastOfMonth = True
+                                                            DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                    End If
+                                                Else
+                                                
+                                                    mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                    PreviousWeekWasLastOfMonth = False
+                                                End If
+                                            
+                                            
+                                                SPPDate = SPPDate + 7
+                                        
+                                        Case 2 'last working day
+                                            
+                                            StartingDay = DatePart("d", SPPDate)
+                                            StartingWeekday = Weekday(SPPDate)
+                                            StartingMonth = Month(SPPDate)
+                                            ThisMonth = StartingMonth
+                                            DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                            StartingDate = CStr(SPPDate)
+                                            LastWorkingDay = LastWorkDayOfMonth(StartingDate)
+                                            LastDate = DatePart("d", CDate(LastWorkingDay))
+                                            DaysToEndOfMonth = LastDate - StartingDay + 1
+                                                
+                                            NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                            DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                            
+                                                        
+                                                If Not PreviousWeekWasLastOfMonth Then
+                                                    If NoOfWeeksToEndOfMonth > 0 Then
+                                                            'mySet![Amount] = STDRate
+                                                            
+                                                    Else
+                                                    
+                                                    
+                                                            'last week of month
+                                                            mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                            
+                                                            StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                    
+                                                             
+                                                            PreviousWeekWasLastOfMonth = True
+                                                            DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                    End If
+                                                Else
+                                                
+                                                    mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                    PreviousWeekWasLastOfMonth = False
+                                                End If
+                                            
+                                            
+                                                SPPDate = SPPDate + 7
+    
+                                        Case 3 'last specified day
+                                        
+                                            StartingDay = DatePart("d", SPPDate)
+                                            StartingWeekday = Weekday(SPPDate)
+                                            StartingMonth = Month(SPPDate)
+                                            ThisMonth = StartingMonth
+                                            DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                            StartingDate = CStr(SPPDate)
+                                            LastSpecifiedDay = LastDayOfMonth(PaymentDay, StartingDate)
+                                            
+                                            LastDate = DatePart("d", CDate(LastSpecifiedDay))
+                                            DaysToEndOfMonth = LastDate - StartingDay + 1
+                                                
+                                            NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                            DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                               
+                                                If Not PreviousWeekWasLastOfMonth Then
+                                                    If NoOfWeeksToEndOfMonth > 0 Then
+                                                            'mySet![Amount] = STDRate
+                                                            
+                                                    Else
+                                                    
+                                                    
+                                                            'last week of month
+                                                            mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                            
+                                                            StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                    
+                                                             
+                                                            PreviousWeekWasLastOfMonth = True
+                                                            DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                    End If
+                                                Else
+                                                
+                                                    mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                    PreviousWeekWasLastOfMonth = False
+                                                End If
+                                            
+                                                SPPDate = SPPDate + 7
+    
+    
+                                        Case 4 'last specified date
+                                        
+                                            StartingDay = DatePart("d", SPPDate)
+                                            StartingWeekday = Weekday(SPPDate)
+                                            StartingMonth = Month(SPPDate)
+                                            ThisMonth = StartingMonth
+                                            DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                            'StartingDate = CStr(SPPDate)
+                                            
+                                            
+                                            LastDate = PaymentDate
+                                            DaysToEndOfMonth = LastDate - StartingDay + 1
+                                                
+                                            If DaysToEndOfMonth < 0 Then
+                                                DaysToEndOfMonth = DaysInMonth - StartingDay + LastDate + 1
+                                            End If
+                                            
+                                            NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                            DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                            
+                                                If Not PreviousWeekWasLastOfMonth Then
+                                                    If NoOfWeeksToEndOfMonth > 0 Then
+                                                            'mySet![Amount] = STDRate
+                                                            
+                                                    Else
+                                                    
+                                                    
+                                                            'last week of month
+                                                            mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * mySet![Amount])
+                                                            
+                                                            StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                    
+                                                             
+                                                            PreviousWeekWasLastOfMonth = True
+                                                            DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                    End If
+                                                Else
+                                                    
+                                                    
+                                                    mySet![Amount] = mySet![Amount] + curRoundUp(DaysInFirstWeek / 7 * mySet![Amount])
+                                                    
+                                                    
+                                                    PreviousWeekWasLastOfMonth = False
+                                                    
+                                                End If
+                                            
+                                            
+                                                SPPDate = SPPDate + 7
+                                        
+                                    End Select
+                         End If
+
+                End If
+        End Select
+        mySet.Update
+    
+        mySet.MoveNext
+    Loop
+End If
+mySet.Close
+myDB.Close
+
+
+' Update Details section, to reflect database
+Forms![frmSPPBirthPayable]![subWeeklyPayments].Form.Requery
+
+End Function
+
+

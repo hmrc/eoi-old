@@ -1,0 +1,94 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cboTaxYear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cboTaxYear_Click
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    Dim RecordTotal As Integer
+    Dim taxcheck As String
+    Dim test As String
+    
+
+    DoCmd.SetWarnings False
+
+    Set myDB = CurrentDb()
+        
+    If IsNull(Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear) Then
+         Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = DMax("[tax year]", "Class 1 Contribution Primary And Secondary Percentage Rates")
+        Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Liability For Class 1 Deferment] WHERE [Tax Year] = """ & Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear & """;")
+   Else
+    If Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear < 2016 Then
+        test = Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear
+        Forms!frmAppendix2.subAppendix2.SourceObject = "frmLiabilityForClass1Deferment"
+        Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = test
+    Exit Sub
+    Else
+        Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Liability For Class 1 Deferment] WHERE [Tax Year] = """ & Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear & """;")
+    End If
+   End If
+   
+    With Forms![frmAppendix2]![subAppendix2].Form
+        .[One Paying Employment] = MyRecordSet![One Paying Employment]
+        .[Two Paying Employment] = MyRecordSet![Two Paying Employment]
+        .[53 Standard] = MyRecordSet![53 Standard]
+        .[52 Standard] = MyRecordSet![52 Standard]
+        .[12 Standard] = MyRecordSet![12 Standard]
+        .[53 Reduced] = MyRecordSet![53 Reduced]
+        .[52 Reduced] = MyRecordSet![52 Reduced]
+        .[12 Reduced] = MyRecordSet![12 Reduced]
+        '.[53 Contracted] = MyRecordSet![53 Contracted]
+        '.[52 Contracted] = MyRecordSet![52 Contracted]
+        '.[12 Contracted] = MyRecordSet![12 Contracted]
+        .[Wholly Standard] = MyRecordSet![Wholly Standard]
+        .[Wholly Reduced] = MyRecordSet![Wholly Reduced]
+        '.[Wholly Contracted] = MyRecordSet![Wholly Contracted]
+    End With
+
+
+Exit_cboTaxYear_Click:
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub Form_Load()
+
+    On Error GoTo err_Form_Load
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    
+    Set myDB = CurrentDb()
+                
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Liability For Class 1 Deferment];")
+
+    MyRecordSet.MoveLast
+    
+    'Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = MyRecordSet![Tax Year]
+
+    cboTaxYear_Click
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+
+End Sub

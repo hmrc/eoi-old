@@ -1,0 +1,224 @@
+Option Compare Database   'Use database order for string comparisons
+' Author        : Christopher Schuler
+' Date          : 16/12/2002
+' Purpose       : New form for 2003
+Private Sub bandenq_Click()
+
+On Error GoTo err_bandenq_Click
+
+DoCmd.Echo False
+
+If TAXYEAR2003 > 2010 Then
+    DoCmd.OpenForm "frmBand2015", A_NORMAL, , , , , TAXYEAR2003
+    Forms!frmBand2015!Taxyear.SetFocus
+ElseIf TAXYEAR2003 > 2010 Then
+    DoCmd.OpenForm "frmBand2011", A_NORMAL, , , , , TAXYEAR2003
+    Forms!frmBand2011!Taxyear.SetFocus
+Else
+    DoCmd.OpenForm "bandform", A_NORMAL, , , , , TAXYEAR2003
+    Forms!bandform!Taxyear.SetFocus
+End If
+
+DoCmd.Close A_FORM, "rateform_2003"
+
+DoCmd.Echo True
+
+exit_bandenq_Click:
+    Exit Sub
+err_bandenq_Click:
+    MsgBox Error$
+    Resume exit_bandenq_Click
+End Sub
+
+Private Sub category_Click()
+ 
+' Author        : Christopher Schuler
+' Date          : 16/12/2002
+' Purpose       : New form for 2003
+
+On Error GoTo err_category_Click
+DoCmd.Hourglass True
+DoCmd.Echo False
+
+Dim fieldtest As Variant
+'Validation of input fields
+fieldtest = Forms!rateform_2003!TAXYEAR2003
+'taxyear
+If IsNull(fieldtest) Or fieldtest = 0 Then
+MsgBox "You have not input a taxyear", 48, "Warning"
+Forms!rateform_2003!Taxyear.SetFocus
+End If
+
+If Forms!rateform_2003!TAXYEAR2003 > 1995 Then
+    If Forms!rateform_2003!Category = "A HMF" Or Forms!rateform_2003!Category = "B HMF" Or Forms!rateform_2003!Category = "D HMF" Or Forms!rateform_2003!Category = "E HMF" Then
+        MsgBox "Categories 'A HMF, B HMF, D HMF, E HMF' are not available after 1995/96 - please reinput", 48, "Warning"
+        Forms!rateform_2003!Category = "A"
+       
+    End If
+End If
+
+Me.Requery
+
+
+If Forms!rateform_2003!Category = "C" Then
+    Forms!rateform_2003!Text151.Visible = True
+Else
+    Forms!rateform_2003!Text151.Visible = False
+End If
+
+exit_category_Click:
+    DoCmd.Hourglass False
+    DoCmd.Echo True
+    Exit Sub
+err_category_Click:
+    MsgBox Error$
+    Resume exit_category_Click
+
+End Sub
+
+
+
+Private Sub close_Click()
+
+On Error GoTo Err_close_Click
+
+    DoCmd.Close
+ 
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Christopher Schuler
+' Date          : 16/12/2002
+' Purpose       : New form for 2003
+' Author        : Christopher Sneddon
+' Date          : 29/01/2009
+' Purpose       : Alterations for 2009 UAP
+
+
+ 
+On Error GoTo err_Form_Load
+
+   'check if year passed in
+    If Me.OpenArgs <> "" Then
+        TAXYEAR2003 = OpenArgs
+    Else
+        TAXYEAR2003 = 2003
+    End If
+
+Me.Requery
+'TAXYEAR2003_AfterUpdate
+
+    DoCmd.Maximize
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+Private Sub startweek_Click()
+
+' Author        : Christopher Schuler
+' Date          : 16/12/2002
+' Purpose       : New form for 2003
+
+On Error GoTo err_startweek_Click
+DoCmd.Hourglass True
+DoCmd.Echo False
+
+Me.Requery
+
+DoCmd.Echo True
+exit_startweek_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_startweek_Click:
+    MsgBox Error$
+    Resume exit_startweek_Click
+End Sub
+
+Private Sub startweek_GotFocus()
+Refresh
+End Sub
+
+Private Sub TAXYEAR2003_AfterUpdate()
+' Author        : Christopher Schuler
+' Date          : 16/12/2002
+' Purpose       : New form for 2003
+
+On Error GoTo err_TAXYEAR2003_AfterUpdate
+DoCmd.Echo False
+DoCmd.Hourglass True
+
+If Forms!rateform_2003!TAXYEAR2003 < 2003 Then
+    
+    DoCmd.OpenForm "rateform", , , , , , TAXYEAR2003
+    
+    'Show/hide fields - code moved to sub
+    SetFieldsFor_Year_Cat_Week
+    
+    
+    DoCmd.Close A_FORM, "rateform_2003"
+    Forms!rateform!Taxyear.SetFocus
+    
+
+ElseIf Forms!rateform_2003!TAXYEAR2003 > 2015 Then
+    DoCmd.OpenForm "rateform_2016", , , , , , TAXYEAR2013
+    Forms!rateform_2016!startweek.value = 1
+    Forms!rateform_2016!Category = "A"
+    Me.Requery
+    DoCmd.Close A_FORM, "rateform_2003"
+    Forms!rateform_2016!TAXYEAR2016.SetFocus
+    
+ElseIf Forms!rateform_2003!TAXYEAR2003 > 2014 Then
+    DoCmd.OpenForm "rateform_2015", , , , , , TAXYEAR2013
+    Forms!rateform_2015!startweek.value = 1
+    Forms!rateform_2015!Category = "A"
+    Me.Requery
+    DoCmd.Close A_FORM, "rateform_2003"
+    Forms!rateform_2015!TAXYEAR2015.SetFocus
+    
+ElseIf Forms!rateform_2003!TAXYEAR2003 > 2010 Then
+    DoCmd.OpenForm "rateform_2011", , , , , , TAXYEAR2003
+    Forms!rateform_2011!startweek.value = 1
+    Forms!rateform_2011!Category = "A"
+    Me.Requery
+    DoCmd.Close A_FORM, "rateform_2003"
+    Forms!rateform_2011!TAXYEAR2011.SetFocus
+    
+ElseIf Forms!rateform_2003!TAXYEAR2003 > 2008 Then 'csne 2009 tax year
+    'Set default value on start year
+    DoCmd.OpenForm "rateform_2009", , , , , , TAXYEAR2003
+          
+    Forms!rateform_2009.RecordSource = "qryClass1Rates2009"
+    
+    DoCmd.Close A_FORM, "rateform_2003"
+    Forms!rateform_2009!TAXYEAR2009.SetFocus
+    
+ElseIf Forms!rateform_2003!TAXYEAR2003 >= 2003 And Forms!rateform_2003!TAXYEAR2003 < 2009 Then
+    'Set default value on start year
+    Forms!rateform_2003!startweek.value = 1
+    Forms!rateform_2003!Category = "A"
+    Me.Requery
+    
+End If
+
+
+exit_TAXYEAR2003_AfterUpdate:
+    DoCmd.Echo True
+
+    DoCmd.Hourglass False
+    Exit Sub
+err_TAXYEAR2003_AfterUpdate:
+    MsgBox Error$
+    Resume exit_TAXYEAR2003_AfterUpdate
+End Sub
+

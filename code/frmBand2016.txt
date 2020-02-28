@@ -1,0 +1,127 @@
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub close_Click()
+
+On Error GoTo Err_close_Click
+    DoCmd.Close
+
+Exit_close_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+    
+End Sub
+
+Private Sub Form_Load()
+
+    On Error GoTo err_Form_Load
+        DoCmd.Maximize
+    
+    If OpenArgs <> "" Then
+        Forms![frmBand2016]!Taxyear = OpenArgs
+    Else
+        Forms![frmBand2016]!Taxyear = strCurrentTaxYear("CLASS 1 RATE TABLE")
+    End If
+    
+    Forms!frmBand2016.RecordSource = "qryBands2016"
+
+        lblUST.Visible = True
+        txtWkUST.Visible = True
+        txtMnthUST.Visible = True
+        txtMnthUST.Visible = True
+               
+    
+    Refresh
+
+    taxyear_Click
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+Private Sub rateenq_Click()
+
+    On Error GoTo err_rateenq_Click
+    DoCmd.Hourglass True
+    
+    If Taxyear > 2015 Then
+        DoCmd.OpenForm "rateform_2016", A_NORMAL, , , , , Taxyear
+        Forms!rateform_2016!TAXYEAR2016.SetFocus
+        
+    ElseIf Taxyear > 2014 Then
+        DoCmd.OpenForm "rateform_2015", A_NORMAL, , , , , Taxyear
+        Forms!rateform_2015!TAXYEAR2015.SetFocus
+        
+    ElseIf Taxyear > 2010 Then
+        DoCmd.OpenForm "rateform_2011", A_NORMAL, , , , , Taxyear
+        Forms!rateform_2011!TAXYEAR2011.SetFocus
+    
+    ElseIf Taxyear < 2003 Then
+        DoCmd.OpenForm "rateform", A_NORMAL, , , , , Taxyear
+        Forms!rateform!Taxyear.SetFocus
+    
+    ElseIf Taxyear < 2009 Then
+        DoCmd.OpenForm "rateform_2003", A_NORMAL, , , , Taxyear
+        Forms!rateform_2003!TAXYEAR2003.SetFocus
+        
+    Else
+    
+        DoCmd.OpenForm "rateform_2009", A_NORMAL, , , , , Taxyear
+        Forms!rateform_2009!TAXYEAR2009.SetFocus
+    End If
+    
+    DoCmd.Close acForm, "frmBand2016"
+
+exit_rateenq_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_rateenq_Click:
+    MsgBox Error$
+    Resume exit_rateenq_Click
+End Sub
+
+
+Private Sub taxyear_Click()
+
+    On Error GoTo err_taxyear_Click
+    DoCmd.Echo False
+    
+    If Forms!frmBand2016!Taxyear < 2011 Then
+        DoCmd.OpenForm "bandform", A_NORMAL, , , , , Taxyear
+        DoCmd.Close acForm, "frmBand2016"
+        
+    ElseIf Forms!frmBand2016!Taxyear < 2016 Then
+        DoCmd.OpenForm "frmBand2011", A_NORMAL, , , , , Taxyear
+        DoCmd.Close acForm, "frmBand2016"
+        
+    Else
+        
+            lblUST.Visible = True
+            txtWkUST.Visible = True
+            txtMnthUST.Visible = True
+            txtAnnUST.Visible = True
+
+    
+        Forms!frmBand2016.RecordSource = "qryBands2016"
+        Refresh
+    End If
+    
+    
+DoCmd.Echo True
+exit_taxyear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_taxyear_Click:
+    MsgBox Error$
+    Resume exit_taxyear_Click
+
+End Sub

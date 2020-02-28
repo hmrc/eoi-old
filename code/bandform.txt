@@ -1,0 +1,145 @@
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub close_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_close_Click
+    DoCmd.Close
+
+Exit_close_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+    
+End Sub
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 14 February 1997
+' Purpose       : RFC 515 : Default tax year, and pre-populate
+
+On Error GoTo err_Form_Load
+    DoCmd.Maximize
+
+If OpenArgs <> "" Then
+    Forms![bandform]!Taxyear = OpenArgs
+Else
+    Forms![bandform]!Taxyear = strCurrentTaxYear("CLASS 1 RATE TABLE")
+End If
+
+taxyear_Click
+
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+Private Sub rateenq_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_rateenq_Click
+DoCmd.Hourglass True
+
+If Taxyear > 2010 Then
+    DoCmd.OpenForm "rateform_2011", A_NORMAL, , , , , Taxyear
+    Forms!rateform_2011!TAXYEAR11.SetFocus
+    
+ElseIf Taxyear < 2003 Then
+    DoCmd.OpenForm "rateform", A_NORMAL, , , , , Taxyear
+    Forms!rateform!Taxyear.SetFocus
+
+ElseIf Taxyear < 2009 Then
+    DoCmd.OpenForm "rateform_2003", A_NORMAL, , , , , Taxyear
+    Forms!rateform_2003!TAXYEAR2003.SetFocus
+    
+Else
+    DoCmd.OpenForm "rateform_2009", A_NORMAL, , , , , Taxyear
+    Forms!rateform_2009!TAXYEAR2009.SetFocus
+End If
+
+DoCmd.Close acForm, "bandform"
+
+exit_rateenq_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_rateenq_Click:
+    MsgBox Error$
+    Resume exit_rateenq_Click
+End Sub
+
+
+Private Sub taxyear_Click()
+
+On Error GoTo err_taxyear_Click
+DoCmd.Echo False
+
+If Forms!bandform!Taxyear < 1999 Then
+
+    'switch appropriate fields on or off
+    
+    Forms!bandform.RecordSource = "bandq"
+
+ElseIf Forms!bandform!Taxyear > 2015 Then
+    DoCmd.OpenForm "frmBand2016", acNormal, , , , , Taxyear
+    
+    DoCmd.Close acForm, "bandform"
+    Exit Sub
+    
+ElseIf Forms!bandform!Taxyear > 2010 Then
+    DoCmd.OpenForm "frmBand2011", acNormal, , , , , Taxyear
+    
+    DoCmd.Close acForm, "bandform"
+    Exit Sub
+    
+ElseIf Forms!bandform!Taxyear >= 2009 Then
+
+    Forms!bandform.RecordSource = "qryBands2009"
+    
+    'point to appropriate areas for data
+    Forms!bandform!wkband1top = (Forms!bandform![WkEE_ET] - 0.01)
+    Forms!bandform!mthband1top = (Forms!bandform![MnthEE_ET] - 0.01)
+    Forms!bandform!annband1top = (Forms!bandform![AnnEE_ET] - 0.01)
+
+ElseIf Forms!bandform!Taxyear >= 1999 Then
+        
+    Forms!bandform.RecordSource = "qryBands1999"
+    'point to appropriate areas for data
+    Forms!bandform!wkband1top = (Forms!bandform![WkEE_ET] - 0.01)
+    Forms!bandform!mthband1top = (Forms!bandform![MnthEE_ET] - 0.01)
+    Forms!bandform!annband1top = (Forms!bandform![AnnEE_ET] - 0.01)
+    
+End If
+
+Forms!bandform.Requery
+
+SetFields_BandForm
+
+DoCmd.Echo True
+exit_taxyear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_taxyear_Click:
+    MsgBox Error$
+    Resume exit_taxyear_Click
+
+End Sub

@@ -1,0 +1,24 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub For_AfterUpdate()
+With Forms!frmInterestLatePaidRefundsMain
+    If TaxYearFor < 1999 Then
+        
+        
+        !subRefunds.Form!Date.Enabled = False
+        !subRefunds.Form!Year.Enabled = True
+        !subRefunds.Form!Date = Null
+    
+    Else
+    
+        !subRefunds.Form!Year = Null
+        !subRefunds.Form!Date.Enabled = True
+        !subRefunds.Form!Year.Enabled = False
+        
+    End If
+End With
+End Sub

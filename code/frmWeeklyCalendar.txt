@@ -1,0 +1,63 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub BtnClose_Click()
+On Error GoTo Err_BtnClose_Click
+
+
+    DoCmd.Close
+
+Exit_BtnClose_Click:
+    Exit Sub
+
+Err_BtnClose_Click:
+    MsgBox Error$
+    Resume Exit_BtnClose_Click
+    
+End Sub
+
+Private Sub BtnMonthly_Click()
+On Error GoTo Err_BtnMonthly_Click
+
+    DoCmd.OpenForm "frmMonthlyCalendar"
+    DoCmd.Close acForm, "frmWeeklyCalendar"
+
+
+Exit_BtnMonthly_Click:
+    Exit Sub
+
+Err_BtnMonthly_Click:
+    MsgBox Error$
+    Resume Exit_BtnMonthly_Click
+    
+End Sub
+
+Private Sub Form_Load()
+    DoCmd.Maximize
+    
+End Sub
+
+Private Sub YearType_AfterUpdate()
+
+On Error GoTo Err_YearType_AfterUpdate
+
+    If ([YearType] = 1) Then
+        [LeapWeeks].Visible = True
+        [OtherWeeks].Visible = False
+    Else
+        [OtherWeeks].Visible = True
+        [LeapWeeks].Visible = False
+    End If
+
+
+Exit_YearType_AfterUpdate:
+    Exit Sub
+
+Err_YearType_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_YearType_AfterUpdate
+
+End Sub

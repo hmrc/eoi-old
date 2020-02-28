@@ -1,0 +1,1706 @@
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+Global Const gcPERIOD_JAN = "Jan"
+Global Const gcPERIOD_FEB = "Feb"
+Global Const gcPERIOD_MARCH = "March"
+Global Const gcPERIOD_APRIL = "April"
+Global Const gcPERIOD_MAY = "May"
+Global Const gcPERIOD_JUNE = "June"
+Global Const gcPERIOD_JULY = "July"
+Global Const gcPERIOD_AUG = "Aug"
+Global Const gcPERIOD_SEPT = "Sept"
+Global Const gcPERIOD_OCT = "Oct"
+Global Const gcPERIOD_NOV = "Nov"
+Global Const gcPERIOD_DEC = "Dec"
+
+Global Const gcLEVEL_LOWER = "Lower"
+Global Const gcLEVEL_STANDARD = "Standard"
+Global Const gcLEVEL_NA = "N/A"
+
+Global bSSPRecoveryYear94 As Integer
+
+'Declare Function getprivateprofilestring Lib "Kernel" (ByVal lpApplicationName As String, lpKeyName As Any, ByVal lpDefault As String, ByVal lpReturnedString As String, ByVal nSize As Integer, ByVal lpFileName As String) As Integer
+
+Function bInvalidPIWRecord() As Integer
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : bInvalidPIWRecord
+' Purpose       : Check to see if PIW entry correct
+            
+    On Error GoTo Err_bInvalidPIWRecord
+    
+    bInvalidPIWRecord = False
+    If IsNull(Forms!frmSSPPayable!subPIW.Form![Qualifying Days]) Then
+        Beep
+        MsgBox ("Qualifing Days not set")
+        bInvalidPIWRecord = True
+        Exit Function
+    End If
+    
+    If IsNull(Forms!frmSSPPayable!subPIW.Form![From]) Then
+        Beep
+        MsgBox ("PIW From date not set")
+        bInvalidPIWRecord = True
+        Exit Function
+    End If
+    
+    If IsNull(Forms!frmSSPPayable!subPIW.Form![To]) Then
+        Beep
+        MsgBox ("PIW To date not set")
+        bInvalidPIWRecord = True
+        Exit Function
+    End If
+    
+    If IsNull(Forms!frmSSPPayable!subPIW.Form![From]) Or IsNull(Forms!frmSSPPayable!subPIW.Form![To]) Then
+        Beep
+        MsgBox ("PIW dates not set")
+        bInvalidPIWRecord = True
+        Exit Function
+    End If
+    
+
+Exit_bInvalidPIWRecord:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bInvalidPIWRecord:
+    MsgBox Error$
+    Resume Exit_bInvalidPIWRecord
+
+End Function
+
+Function bInvalidSetOfQualifyingDays() As Integer
+' Author        : Mustaq Hussain
+' Date          : 7 November 1995
+' Fuction Name  : bInvalidSetOfQualifyingDays
+' Purpose       : See if none of the days set 1 day set, return TRUE
+            
+    Dim frmForm As Form
+
+    On Error GoTo Err_bInvalidSetOfQualifyingDays
+    
+    Set frmForm = Forms("frmSSPPayable")
+
+    If frmForm!chkSun = True Or frmForm!chkMon = True Or frmForm!chkTue = True Or frmForm!chkWed = True Or frmForm!chkThur = True Or frmForm!chkFri = True Or frmForm!chkSat = True Then
+        bInvalidSetOfQualifyingDays = False
+    Else
+        Beep
+        MsgBox ("Must check at least one of the Qualifying Days")
+        bInvalidSetOfQualifyingDays = True
+    End If
+
+Exit_bInvalidSetOfQualifyingDays:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bInvalidSetOfQualifyingDays:
+    MsgBox Error$
+    Resume Exit_bInvalidSetOfQualifyingDays
+
+End Function
+
+Function bPIWDatesCorrect() As Integer
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : bPIWDatesCorrect
+' Purpose       : Check to see if any PIW exist and multiple PIWs link (across periods of 3 days or less)
+' History
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Reason        : SplitPIWDays populated, number of days in each period
+' History
+' Author        : Mustaq Hussain
+' Date          : 30 October 1996
+' Purpose       : RFC 435 : Split tax years
+            
+    Dim dtmPreviousPIWTo, dtmPreviousTo
+
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim nRecordCount As Integer
+    Dim bLinked As Integer
+    Dim bFTT As Integer
+
+    On Error GoTo Err_bPIWDatesCorrect
+            
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSSPPIW")
+
+    ' Assume dates correct
+    bPIWDatesCorrect = True
+    
+    ' Check dates only if PIW entries exist
+    If Not mySet.EOF Then
+        
+        bLinked = False
+        nRecordCount = 1
+        bFTT = True
+        mySet.MoveFirst
+        dtmPreviousTo = mySet![To]
+        dtmPreviousPIWTo = mySet![To]
+
+        ' Loop through each PIW
+        Do Until mySet.EOF
+            ' Checks for multiple PIWs, 4 days or more
+            If mySet![To] - mySet![From] >= 3 And nRecordCount > 1 Then
+                bLinked = False
+                If dtmPreviousPIWTo + 57 < mySet![From] Then
+                    Beep
+                    MsgBox ("PIWs do not link")
+                    bPIWDatesCorrect = False
+                    GoTo Exit_Record_Check
+                End If
+                If dtmPreviousPIWTo >= mySet![From] Then
+                    Beep
+                    MsgBox ("PIWs periods overlap")
+                    bPIWDatesCorrect = False
+                    GoTo Exit_Record_Check
+                End If
+            End If
+            
+            ' 3 days or less
+            If bFTT = True And mySet![To] - mySet![From] < 3 And dtmPreviousTo < mySet![From] Then
+                Beep
+                MsgBox ("PIW To date must be on or after the From date")
+                bPIWDatesCorrect = False
+                GoTo Exit_Record_Check
+            End If
+            ' 3 days or less
+            If bFTT = False And mySet![To] - mySet![From] < 3 And dtmPreviousTo >= mySet![From] Then
+                Beep
+                MsgBox ("Periods overlap")
+                bPIWDatesCorrect = False
+                GoTo Exit_Record_Check
+            End If
+            
+            If nTaxYear(mySet![From]) < 1991 Then
+                Beep
+                MsgBox ("PIW From date must be from tax year 1991 and onwards")
+                bPIWDatesCorrect = False
+                GoTo Exit_Record_Check
+            End If
+            If mySet![From] > mySet![To] Then
+                Beep
+                MsgBox ("PIW To date must be on or after the From date")
+                bPIWDatesCorrect = False
+                GoTo Exit_Record_Check
+            End If
+            If nTaxYear(mySet![From]) <> nTaxYear(mySet![To]) Then
+                Beep
+                MsgBox ("PIW From To dates must be in the same tax year")
+                bPIWDatesCorrect = False
+                GoTo Exit_Record_Check
+            End If
+
+            ' PIWs of 3 or more days must link
+            If mySet![To] - mySet![From] >= 3 Then
+                bLinked = True
+                nRecordCount = nRecordCount + 1
+                dtmPreviousPIWTo = mySet![To]
+            End If
+            With mySet
+            ' If a split PIW at E/BOTaxYear
+                If ![From] = dtmPreviousTo + 1 And nTaxYear(![From]) = nTaxYear(dtmPreviousTo) + 1 Then
+                    .MovePrevious
+                    .Edit
+                    !SplitPIWDays = ![To] - ![From] + 1
+                    .Update
+                    .MoveNext
+                    .Edit
+                    !SplitPIWDays = ![To] - ![From] + 1
+                    .Update
+                Else
+                    .Edit
+                    !SplitPIWDays = 0
+                    .Update
+                
+                End If
+            End With
+            
+            dtmPreviousTo = mySet![To]
+            bFTT = False
+
+            mySet.MoveNext
+        Loop
+
+Exit_Record_Check:
+
+    Else
+        Beep
+        MsgBox ("There must be at least one PIW entry")
+        bPIWDatesCorrect = False
+    End If
+
+    mySet.Close
+    myDB.Close
+
+
+Exit_bPIWDatesCorrect:
+    Exit Function
+    
+Err_bPIWDatesCorrect:
+    MsgBox Error$
+    Resume Exit_bPIWDatesCorrect
+
+End Function
+
+Function bValidSSPEarningsDate() As Integer
+' Author        : Mustaq Hussain
+' Date          : 8 December 1995
+' Fuction Name  : bValidSSPEarningsDate
+' Purpose       : Return TRUE
+            
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Variant
+    Dim nNoOfDatesFilled As Integer, nNoOfEntries As Integer
+    
+    On Error GoTo Err_bValidSSPEarningsDate
+    
+    ' Assume invalid
+    bValidSSPEarningsDate = False
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+    ' Query to get the number of Earnings
+    SQLQuery = "SELECT COUNT([Earnings]) FROM [tblSSPEarnings] ;"
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveLast
+    nNoOfEntries = mySet.Fields(0)
+
+    ' Query to get number of Dates
+    SQLQuery = "SELECT COUNT([Date]) FROM [tblSSPEarnings] ;"
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+    nNoOfDatesFilled = mySet.Fields(0).value
+    
+    mySet.Close
+    myDB.Close
+
+    ' Check number of entries
+    If nNoOfDatesFilled <> nNoOfEntries And nNoOfDatesFilled <> 0 Then
+        Beep
+        MsgBox ("All Dates in Earnings table must be either empty or filled")
+        GoTo Exit_bValidSSPEarningsDate
+    End If
+
+
+    ' Is valid
+    bValidSSPEarningsDate = True
+
+                                       
+Exit_bValidSSPEarningsDate:
+    Exit Function
+    
+Err_bValidSSPEarningsDate:
+    MsgBox Error$
+    Resume Exit_bValidSSPEarningsDate
+
+End Function
+
+Function bValidSSPPayableCalculation() As Integer
+' Author        : Mustaq Hussain
+' Date          : 25 November 1995
+' Fuction Name  : bValidSSPPayableCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calcualtion
+' History
+' Author        : Mustaq Hussain
+' Date          : 21 June 1996
+' Purpose       : LER 90 : txt5DPAverageWeeklyEarnings added and txt5DPAverageWeeklyEarnings made invisible
+' History
+' Author        : Mustaq Hussain
+' Date          : 23 October 1996
+' Purpose       : RFC 435 : Move focus to error
+' History       : Jane Mullen
+' Date          : 10 February 1997
+' Purpose       : RFC 515 : Make name, inital, nino, ref - optional
+            
+    Dim nLEL As Currency
+    Dim nNoOfLinked As Integer
+
+    On Error GoTo Err_bValidSSPPayableCalculation
+    DoCmd.SetWarnings False
+    DoCmd.Hourglass True
+
+    ' Assume validation incorrect
+    bValidSSPPayableCalculation = False
+
+
+    ' Check PIW dates set correctly
+    If bPIWDatesCorrect() = False Then
+        Forms![frmSSPPayable]![subPIW].SetFocus
+        GoTo Exit_bValidSSPPayableCalculation
+    End If
+    
+    ' Check Irregular dates
+    If Forms![frmSSPPayable].grpPayPeriod = gcPAY_PERIOD_IRREGULAR Then
+        If bValidtxtIrregularDates() = False Then
+            Forms![frmSSPPayable].grpPayPeriod.SetFocus
+            GoTo Exit_bValidSSPPayableCalculation
+        End If
+    End If
+    
+    ' Check Dates in Earnings set correctly
+    If bValidSSPEarningsDate() = False Then
+        Forms![frmSSPPayable]![subEarnings].SetFocus
+        GoTo Exit_bValidSSPPayableCalculation
+    End If
+    
+   
+    SetAverageWeeklyEarningsSSP "tblSSPEarnings", "frmSSPPayable"
+    
+    'Forms.frmSSPPayable.txt5DPAverageWeeklyEarnings = Int(Forms.frmSSPPayable.txtAverageWeeklyEarnings * 100000) / 100000
+    Forms!frmSSPPayable.txt5DPAverageWeeklyEarnings = Int((Forms!frmSSPPayable.txtAverageWeeklyEarnings + 0.0000001) * 100000) / 100000 '+ 0.0000001 allows for numerical storage errors eg 74.975 is actually stored as 74.97499999 possibly
+    ' Check earnings set
+    If Forms![frmSSPPayable].txtAverageWeeklyEarnings = 0 Then
+        Beep
+        MsgBox ("Earnings not set")
+        Forms![frmSSPPayable]![subEarnings].SetFocus
+        GoTo Exit_bValidSSPPayableCalculation
+    End If
+
+
+
+    SetSSPRates
+    
+    nNoOfLinked = nSSPPayable()
+    
+    SetUnderOverpayment Forms!frmSSPPayable!txtTotalSMPDue, Forms!frmSSPPayable!txtSSPPaidByEmployer, Forms!frmSSPPayable!txtUnderpaymentOfSSP, Forms!frmSSPPayable!txtOverpaymentOfSSP, 0.3 * nNoOfLinked
+
+    ' Validation was correct
+    bValidSSPPayableCalculation = True
+
+Exit_bValidSSPPayableCalculation:
+    DoCmd.Hourglass False
+    DoCmd.SetWarnings True
+    Exit Function
+    
+Err_bValidSSPPayableCalculation:
+    MsgBox Error$
+    Resume Exit_bValidSSPPayableCalculation
+
+    
+
+End Function
+
+Function bValidSSPRecoverableCalculation() As Integer
+' Author        : Mustaq Hussain
+' Date          : 25 November 1995
+' Fuction Name  : bValidSSPRecoverableCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' History
+' Author        : Jane Mullen
+' Date          : 28 January 1997
+' Purpose       : RFC 515 - To make Name,NINO and Ref optional
+' Author        : Lisa Scothern
+' Date          : 19 September 1997
+' Purpose       : RFC 541B - Monetary values are to be rounded with curTruncate() rather than curTruncate()
+' Author        : Lisa Scothern
+' Date          : 28 October 1997
+' Purpose       : Change to RFC 541B: Round with curRoundUp() - any fraction of a penny -> round up to next penny
+' Author        : Christopher Schuler
+' Date          : 20 January 2000
+' Purpose       : Change to incorporate NIC Rebate, Percentage threshold is now rounded down to nearest penny
+
+
+            
+    Dim mySSPUnderRecovered As Currency
+    Dim mySSPOverRecovered As Currency
+            
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim MyLookUp As DAO.Recordset
+    Dim nBandRate As Integer
+    Dim SQLQuery
+    Dim curWeeklyrate
+    
+    Dim bSER As Integer
+    Dim nYear As Integer
+    Dim curClass1NICLiability As Currency
+    
+    On Error GoTo Err_bValidSSPRecoverableCalculation
+
+    DoCmd.Hourglass True
+
+    ' Assume validation correct
+    bValidSSPRecoverableCalculation = True
+
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSSPAmountRecoverable")
+
+    ' Assume no tax year 94
+    bSSPRecoveryYear94 = False
+    ' Calculate rates only if entries exist
+    If Not mySet.EOF Then
+        mySet.MoveFirst
+        
+        ' Loop through each PIW and set the SSP rates
+        Do Until mySet.EOF
+
+            
+            mySet.Edit
+            nYear = mySet![Taxyear]
+            If nYear < 1999 Then
+                curClass1NICLiability = mySet![Class1NICLiability]
+            Else
+                curClass1NICLiability = mySet![Class1NICLiability] - mySet!NIRebate
+            End If
+            
+            ' Check SSP Paid within range
+            nBandRate = IIf(mySet![SSPRate] = "Lower", 2, 3)
+            SQLQuery = "SELECT WeeklyRate, PIWStartFrom, PIWStartTo  FROM [tblSSPWeeklyRates] "
+            'SQLQuery = SQLQuery + "WHERE PIWStartFrom<=#" + Format$("4/6/" + Str(nYear), "mm/dd/yyyy") + "# AND PIWStartTo>=#" + Format$("4/5/" + Str(nYear + 1), "mm/dd/yyyy") + "# "
+            SQLQuery = SQLQuery + "WHERE PIWStartFrom<=#" + Format$("4/6/" + Str(nYear), "dd/mm/yyyy") + "# AND PIWStartTo>=#" + Format$("4/5/" + Str(nYear + 1), "dd/mm/yyyy") + "# "
+
+            SQLQuery = SQLQuery + "AND  Band=" + Format$(nBandRate) + " ;"
+            
+            Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+            
+                ' Set the weekly rate of SSP
+                curWeeklyrate = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+                ' Validate
+                If mySet![SSPPaid] > 28 * curWeeklyrate Then
+                    Beep
+                    MsgBox ("SSP Paid must be between: £0.00 upto 28 x Weekly Rate")
+                    GoTo END_VALIDATION
+                End If
+
+            MyLookUp.Close
+
+
+            ' Set the recoverable rate of SSP
+            If nYear >= 1995 Then
+                    ' Rates of recovery
+                    SQLQuery = "SELECT NICLiabilityPercentageRate  FROM [tblSSPRecoveryRates] "
+                    SQLQuery = SQLQuery + " WHERE TaxYear IN "
+                    SQLQuery = SQLQuery + " ( SELECT Max(TaxYear)  FROM [tblSSPRecoveryRates] "
+                    SQLQuery = SQLQuery + " WHERE TaxYear<=" + Format$(nYear) + " ) ; "
+                    
+                    Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                                                                          
+                        mySet![SSPRecoveryDue] = mySet![SSPPaid] - curTruncate((mySet![Class1NICLiability] - mySet!NIRebate) * IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0)))
+
+                    MyLookUp.Close
+            
+            Else
+                ' Rates dependent on Small Employers' Relief
+                SQLQuery = "SELECT TaxYear  FROM [tblSER] "
+                SQLQuery = SQLQuery + "WHERE TaxYear= " + Format$(nYear) + " "
+                SQLQuery = SQLQuery + "AND  MinQualifyingLevel>=" + Format$(curClass1NICLiability) + " ;"
+
+                Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                bSER = IIf(MyLookUp.EOF, False, True)
+
+                MyLookUp.Close
+                
+                nBandRate = IIf(mySet![SSPRate] = "Lower", 2, 3)
+                SQLQuery = "SELECT WeeklyRate, PIWStartFrom, PIWStartTo  FROM [tblSSPWeeklyRates] "
+                SQLQuery = SQLQuery + "WHERE PIWStartFrom<=#" + Format$("4/6/" + Str(nYear), "dd/mm/yyyy") + "# AND PIWStartTo>=#" + Format$("4/5/" + Str(nYear + 1), "dd/mm/yyyy") + "# "
+                SQLQuery = SQLQuery + "AND  Band=" + Format$(nBandRate) + " ;"
+                
+                Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                
+                    ' Set the weekly rate of SSP
+                    curWeeklyrate = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+    
+                    ' Set recoverable now
+                    Select Case nYear
+                        Case 1994
+                            bSSPRecoveryYear94 = True
+                            If bSER = True Then
+                                If mySet![LinkedPIW] = "Yes" Then
+                                    Dim cur9394Weeklyrate As Currency
+                                    Dim cur9394SSPPaid As Currency
+                                    nBandRate = IIf(mySet![SSPRate] = "Lower", 2, 3)
+                                    SQLQuery = "SELECT WeeklyRate, PIWStartFrom, PIWStartTo  FROM [tblSSPWeeklyRates] "
+                                    SQLQuery = SQLQuery + "WHERE PIWStartFrom<=#" + Format$("4/6/1993", "mm/dd/yyyy") + "# AND PIWStartTo>=#" + Format$("4/5/94", "mm/dd/yy") + "# "
+                                    SQLQuery = SQLQuery + "AND  Band=" + Format$(nBandRate) + " ;"
+                                    
+                                    Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                                    
+                                    ' Set the 93/94 weekly rate of SSP
+                                    cur9394Weeklyrate = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+
+                                    ' Check 94/95 has a 93/94 if applicable
+                                    If mySet.Recordcount = 1 Then
+                                        MsgBox ("Recovery in this 1994/1995 period requires 1993/1994 data")
+                                        MyLookUp.Close
+                                        Exit Do
+                                    End If
+                                    mySet.MoveNext
+                                    If mySet.EOF Then
+                                        MsgBox ("Recovery in 1994/1995 period requires 1993/1994 data immediatedly after")
+                                        MyLookUp.Close
+                                        Exit Do
+                                    End If
+                                    If mySet![Taxyear] <> 1993 Then
+                                        MsgBox ("Recovery in 1994/1995 period requires 1993/1994 data immediatedly after")
+                                        MyLookUp.Close
+                                        Exit Do
+                                    End If
+                                    cur9394SSPPaid = mySet![SSPPaid]
+                                    mySet.MovePrevious
+                                    mySet.Edit
+
+
+                                    If cur9394SSPPaid < (4 * cur9394Weeklyrate) Then
+                                        mySet![SSPRecoveryDue] = mySet![SSPPaid] - curTruncate((4 - (mySet![DaysOfSSPPaid] / mySet![QDs])) * curWeeklyrate)
+                                    Else
+                                        mySet![SSPRecoveryDue] = mySet![SSPPaid]
+                                    End If
+                                Else
+                                    mySet![SSPRecoveryDue] = mySet![SSPPaid] - curTruncate(4 * curWeeklyrate)
+                                End If
+                            Else
+                                mySet![SSPRecoveryDue] = 0
+                            End If
+                        Case Else
+                            ' 93, ...
+                            If bSER = True Then
+                                If mySet![SSPPaid] >= (6 * curWeeklyrate) Then
+                                    mySet![SSPRecoveryDue] = curTruncate(6 * curWeeklyrate * 0.8) + mySet![SSPPaid] - curTruncate(6 * curWeeklyrate)
+                                Else
+                                    mySet![SSPRecoveryDue] = curTruncate(mySet![SSPPaid] * 0.8)
+                                End If
+                            Else
+                                mySet![SSPRecoveryDue] = curTruncate(mySet![SSPPaid] * 0.8)
+                            End If
+                    End Select
+
+                MyLookUp.Close
+            End If
+            
+            
+            ' Ensure not below Zero
+            mySet![SSPRecoveryDue] = IIf(mySet![SSPRecoveryDue] < 0, 0, mySet![SSPRecoveryDue])
+            
+            mySSPUnderRecovered = mySet![SSPUnderRecovered]
+            mySSPOverRecovered = mySet![SSPOverRecovered]
+            ' Under/Over recovered
+            SetEachUnderOverpayment mySet!SSPRecoveryDue, mySet!SSPRecovered, mySSPUnderRecovered, mySSPOverRecovered
+           
+            mySet![SSPUnderRecovered] = mySSPUnderRecovered
+            mySet![SSPOverRecovered] = mySSPOverRecovered
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+END_VALIDATION:
+    Else
+        Beep
+        MsgBox ("There are no entries")
+        Forms![frmSSPRecoverable]![subRecoverable].SetFocus
+        ' Validation was correct
+        bValidSSPRecoverableCalculation = False
+        
+    End If
+
+    mySet.Close
+
+    ' Update Details section, to reflect database
+    Forms![frmSSPRecoverable]![subRecoverable].Form.Requery
+    Forms![frmSSPRecoverable]![subSpanRecoverable].Form.Requery
+
+
+Exit_bValidSSPRecoverableCalculation:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidSSPRecoverableCalculation:
+    MsgBox Error$
+    Resume Exit_bValidSSPRecoverableCalculation
+
+End Function
+
+Function bValidtxtIrregularDates()
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : bValidtxtIrregularDates
+' Purpose       : Check fully for valid Irregular dates
+            
+    On Error GoTo Err_bValidtxtIrregularDates
+
+    ' Assume invalid date
+    bValidtxtIrregularDates = False
+
+    ' Check date set
+    If IsNull(Forms![frmSSPPayable].txtIrregularFrom) Then
+        Beep
+        MsgBox ("Irregular From date not set")
+        GoTo Exit_bValidtxtIrregularDates
+    End If
+    
+    ' Check date set
+    If IsNull(Forms![frmSSPPayable].txtIrregularTo) Then
+        Beep
+        MsgBox ("Irregular To date not set")
+        GoTo Exit_bValidtxtIrregularDates
+    End If
+
+    ' Check From within valid range
+    If Forms![frmSSPPayable].txtIrregularFrom < CVDate(Format$("6/4/1989", "dd/mm/yyyy")) Then
+        Beep
+        MsgBox ("Irregular From date must be between: 6/4/1989 and QW + 5 dates inclusive")
+        GoTo Exit_bValidtxtIrregularDates
+    End If
+    If Forms![frmSSPPayable].txtIrregularFrom >= dtmFirstFromPIW() Then
+        Beep
+        MsgBox ("Irregular From date must be between: 6/4/1989 and 1st PIW - 1 day inclusive")
+        GoTo Exit_bValidtxtIrregularDates
+    End If
+    
+    ' Check To within valid range
+    If Forms![frmSSPPayable].txtIrregularFrom < CVDate(Format$("6/4/1989", "dd/mm/yyyy")) Then
+        Beep
+        MsgBox ("Irregular From date must be between: 6/4/1989 and To dates inclusive")
+        GoTo Exit_bValidtxtIrregularDates
+    End If
+    If Forms![frmSSPPayable].txtIrregularTo < Forms![frmSSPPayable].txtIrregularFrom Then
+        Beep
+        MsgBox ("Irregular To date must be after Irregular From date")
+        GoTo Exit_bValidtxtIrregularDates
+    End If
+    
+    ' Valid date by default
+    bValidtxtIrregularDates = True
+
+Exit_bValidtxtIrregularDates:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidtxtIrregularDates:
+    MsgBox Error$
+    Resume Exit_bValidtxtIrregularDates
+
+End Function
+
+Sub ClearSSPPayable()
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : ClearSSPPayable
+' Purpose       : Clear the SMP's entry form, ready for new data
+' History
+' Author        : Jane Mullen
+' Date          : 10 February 1997
+' Purpose       : Clear the SMP's entry form, ready for new data, two additional
+'               : surname and initial
+            
+
+    On Error GoTo Err_ClearSSPPayable
+    
+    DoCmd.SetWarnings False
+    DoCmd.Hourglass True
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblSSPEarnings]"
+    DoCmd.RunSQL "DELETE * FROM [tblSSPPIW]"
+    With Forms!frmSSPPayable
+        ' Update Details section, no records
+        ![subEarnings].Form.Requery
+        ![subPIW].Form.Requery
+    
+        'Re-initialises all of the input fields and set focus back to first input field
+        
+        ' Clear information only fields
+        .txtSurname = Null
+        .txtInitial = Null
+        .txtRef = Null
+        .NIPrefix = Null
+        .NInumber = Null
+        .NIsuffix = Null
+    
+        !chkSun = False
+        !chkMon = True
+        !chkTue = True
+        !chkWed = True
+        !chkThur = True
+        !chkFri = True
+        !chkSat = False
+    
+        !txtAverageWeeklyEarnings = Null
+        !txt5DPAverageWeeklyEarnings = Null
+        !txtSSPPaidByEmployer = Null
+    
+        !txtSSPEndDate = Null
+        
+        !txtSSPPaidByEmployer = Null
+        !txtTotalSMPDue = Null
+        !txtUnderpaymentOfSSP = Null
+        !txtOverpaymentOfSSP = Null
+    
+    
+        !grpPayPeriod = gcPAY_PERIOD_WEEKLY
+        !txtNoOfWeeks = 1
+        !txtNoOfMonths = 1
+        !txtIrregularFrom = Null
+        !txtIrregularTo = Null
+    
+        !txtDisplayEntitlementAmount = Null
+        !txtDisplayEntitlementAmount.Visible = False
+        !Text294 = Null
+        !txtLEL = Null
+    
+        EnablePayPeriodOptions "frmSSPPayable"
+        !cboNewEmp = 0
+        !txtDaysPaid = 0
+        !txtDaysPaid.Enabled = False
+    
+        ' Set focus
+        .txtSurname.SetFocus
+    End With
+    
+Exit_ClearSSPPayable:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_ClearSSPPayable:
+    MsgBox Error$
+    Resume Exit_ClearSSPPayable
+
+End Sub
+
+Sub ClearSSPRecoverable()
+' Author        : Mustaq Hussain
+' Date          : 2 December 1995
+' Fuction Name  : ClearSSPRecoverable
+' Purpose       : Clear the SSP's entry form, ready for new data
+' History
+' Author        : Mustaq Hussain
+' Date          : 11 September 1996
+' Purpose       : RFC 435 : Clear extra table
+' History       : Jane Mullen
+' Date          : 10 February 1997
+' Purpose       : RFC 515 : Clear extra fields
+            
+
+    On Error GoTo Err_ClearSSPRecoverable
+    
+    DoCmd.SetWarnings False
+    DoCmd.Hourglass True
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblSSPAmountRecoverable]"
+    With Forms!frmSSPRecoverable
+        ' Update Details section, no records
+        ![subRecoverable].Form.Requery
+        ![subSpanRecoverable].Form.Requery
+    
+        'Re-initialises all of the input fields and set focus back to first input field
+        
+        ' Clear information only fields
+        .txtName = Null
+        .txtInitial = Null
+        .NIPrefix = Null
+        .NInumber = Null
+        .NIsuffix = Null
+        .txtRef = Null
+        
+    
+        ' Set focus
+        .txtName.SetFocus
+    End With
+    
+Exit_ClearSSPRecoverable:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_ClearSSPRecoverable:
+    MsgBox Error$
+    Resume Exit_ClearSSPRecoverable
+
+End Sub
+
+Function dtmFirstFromPIW()
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : dtmFirstFromPIW
+' Purpose       : Return 1st From PIW, assume record(s) exist
+            
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim nRecordCount As Integer
+
+    On Error GoTo Err_dtmFirstFromPIW
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSSPPIW")
+
+    mySet.MoveFirst
+    dtmFirstFromPIW = mySet![From]
+
+    mySet.Close
+    myDB.Close
+    
+
+Exit_dtmFirstFromPIW:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_dtmFirstFromPIW:
+    MsgBox Error$
+    Resume Exit_dtmFirstFromPIW
+
+End Function
+
+Function FirstWeekFraction(FirstWeekDays)
+' Author       : Christopher Schuler
+' Date          : 9 July 1999
+' Purpose       : Calculate number of days paid in first week for new employee
+                    'as fraction of qualifying days
+
+Dim nTotalQDs As Integer
+Dim strQualifyingDays As String
+Dim myDB As Database
+Dim mySet As DAO.Recordset
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSSPPIW")
+    mySet.MoveFirst
+
+strQualifyingDays = mySet!QualifyingDays
+nTotalQDs = 0
+
+            If InStr(strQualifyingDays, "Sun") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If InStr(strQualifyingDays, "Mon") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If InStr(strQualifyingDays, "Tue") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If InStr(strQualifyingDays, "Wed") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If InStr(strQualifyingDays, "Thur") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If InStr(strQualifyingDays, "Fri") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If InStr(strQualifyingDays, "Sat") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+
+mySet.Close
+
+FirstWeekFraction = FirstWeekDays / nTotalQDs
+
+Forms!frmSSPPayable.txtNoOfQualDays = nTotalQDs
+
+End Function
+
+Function nSSPPayable() As Integer
+' Author        : Mustaq Hussain
+' Date          : 20 December 1995
+' Fuction Name  : nSSPPayable
+' Purpose       : Sets SSP Payable amount
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 4 January 1996
+' Purpose       : Round the SSP due
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 4 January 1996
+' Reason        : LER 79 : Rounding errors! When end of entitlement reached: incorrect SSP Due and date can occur
+' Author        : Lisa Scothern
+' Date          : 19 September 1997
+' Purpose       : RFC 541B - Round monetary values using curRound() (exactly 0.5p is rounded down)
+' Author        : Lisa Scothern
+' Date          : 28 October 1997
+' Purpose       : Change to RFC 541B: Round with curRoundUp() - any fraction of a penny -> round up to next penny
+'               : Also removed some superfluous roundup statements
+            
+
+    Dim curSSPPayable As Currency, curMaximumSSPPayable As Currency, curTotalSSPPayable As Currency
+
+    Dim myDB As Database, mySet As DAO.Recordset
+
+    Dim fMaxWeeks, fNoOfWeeks, fPartWeek, fFractionPerDay
+    Dim nReducedNumberOfQDsInPIW As Integer
+    Dim nWaitingDays As Integer
+    Dim dtmFirstFromPIW
+    Dim nNoOfLinked
+    Dim nLoop As Integer
+    Dim nDay As Integer
+    Dim strQualifyingDays As String
+    Dim dtmDate
+    Dim nDaysLeft As Integer
+    
+    On Error GoTo Err_nSSPPayable
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSSPPIW")
+
+    ' Set end date of SSP
+    Forms!frmSSPPayable!txtSSPEndDate = Null
+
+    nNoOfLinked = 0
+    curTotalSSPPayable = 0
+    nWaitingDays = 3
+    fMaxWeeks = 28
+    ' Calculate rates only if PIW entries exist
+    If Not mySet.EOF Then
+        mySet.MoveFirst
+
+        dtmFirstFromPIW = mySet![From]
+        ' Loop through each PIW and set the number of QDs in period
+        Do Until mySet.EOF
+            mySet.Edit
+            
+            ' Multiple PIWs ignore 3 years of linked PIWs
+            If mySet![To] < DateAdd("yyyy", 3, dtmFirstFromPIW) Then
+                ' Not spanning three years
+
+                nNoOfLinked = nNoOfLinked + 1
+
+                nReducedNumberOfQDsInPIW = mySet![NumberOfQDsInPIW]
+
+
+                
+                ' First three qualifying days ignored
+                QDsInPIWReducedBy3 mySet![QualifyingDays], mySet![From], mySet![To], mySet![NumberOfQDsInPIW], nReducedNumberOfQDsInPIW, nWaitingDays
+    
+    
+                fNoOfWeeks = Int(nReducedNumberOfQDsInPIW / mySet![NumberOfQDsPerWeeks] * 1000) / 1000
+        
+                ' Fractioal rate
+                fFractionPerDay = 0
+                If fMaxWeeks > 0 Then
+                    fPartWeek = fMaxWeeks - Int(fMaxWeeks)
+                    Select Case mySet![NumberOfQDsPerWeeks]
+                        Case 7
+                            fFractionPerDay = 0.143
+                        Case 6
+                            fFractionPerDay = 0.167
+                        Case 5
+                            fFractionPerDay = 0.2
+                        Case 4
+                            fFractionPerDay = 0.25
+                        Case 3
+                            fFractionPerDay = 0.334
+                        Case 2
+                            fFractionPerDay = 0.5
+                        Case 1
+                            fFractionPerDay = 1#
+                    End Select
+                End If
+                
+                ' SSP payable (no-longer roundup curSSPPayable and curMaximumSSPPayable)
+                curSSPPayable = nReducedNumberOfQDsInPIW * mySet![DailyRate]
+                ' Ensure does not go beyond maximum payable
+                curMaximumSSPPayable = mySet![NumberOfQDsPerWeeks] * mySet![DailyRate] * Int(fMaxWeeks) + vRoundUp(fPartWeek / fFractionPerDay) * mySet![DailyRate]
+                
+                ' Set date when SSP ended, if applicable
+                If fMaxWeeks > 0 And fMaxWeeks - fNoOfWeeks <= 0 Then
+                    ' If only one period then take into account 3 waiting days
+                    If mySet.Recordcount = 1 Then
+                        ' Take into account 3 waiting days
+                        Forms!frmSSPPayable!txtSSPEndDate = mySet![From] + Int(fMaxWeeks) * 7 - 1 + 3
+                    Else
+                        ' Awaiting days already taken into account
+
+                        ' Take into account whole weeks left
+                        Forms!frmSSPPayable!txtSSPEndDate = mySet![From] + Int(fMaxWeeks) * 7
+                        dtmDate = Forms!frmSSPPayable!txtSSPEndDate
+                        
+                        ' Add days if days exist
+                        nDaysLeft = vRoundUp(fPartWeek / fFractionPerDay)
+                        If nDaysLeft > 0 Then
+                            ' Total QDs, by adding QD in partial week
+                            ' Take into account days left
+                            Do While nDaysLeft > 0
+                                nDay = DatePart("w", Format$(dtmDate))
+                                strQualifyingDays = mySet![QualifyingDays]
+                                If nDaysLeft > 0 And nDay = 1 And InStr(strQualifyingDays, "Sun") <> 0 Then
+                                    Forms!frmSSPPayable!txtSSPEndDate = dtmDate
+                                    nDaysLeft = nDaysLeft - 1
+                                End If
+                                If nDaysLeft > 0 And nDay = 2 And InStr(strQualifyingDays, "Mon") <> 0 Then
+                                    Forms!frmSSPPayable!txtSSPEndDate = dtmDate
+                                    nDaysLeft = nDaysLeft - 1
+                                End If
+                                If nDaysLeft > 0 And nDay = 3 And InStr(strQualifyingDays, "Tue") <> 0 Then
+                                    Forms!frmSSPPayable!txtSSPEndDate = dtmDate
+                                    nDaysLeft = nDaysLeft - 1
+                                End If
+                                If nDaysLeft > 0 And nDay = 4 And InStr(strQualifyingDays, "Wed") <> 0 Then
+                                    Forms!frmSSPPayable!txtSSPEndDate = dtmDate
+                                    nDaysLeft = nDaysLeft - 1
+                                End If
+                                If nDaysLeft > 0 And nDay = 5 And InStr(strQualifyingDays, "Thur") <> 0 Then
+                                    Forms!frmSSPPayable!txtSSPEndDate = dtmDate
+                                    nDaysLeft = nDaysLeft - 1
+                                End If
+                                If nDaysLeft > 0 And nDay = 6 And InStr(strQualifyingDays, "Fri") <> 0 Then
+                                    Forms!frmSSPPayable!txtSSPEndDate = dtmDate
+                                    nDaysLeft = nDaysLeft - 1
+                                End If
+                                If nDaysLeft > 0 And nDay = 7 And InStr(strQualifyingDays, "Sat") <> 0 Then
+                                    Forms!frmSSPPayable!txtSSPEndDate = dtmDate
+                                    nDaysLeft = nDaysLeft - 1
+                                End If
+                        
+                                dtmDate = dtmDate + 1
+                          
+                            Loop
+                        End If
+                    End If
+                
+                End If ' Set date when SSP ended, if applicable
+    
+                fMaxWeeks = fMaxWeeks - fNoOfWeeks
+                fMaxWeeks = IIf(fMaxWeeks < 0, 0, fMaxWeeks)
+    
+                curSSPPayable = IIf(curSSPPayable > curMaximumSSPPayable, curMaximumSSPPayable, curSSPPayable)
+
+            Else
+                ' Spans three years
+                curSSPPayable = 0
+
+            End If
+
+
+            ' Update the field
+            mySet![SSPDue] = curRoundUp(curSSPPayable)
+        
+            curTotalSSPPayable = curTotalSSPPayable + mySet![SSPDue]
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    End If
+
+    mySet.Close
+    myDB.Close
+
+    ' Update Details section, to reflect database
+    Forms![frmSSPPayable]![subPIW].Form.Requery
+
+    Forms![frmSSPPayable].txtTotalSMPDue = curTotalSSPPayable
+
+    nSSPPayable = nNoOfLinked
+
+Exit_nSSPPayable:
+    Exit Function
+    
+Err_nSSPPayable:
+    MsgBox Error$
+    Resume Exit_nSSPPayable
+
+End Function
+
+Sub QDsInPIWReducedBy3(strQualifyingDays, dtmFrom, dtmTo, nNumberOfQDsInPIW, nReducedNumberOfQDsInPIW As Integer, nWaitingDays As Integer)
+' Author        : Mustaq Hussain
+' Date          : 20 December 1995
+' Fuction Name  : QDsInPIWReducedBy3
+' Purpose       : Sets SSP Payable amount
+
+    Dim dtmDate
+    Dim nDay As Integer
+    Dim nTotalQDs
+    Dim nOriginalWaiting As Integer
+
+    On Error GoTo Err_QDsInPIWReducedBy3
+
+    nOriginalWaiting = nWaitingDays
+    ' Reduce only if 3 qualiying days not used up
+    If nWaitingDays > 0 And nReducedNumberOfQDsInPIW > 0 Then
+    
+        ' Total QDs, by adding QD in partial week
+        For dtmDate = dtmFrom To dtmTo Step 1
+            nTotalQDs = 0
+            nDay = DatePart("w", Format$(dtmDate))
+            If nDay = 1 And InStr(strQualifyingDays, "Sun") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If nDay = 2 And InStr(strQualifyingDays, "Mon") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If nDay = 3 And InStr(strQualifyingDays, "Tue") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If nDay = 4 And InStr(strQualifyingDays, "Wed") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If nDay = 5 And InStr(strQualifyingDays, "Thur") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If nDay = 6 And InStr(strQualifyingDays, "Fri") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            If nDay = 7 And InStr(strQualifyingDays, "Sat") <> 0 Then
+                nTotalQDs = nTotalQDs + 1
+            End If
+            nWaitingDays = nWaitingDays - nTotalQDs
+            nWaitingDays = IIf(nWaitingDays < 0, 0, nWaitingDays)
+            If nWaitingDays = 0 Then
+                Exit For
+            End If
+        Next
+        
+        nReducedNumberOfQDsInPIW = nReducedNumberOfQDsInPIW - (nOriginalWaiting - nWaitingDays)
+    End If
+
+Exit_QDsInPIWReducedBy3:
+    Exit Sub
+    
+Err_QDsInPIWReducedBy3:
+    MsgBox Error$
+    Resume Exit_QDsInPIWReducedBy3
+
+End Sub
+
+Sub SetAverageWeeklyEarningsSSP(strTable As String, strForm As String)
+
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : SetAverageWeeklyEarnings
+' Purpose       : Calculate average weekly earnings
+' History       : Christopher Schuler
+' Date          : 9 July 1999
+' Purpose       : Include Class 1B income (method differs from SMP)
+
+    Dim myDB As Database, mySet As DAO.Recordset, MySet2 As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Variant
+    Dim vReturnedClass1B As Variant
+    Dim curGross As Currency
+    Dim curClass1B As Currency
+    Dim frmForm As Form
+    Dim curLEL, bLELReached
+    
+    On Error GoTo Err_SetAverageWeeklyEarningsSSP
+
+Forms!frmSSPPayable!Text294 = Null
+
+        ' Query to get total earnings
+        SQLQuery = "SELECT SUM([Earnings]), SUM([Class1B])  FROM [" + strTable + "] ;"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    vReturnedValue = mySet.Fields(0).value
+    If IsNull(vReturnedValue) Then
+        curGross = 0
+    Else
+        curGross = vReturnedValue
+    End If
+        
+    vReturnedClass1B = mySet.Fields(1).value
+    If IsNull(vReturnedClass1B) Then
+        curClass1B = 0
+    Else
+        curClass1B = vReturnedClass1B
+    End If
+    
+    mySet.Close
+    myDB.Close
+
+    Set frmForm = Forms(strForm)
+
+    ' Set the average weekly earnings
+    frmForm.txtAverageWeeklyEarnings = 0
+    Select Case frmForm.grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            If frmForm.cboNewEmp = True And DFirst("[From]", "tblSSPPIW") >= #4/6/2000# Then
+            frmForm.txtAverageWeeklyEarnings = curGross / ((frmForm.txtNoOfWeeks - 1) + FirstWeekFraction(frmForm.txtDaysPaid))
+            Else
+            frmForm.txtAverageWeeklyEarnings = curGross / frmForm.txtNoOfWeeks
+            End If
+        Case gcPAY_PERIOD_MONTHLY
+            frmForm.txtAverageWeeklyEarnings = curGross / frmForm.txtNoOfMonths * 12 / 52
+
+        Case gcPAY_PERIOD_IRREGULAR
+            frmForm.txtAverageWeeklyEarnings = curGross / (CVDate(frmForm.txtIrregularTo) - CVDate(frmForm.txtIrregularFrom) + 1) * 7
+    
+    End Select
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set MySet2 = myDB.OpenRecordset("tblSSPPIW")
+
+    
+If Not MySet2.EOF Then
+        MySet2.MoveFirst
+        
+        ' Check if LEL reached
+        curLEL = curGetLEL(MySet2![From])
+        bLELReached = IIf(curLEL > Forms!frmSSPPayable!txtAverageWeeklyEarnings, False, True)
+            MySet2.Close
+            myDB.Close
+End If
+        
+        ' Advise about LEL
+
+If DLast("[From]", "tblSSPPIW") < #4/6/1999# And bLELReached = False Then
+        Forms!frmSSPPayable!txtDisplayEntitlementAmount.Visible = True
+        Forms!frmSSPPayable!txtDisplayEntitlementAmount = "Employee's earnings below : £" + Format$(curLEL, "#0.00")
+        Forms!frmSSPPayable!txtLEL = curLEL
+        Exit Sub
+End If
+
+If DLast("[From]", "tblSSPPIW") >= #4/6/1999# Then
+    If bLELReached = False Then
+            ' Set the average weekly earnings including Class 1B
+            frmForm.txtAverageWeeklyEarnings = 0
+            Select Case frmForm.grpPayPeriod
+                Case gcPAY_PERIOD_WEEKLY
+                    If frmForm.cboNewEmp = True And DFirst("[From]", "tblSSPPIW") >= #4/6/2000# Then
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / ((frmForm.txtNoOfWeeks - 1) + FirstWeekFraction(frmForm.txtDaysPaid))
+                    Else
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / frmForm.txtNoOfWeeks
+                    End If
+                Case gcPAY_PERIOD_MONTHLY
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / frmForm.txtNoOfMonths * 12 / 52
+        
+                Case gcPAY_PERIOD_IRREGULAR
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / (CVDate(frmForm.txtIrregularTo) - CVDate(frmForm.txtIrregularFrom) + 1) * 7
+            
+            End Select
+            Forms!frmSSPPayable!Text294.Visible = True
+            Forms!frmSSPPayable!Text294 = "(including Class 1B)"
+        Else
+            Forms!frmSSPPayable!Text294.Visible = True
+            Forms!frmSSPPayable!Text294 = "(excluding Class 1B)"
+    End If
+    bLELReached = IIf(curLEL > Forms!frmSSPPayable!txtAverageWeeklyEarnings, False, True)
+    If bLELReached = False Then
+        If curClass1B = 0 Then
+           
+                    Forms!frmSSPPayable!txtDisplayEntitlementAmount.Visible = True
+                    Forms!frmSSPPayable!txtDisplayEntitlementAmount = "Employee's earnings below : £" + Format$(curLEL, "#0.00") + " retry with Class 1B if any"
+                    Forms!frmSSPPayable!txtLEL = curLEL
+                    Forms!frmSSPPayable!Text294.Visible = False
+            Else
+                    Forms!frmSSPPayable!txtDisplayEntitlementAmount.Visible = True
+                    Forms!frmSSPPayable!txtDisplayEntitlementAmount = "Employee's earnings below : £" + Format$(curLEL, "#0.00")
+                    Forms!frmSSPPayable!txtLEL = curLEL
+        
+        End If
+    Else
+        If curClass1B = 0 Then
+            Forms!frmSSPPayable!Text294.Visible = False
+        End If
+   End If
+
+End If
+
+Exit_SetAverageWeeklyEarningsSSP:
+    Exit Sub
+    
+Err_SetAverageWeeklyEarningsSSP:
+    MsgBox Error$
+    Resume Exit_SetAverageWeeklyEarningsSSP
+
+End Sub
+
+Sub SetNumberOfQDsInPIW()
+' Author        : Mustaq Hussain
+' Date          : 8 November 1995
+' Fuction Name  : SetNumberOfQDsInPIW
+' Purpose       : Sets number of QDs in PIW period, zero if 3 days or less
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 4 January 1996
+' Purpose       : Correct so that it is zero if 3 days or less
+' History
+' Author        : Mustaq Hussain
+' Date          : 30 October 1996
+' Purpose       : RFC 435 : Split tax years
+            
+    Dim dtmDate, dtmTo
+    Dim strQualifyingDays
+    Dim nTotalQDs As Integer
+    Dim nDay As Integer
+    Dim nSplitPIWDays As Integer
+
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    
+    On Error GoTo Err_SetNumberOfQDsInPIW
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSSPPIW")
+
+    ' Calculate rates only if PIW entries exist
+    If Not mySet.EOF Then
+        mySet.MoveFirst
+        
+        ' Loop through each PIW and set the number of QDs in period
+        Do Until mySet.EOF
+            mySet.Edit
+
+            ' Calculate the number of qualifying weeks in this period
+            dtmTo = mySet![To]
+            dtmDate = mySet![From]
+
+
+            ' Check Split PIWs across tax years
+            If mySet![SplitPIWDays] > 0 Then
+                mySet.Update
+                ' Check for PIW covering two tax years
+                nSplitPIWDays = 0
+                ' First
+                If nTaxYear(mySet![To] + 1) = nTaxYear(mySet![To]) + 1 Then
+                    nSplitPIWDays = mySet![SplitPIWDays]
+                    mySet.MoveNext
+                    If Not mySet.EOF Then
+                        If nTaxYear(mySet![From] - 1) = nTaxYear(mySet![From]) - 1 Then
+                            nSplitPIWDays = nSplitPIWDays + mySet![SplitPIWDays]
+                        End If
+                    End If
+                    mySet.MovePrevious
+                End If
+                ' Second
+                If nTaxYear(mySet![From] - 1) = nTaxYear(mySet![From]) - 1 Then
+                    nSplitPIWDays = mySet![SplitPIWDays]
+                    mySet.MovePrevious
+                    If Not mySet.BOF Then
+                        If nTaxYear(mySet![To] + 1) = nTaxYear(mySet![To]) + 1 Then
+                            nSplitPIWDays = nSplitPIWDays + mySet![SplitPIWDays]
+                        End If
+                    End If
+                    mySet.MoveNext
+                End If
+                mySet.Edit
+            End If
+
+
+            ' QDs
+            If mySet![SplitPIWDays] > 0 And nSplitPIWDays < 3 Then
+                nTotalQDs = 0
+            Else
+                ' Only for 3 days or more
+                If mySet![SplitPIWDays] = 0 And mySet![To] - mySet![From] < 3 Then
+                    nTotalQDs = 0
+                Else
+                
+                    ' Number of QDs in complete weeks
+                    nTotalQDs = 0
+                    If (dtmDate + 6) <= dtmTo Then
+                        dtmDate = dtmDate + 6
+                        nTotalQDs = nTotalQDs + 1
+                        Do While (dtmDate + 7) <= dtmTo
+                            nTotalQDs = nTotalQDs + 1
+                            dtmDate = dtmDate + 7
+                        Loop
+                        dtmDate = dtmDate + 1
+                    End If
+                    ' Total number of QDs in whole weeks
+                    nTotalQDs = nTotalQDs * mySet![NumberOfQDsPerWeeks]
+    
+                    
+                    ' Total QDs, by adding QD in partial week
+                    For dtmDate = dtmDate To dtmTo Step 1
+                        nDay = DatePart("w", Format$(dtmDate))
+                        strQualifyingDays = mySet![QualifyingDays]
+                        If nDay = 1 And InStr(strQualifyingDays, "Sun") <> 0 Then
+                            nTotalQDs = nTotalQDs + 1
+                        End If
+                        If nDay = 2 And InStr(strQualifyingDays, "Mon") <> 0 Then
+                            nTotalQDs = nTotalQDs + 1
+                        End If
+                        If nDay = 3 And InStr(strQualifyingDays, "Tue") <> 0 Then
+                            nTotalQDs = nTotalQDs + 1
+                        End If
+                        If nDay = 4 And InStr(strQualifyingDays, "Wed") <> 0 Then
+                            nTotalQDs = nTotalQDs + 1
+                        End If
+                        If nDay = 5 And InStr(strQualifyingDays, "Thur") <> 0 Then
+                            nTotalQDs = nTotalQDs + 1
+                        End If
+                        If nDay = 6 And InStr(strQualifyingDays, "Fri") <> 0 Then
+                            nTotalQDs = nTotalQDs + 1
+                        End If
+                        If nDay = 7 And InStr(strQualifyingDays, "Sat") <> 0 Then
+                            nTotalQDs = nTotalQDs + 1
+                        End If
+                    Next
+    
+                End If
+            End If
+            mySet![NumberOfQDsInPIW] = nTotalQDs
+            
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    End If
+
+    mySet.Close
+    myDB.Close
+
+    ' Update Details section, to reflect database
+    Forms![frmSSPPayable]![subPIW].Form.Requery
+
+
+Exit_SetNumberOfQDsInPIW:
+    Exit Sub
+    
+Err_SetNumberOfQDsInPIW:
+    MsgBox Error$
+    Resume Exit_SetNumberOfQDsInPIW
+
+End Sub
+
+Sub SetQualifyingDays()
+' Author        : Mustaq Hussain
+' Date          : 6 November 1995
+' Fuction Name  : SetQualifyingDays
+' Purpose       : Set qualifying days
+            
+
+    On Error GoTo Err_SetQualifyingDays
+
+    Dim frmForm As Form
+    Dim strQualifyingDays
+    Dim nNumberOfQDs As Integer
+
+    ' Initially no qualifying days
+    nNumberOfQDs = 0
+
+    Set frmForm = Forms("frmSSPPayable")
+    strQualifyingDays = ""
+    If frmForm!chkSun = True Then
+        strQualifyingDays = strQualifyingDays + "Sun "
+        nNumberOfQDs = nNumberOfQDs + 1
+    End If
+    If frmForm!chkMon = True Then
+        strQualifyingDays = strQualifyingDays + "Mon "
+        nNumberOfQDs = nNumberOfQDs + 1
+    End If
+    If frmForm!chkTue = True Then
+        strQualifyingDays = strQualifyingDays + "Tue "
+        nNumberOfQDs = nNumberOfQDs + 1
+    End If
+    If frmForm!chkWed = True Then
+        strQualifyingDays = strQualifyingDays + "Wed "
+        nNumberOfQDs = nNumberOfQDs + 1
+    End If
+    If frmForm!chkThur = True Then
+        strQualifyingDays = strQualifyingDays + "Thur "
+        nNumberOfQDs = nNumberOfQDs + 1
+    End If
+    If frmForm!chkFri = True Then
+        strQualifyingDays = strQualifyingDays + "Fri "
+        nNumberOfQDs = nNumberOfQDs + 1
+    End If
+    If frmForm!chkSat = True Then
+        strQualifyingDays = strQualifyingDays + "Sat "
+        nNumberOfQDs = nNumberOfQDs + 1
+    End If
+
+    ' Update the fields
+    Forms!frmSSPPayable!subPIW.Form![Qualifying Days] = strQualifyingDays
+    Forms!frmSSPPayable!subPIW.Form![NumberOfQDsPerWeeks] = nNumberOfQDs
+    
+    
+
+Exit_SetQualifyingDays:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_SetQualifyingDays:
+    MsgBox Error$
+    Resume Exit_SetQualifyingDays
+
+End Sub
+
+Sub SetSSPRates()
+' Author        : Mustaq Hussain
+' Date          : 7 November 1995
+' Fuction Name  : SetSSPRates
+' Purpose       : Sets SSP Rates, Weekly and daily
+' History
+' Author        : Mustaq Hussain
+' Date          : 30 October 1996
+' Purpose       : RFC 435 : Split tax years
+' Author        : Lisa Scothern
+' Date          : 19 September 1997
+' Purpose       : RFC 541B - Round Daily rate using curRound()
+' Author        : Lisa Scothern
+' Date          : 28 October 1997
+' Purpose       : RFC 541B - No-longer round Daily rate
+' Author        : Lisa Scothern
+' Date          : 3 November 1997
+' Purpose       : STIR DEC/803 - Make sure Daily rate gets truncated rather than rounded internally by Access
+' Author        : Christopher Schuler
+' Date          : 9 July 1999
+' Purpose       : Some code moved to SetAverageWeeklyEarningsSSP()
+            
+    Dim myDB As Database, mySet As DAO.Recordset, MyLookUp As DAO.Recordset
+    Dim nBandFixedAt As Integer
+    Dim SQLQuery
+    Dim SQLQuery2
+    Dim bEntitledToHightRate As Integer, bLELReached As Integer
+    Dim curLowerRate As Currency, curLEL
+    Dim nSplitPIWDays As Integer
+    Dim SumClass1b
+    
+    On Error GoTo Err_SetSSPRates
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSSPPIW")
+    
+    ' Calculate rates only if PIW entries exist
+    If Not mySet.EOF Then
+        mySet.MoveFirst
+        
+        ' Check if LEL reached
+        curLEL = curGetLEL(mySet![From])
+        bLELReached = IIf(curLEL > Forms!frmSSPPayable!txtAverageWeeklyEarnings, False, True)
+ 
+
+        ' Advise about LEL
+        If bLELReached = False Then
+            ' Set to zero
+            Do Until mySet.EOF
+                mySet.Edit
+                mySet![WeeklyRate] = 0
+                mySet![DailyRate] = 0
+                mySet.Update
+                mySet.MoveNext
+            Loop
+    
+        Else
+            Forms!frmSSPPayable!txtDisplayEntitlementAmount = Null
+            Forms!frmSSPPayable!txtDisplayEntitlementAmount.Visible = False
+            Forms!frmSSPPayable!txtLEL = Null
+        End If
+        
+      
+        ' Ignore until first PIW covers 4 days or more  or first PIW at EOTaxYear plus 2nd PIW covers 4 days or more
+        Do Until mySet.EOF
+
+            ' Check for PIW covering two tax years
+            nSplitPIWDays = 0
+            If nTaxYear(mySet![To] + 1) = nTaxYear(mySet![To]) + 1 Then
+                nSplitPIWDays = mySet![SplitPIWDays]
+                mySet.MoveNext
+                If Not mySet.EOF Then
+                    If nTaxYear(mySet![From] - 1) = nTaxYear(mySet![From]) - 1 Then
+                        nSplitPIWDays = nSplitPIWDays + mySet![SplitPIWDays]
+                    End If
+                End If
+                mySet.MovePrevious
+            End If
+            If nSplitPIWDays >= 4 Then
+                Exit Do
+            End If
+
+            If mySet![To] - mySet![From] >= 3 Then
+                Exit Do
+            End If
+            mySet.Edit
+            mySet![WeeklyRate] = 0
+            mySet![DailyRate] = 0
+            mySet.Update
+            mySet.MoveNext
+        Loop
+        
+        If Not mySet.EOF Then
+
+            SQLQuery = "SELECT WeeklyRate, Band, PIWStartFrom, PIWStartTo  FROM [tblSSPWeeklyRates] "
+            SQLQuery = SQLQuery + "WHERE PIWStartFrom<=#" + Format$(mySet![From], "mm/dd/yyyy") + "# AND PIWStartTo>=#" + Format$(mySet![From], "mm/dd/yyyy") + "# "
+            SQLQuery = SQLQuery + "AND  EarningsFrom<=" + Format$(Forms!frmSSPPayable.txtAverageWeeklyEarnings) + " AND  EarningsTo>=" + Format$(Forms!frmSSPPayable.txtAverageWeeklyEarnings) + " ;"
+        
+            Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+            ' Band SSP is set
+            ' make sure record found in table
+            If MyLookUp.EOF Then
+                ' No entry in table!
+                nBandFixedAt = -1
+            Else
+                nBandFixedAt = IIf(IsNull(MyLookUp.Fields(1)), 0, MyLookUp.Fields(1))
+            End If
+            
+            ' Loop through each PIW and set the SSP rates
+            Do Until mySet.EOF
+                mySet.Edit
+                    If nBandFixedAt = -1 Then
+                        ' No entry in table
+                        mySet![WeeklyRate] = 0
+                        mySet![DailyRate] = 0
+                    Else
+    
+                        SQLQuery = "SELECT WeeklyRate, PIWStartFrom, PIWStartTo  FROM [tblSSPWeeklyRates] "
+                        SQLQuery = SQLQuery + "WHERE PIWStartFrom<=#" + Format$(mySet![From], "mm/dd/yyyy") + "# AND PIWStartTo>=#" + Format$(mySet![From], "mm/dd/yyyy") + "# "
+                        SQLQuery = SQLQuery + "AND  Band=" + Format$(nBandFixedAt) + " ;"
+                    
+                        Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+    
+                        ' Set the weekly rate of SSP, ensure only >3 periods
+                            ' Check for PIW covering two tax years
+                            If mySet![SplitPIWDays] > 0 Then
+                                mySet.Update
+                                ' Check for PIW covering two tax years
+                                nSplitPIWDays = 0
+                                ' First
+                                If nTaxYear(mySet![To] + 1) = nTaxYear(mySet![To]) + 1 Then
+                                    nSplitPIWDays = mySet![SplitPIWDays]
+                                    mySet.MoveNext
+                                    If Not mySet.EOF Then
+                                        If nTaxYear(mySet![From] - 1) = nTaxYear(mySet![From]) - 1 Then
+                                            nSplitPIWDays = nSplitPIWDays + mySet![SplitPIWDays]
+                                        End If
+                                    End If
+                                    mySet.MovePrevious
+                                End If
+                                ' Second
+                                If nTaxYear(mySet![From] - 1) = nTaxYear(mySet![From]) - 1 Then
+                                    nSplitPIWDays = mySet![SplitPIWDays]
+                                    mySet.MovePrevious
+                                    If Not mySet.BOF Then
+                                        If nTaxYear(mySet![To] + 1) = nTaxYear(mySet![To]) + 1 Then
+                                            nSplitPIWDays = nSplitPIWDays + mySet![SplitPIWDays]
+                                        End If
+                                    End If
+                                    mySet.MoveNext
+                                End If
+                                mySet.Edit
+                                If nSplitPIWDays > 3 Then
+                                    mySet![WeeklyRate] = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+                                Else
+                                    mySet![WeeklyRate] = 0
+                                End If
+                            Else
+                                mySet![WeeklyRate] = IIf(mySet![To] - mySet![From] >= 3, IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0)), 0)
+                            End If
+                        
+                        mySet![DailyRate] = (Fix((mySet![WeeklyRate] / mySet![NumberOfQDsPerWeeks]) * 10000)) / 10000
+                    End If
+    
+                mySet.Update
+                mySet.MoveNext
+            Loop
+            MyLookUp.Close
+
+        End If
+
+    End If
+
+    mySet.Close
+    myDB.Close
+
+    SetNumberOfQDsInPIW
+
+    ' Update Details section, to reflect database
+    Forms![frmSSPPayable]![subPIW].Form.Requery
+
+
+Exit_SetSSPRates:
+    Exit Sub
+    
+Err_SetSSPRates:
+    MsgBox Error$
+    Resume Exit_SetSSPRates
+
+
+End Sub

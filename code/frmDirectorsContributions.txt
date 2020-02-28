@@ -1,0 +1,53 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Cat_GotFocus()
+
+' Author    : Lisa Scothern
+' Date      : 20/05/97
+' Purpose   : Define valid category selections based on previously chosen tax year - RFC 642C
+
+    On Error GoTo Err_Cat_GotFocus
+
+    Dim strCatStd As String, strCatRest As String
+
+    strCatStd = "A;B;C;D;E"
+    strCatRest = ";F;G;S"
+
+    If Forms!frmDirectorsMain!cboTaxYear > 1996 Then
+        Forms!frmDirectorsMain!DirectorsContributions.Form!Cat.RowSource = strCatStd & strCatRest
+    Else
+        Forms!frmDirectorsMain!DirectorsContributions.Form!Cat.RowSource = strCatStd
+    End If
+
+Exit_Cat_GotFocus:
+    Exit Sub
+
+Err_Cat_GotFocus:
+    MsgBox Error$
+    Resume Exit_Cat_GotFocus
+
+End Sub
+
+Private Sub Cat_KeyDown(KeyCode As Integer, Shift As Integer)
+    
+    If (FirstLine = True) Then
+        Cat_GotFocus
+    End If
+
+    FirstLine = False
+
+End Sub
+
+Private Sub Cat_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+
+    If (FirstLine = True) Then
+        Cat_GotFocus
+    End If
+
+    FirstLine = False
+
+End Sub

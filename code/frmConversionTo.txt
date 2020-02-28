@@ -1,0 +1,106 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Cat_AfterUpdate()
+    To_FirstLine = True
+End Sub
+
+Private Sub Cat_Enter()
+    
+    If [Year] > 1996 Then
+       [Cat].RowSource = "A;B;C;D;E;F;G;S"
+    ElseIf [Year] > 1977 Then
+        [Cat].RowSource = "A;B;C;D;E"
+    Else
+        [Cat].RowSource = "A;B;C"
+    End If
+
+End Sub
+
+Private Sub Cat_GotFocus()
+
+' Author        : Jane Mullen
+' Date          : 21 May 1997
+' Purpose       : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+
+
+On Error GoTo Err_Cat_GotFocus
+
+    If [Year] > 1996 Then
+       [Cat].RowSource = "A;B;C;D;E;F;G;S"
+    ElseIf [Year] > 1977 Then
+        [Cat].RowSource = "A;B;C;D;E"
+    Else
+        [Cat].RowSource = "A;B;C"
+    End If
+
+Exit_Cat_GotFocus:
+    Exit Sub
+
+Err_Cat_GotFocus:
+    MsgBox Error$
+    Resume Exit_Cat_GotFocus
+
+End Sub
+
+Private Sub Cat_KeyDown(KeyCode As Integer, Shift As Integer)
+
+' Author        : Jane Mullen
+' Date          : 23 May 1997
+' Purpose       : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+
+    If (To_FirstLine) = True Then
+        Cat_GotFocus
+    End If
+
+    To_FirstLine = False
+
+End Sub
+
+Private Sub Cat_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+' Author        : Jane Mullen
+' Date          : 23 May 1997
+' Purpose       : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+
+    If (To_FirstLine = True) Then
+        Cat_GotFocus
+    End If
+
+    To_FirstLine = False
+
+End Sub
+
+Private Sub Form_Load()
+
+    To_FirstLine = True
+
+End Sub
+
+Private Sub Year_Gotfocus()
+
+' Author        : Jane Mullen
+' Date          : 21 May 1997
+' Purpose       : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+
+
+On Error GoTo Err_Year_GotFocus
+
+    If [Year] > 96 Then
+        [Cat].RowSource = "A;B;C;D;E;F;G;S"
+    ElseIf [Year] > 77 Then
+        [Cat].RowSource = "A;B;C;D;E"
+    Else
+        [Cat].RowSource = "A;B;C"
+    End If
+
+Exit_Year_GotFocus:
+    Exit Sub
+
+Err_Year_GotFocus:
+    MsgBox Error$
+    Resume Exit_Year_GotFocus
+
+End Sub

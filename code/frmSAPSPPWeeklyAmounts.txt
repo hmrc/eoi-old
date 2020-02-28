@@ -1,0 +1,34 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+
+Private Sub Entitlement_AfterUpdate()
+If Entitlement.OldValue = "Employee Excluded" And Entitlement = "SAP Due" Then
+    MsgBox "Employee Excluded cannot be changed to SAP Due", vbOKOnly, "Calculation Support"
+    
+    Entitlement.value = Entitlement.OldValue 'reset
+    
+End If
+If Entitlement = "Week worked" Then
+    MsgBox "Please note that weeks worked must only be selected once the employee has used up all of their KIT days (a total of 10 days maximum)", vbOKOnly, "KIT days"
+End If
+End Sub
+
+
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+
+    ' Do not allow new records to be inserted
+    Cancel = True
+
+End Sub
+
+Private Sub Form_Delete(Cancel As Integer)
+
+    ' Do not allow records to be deleted
+    Cancel = True
+
+End Sub

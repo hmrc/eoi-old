@@ -1,0 +1,221 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private Sub cmdCivil_Click()
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 17 July 1996
+' Reason    : LER 95 : Number of credits not taken into account for 1st civil proceedings, and recalculated
+    
+    Dim nDummy As Integer
+    Dim n1stEntryNoConts As Integer
+    Dim n1stEntryNoCredits As Integer
+    Dim X As Integer
+    
+    
+    On Error GoTo err_cmdCivil_Click
+    
+    DoCmd.Hourglass True
+    
+    ' Calculate, to ensure all values correct
+    nDummy = Class2_Liab_Calculation()
+
+    n1stEntryNoCredits = 0
+    n1stEntryNoConts = 0
+    
+    DoCmd.RunSQL ("DELETE * FROM [Class 2 Civil Breakdown Table]")
+    
+    X = Class2_6years()
+    DoCmd.OpenForm "frmClass2years6"
+
+    ' If 1st civil proceedings exist ask for credit if relevant
+    If X = True Then
+        DoCmd.OpenForm "frmClass2years6FirstEntryCredits"
+    End If
+
+exit_cmdCivil_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_cmdCivil_Click:
+    MsgBox Error$
+    Resume exit_cmdCivil_Click
+End Sub
+
+Private Sub cmdClear_Click()
+' Originally created by ITSA 1995
+' History
+' Author : Mustaq Hussain
+' Date   : 24 January 1997
+' Reason : RFC 515 : Name and Ref required
+On Error GoTo Err_cmdClear_Click
+DoCmd.Hourglass True
+DoCmd.SetWarnings False
+DoCmd.RunSQL ("DELETE * FROM [Class 2 Liability Breakdown Table]")
+
+With Forms!frmClass2LiabMain
+    .Recalc
+    !txtTotalAmount.Visible = False
+    !txtFromDate.Locked = False
+    !txtToDate.Locked = False
+    !txtCalcDate.Locked = False
+    !cboHRPApply.Locked = False
+    !Surname = ""
+    !Initial = ""
+    !NIPrefix = ""
+    !NInumber = ""
+    !NIsuffix = ""
+    !Ref = ""
+    !txtFromDate = ""
+    !txtToDate = ""
+    !cmdCivil.Enabled = False
+    !cmdPrint.Enabled = False
+    !cmdCalculate.Enabled = True
+    !txtCalcDate = Date
+    !Surname.SetFocus
+    !lblText.Visible = False
+    !lblWarn.Visible = False
+End With
+
+Exit_cmdClear_Click:
+    DoCmd.SetWarnings True
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+End Sub
+
+Private Sub cmdClose_Click()
+On Error GoTo Err_cmdClose_Click
+DoCmd.Close
+Exit_cmdClose_Click:
+    Exit Sub
+Err_cmdClose_Click:
+    MsgBox Error$
+    Resume Exit_cmdClose_Click
+End Sub
+
+Private Sub cmdPrint_Click()
+On Error GoTo Err_cmdPrint_Click
+DoCmd.Hourglass True
+    Dim DocName As String
+
+    DocName = "rptClass2Breakdown"
+    DoCmd.OpenReport DocName, A_NORMAL
+
+
+Exit_cmdPrint_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+End Sub
+
+Private Sub Form_Load()
+On Error GoTo err_Form_Load
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author : Christopher Schuler
+' Date   : 23 January 2001
+' Reason : Global functions called for surname and initials
+
+On Error GoTo err_Form_Load
+Dim Sname As String
+Dim Fname As String
+Dim worked As Integer
+DoCmd.SetWarnings False
+DoCmd.Maximize
+'Obtain user details via two functions making
+'API calls to User.INI file
+Sname = getsurname()
+Fname = getinitials()
+Forms![frmClass2LiabMain]![txtPreparedBy] = Fname & " " & Sname
+Forms!frmClass2LiabMain!txtCalcDate = Date
+
+DoCmd.RunSQL ("DELETE * FROM [Class 2 Liability Breakdown Table]")
+
+Forms!frmClass2LiabMain.Recalc
+
+exit_Form_Load:
+DoCmd.SetWarnings True
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+
+
+Private Sub txtNINOprefix_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_txtNINOprefix_LostFocus
+Me!txtNINOprefix = UCase(Me!txtNINOprefix)
+exit_txtNINOprefix_LostFocus:
+    Exit Sub
+err_txtNINOprefix_LostFocus:
+    MsgBox Error$
+    Resume exit_txtNINOprefix_LostFocus
+
+End Sub
+
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If nTaxYear(txtCalcDate) > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtCalcDate.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If nTaxYear(txtCalcDate) > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtCalcDate.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtCalcDate.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub txtTotalAmount_GotFocus()
+On Error GoTo err_txtTotalAmount_GotFocus
+    Forms!frmClass2LiabMain!cmdCalculate.Enabled = False
+    Forms!frmClass2LiabMain!cmdPrint.SetFocus
+exit_txtTotalAmount_GotFocus:
+    Exit Sub
+err_txtTotalAmount_GotFocus:
+    MsgBox Error$
+    Resume exit_txtTotalAmount_GotFocus
+End Sub

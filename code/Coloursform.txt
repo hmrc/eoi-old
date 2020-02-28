@@ -1,0 +1,104 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private CF1colour As Variant
+Private Class2colour As Variant
+Private Class3colour As Variant
+Private Sharefishcolour As Variant
+Private Class2stamp As Variant
+Private Class3stamp As Variant
+Private Sharefishstamp As Variant
+Private Sub Closebutton_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Closebutton_Click
+
+
+    DoCmd.Close
+
+Exit_Closebutton_Click:
+    Exit Sub
+
+Err_Closebutton_Click:
+    MsgBox Error$
+    Resume Exit_Closebutton_Click
+    
+End Sub
+
+
+Private Sub Form_Load()
+
+On Error GoTo err_Form_Load:
+
+'Set myDB = CurrentDb()
+DoCmd.Maximize
+
+Forms!coloursform!Taxyear = 1992
+Dim A
+A = Setcolours()
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub Taxyear_NotInList(NewData As String, Response As Integer)
+
+MsgBox "Tax Year entered is invalid, please choose required Tax Year from list provided.", 48, "info"
+
+End Sub
+
+
+Function Setcolours()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History       : Christopher Schuler
+' Date          : 25 May 2004
+' Purpose       : Code moved here and separate module removed
+On Error GoTo Err_Setcolours
+
+Dim strSQL As String
+Dim rstColours As DAO.Recordset
+
+'DoCmd DoMenuItem acFormBAR, A_FILE, A_SAVERECORD, , A_MENU_VER20
+
+strSQL = "SELECT Stampcolour.Taxyear, Stampcolour.CFIColour, "
+strSQL = strSQL + "Stampcolour.TwoColour, Stampcolour.Twostamp, Stampcolour.ThreeColour, "
+strSQL = strSQL + "Stampcolour.Threestamp, Stampcolour.FishColour, Stampcolour.Fishstamp "
+strSQL = strSQL + "FROM Stampcolour WHERE Stampcolour.Taxyear='" & Forms!coloursform!Taxyear & "'"
+Set myDB = CurrentDb
+
+Set rstColours = myDB.OpenRecordset(strSQL)
+
+rstColours.MoveLast
+
+Forms![coloursform]!CF1 = rstColours!CFIColour
+Forms![coloursform]!Class2 = rstColours!TwoColour
+Forms![coloursform]!Class2bitmap = rstColours!Twostamp
+Forms![coloursform]!Class3 = rstColours!ThreeColour
+Forms![coloursform]!Class3bitmap = rstColours!Threestamp
+Forms![coloursform]!sharefisherman = rstColours!fishcolour
+Forms![coloursform]!Sharefishbitmap = rstColours!fishstamp
+
+Forms![coloursform].Requery
+myDB.Close
+
+Exit_Setcolours:
+    Exit Function
+
+Err_Setcolours:
+    MsgBox Error$
+    Resume Exit_Setcolours
+
+End Function

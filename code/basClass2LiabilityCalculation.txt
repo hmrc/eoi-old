@@ -1,0 +1,784 @@
+Option Compare Database   'Use database order for string comparisons
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 17 July 1996
+' Reason    : LER 95 : Number of credits not taken into account for 1st civil proceedings
+
+Option Explicit
+
+Global cl2liabDB As Database
+Declare Function getprivateprofilestring Lib "Kernel" (ByVal lpApplicationName As String, lpKeyName As Any, ByVal lpDefault As String, ByVal lpReturnedString As String, ByVal nSize As Integer, ByVal lpFileName As String) As Integer
+
+
+Global n1stEntryTaxYear
+Global n1stEntryFrom
+Global n1stEntryTo
+Global n1stEntryNoCredits
+Global n1stEntryMaxNoCredits
+Global n1stEntryMaxNoConts
+
+Function Class2_6years()
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 25 August 1995
+' Reason    : RFC 194, No Credits to handle
+' Author    : Mustaq Hussain
+' Date      : 17 July 1996
+' Reason    : LER 95 : Number of credits not taken into account for 1st civil proceedings
+' Author        : Christopher Schuler
+' Date          : 25 October 2000
+' Purpose       : inc no. 200901542 Highest rate not being applied when hrp applies
+
+
+On Error GoTo err_class2_6years
+
+DoCmd.SetWarnings False
+
+
+Dim fromdate As Variant
+Dim todate As Variant
+Dim fromyear As Integer
+Dim fromtaxyear As Variant
+Dim yearto As Integer
+Dim totaxyear As Variant
+Dim April6Date As Variant
+Dim April5Date As Variant
+Dim StartDate As Variant
+Dim EndDate As Variant
+Dim civildate As Variant
+Dim civilyear As Integer
+Dim civilmonth As Integer
+Dim civilday As Integer
+Dim calcyear As Integer
+Dim calcmonth As Integer
+Dim calcday As Integer
+Dim calctaxyear As Variant
+
+Dim startyear As Integer
+Dim startmonth As Integer
+Dim startday As Integer
+Dim endyear As Integer
+Dim endmonth As Integer
+Dim endday As Integer
+
+Dim taxyearstart As Variant
+Dim taxyearend As Variant
+Dim splitdate As Variant
+Dim splitrate1 As Currency
+Dim splitrate2 As Currency
+
+Dim datestore1 As Variant
+Dim datestore2 As Variant
+
+Dim class2breakdown As DAO.Recordset
+Dim class2rate As DAO.Recordset
+Dim class2hrp As DAO.Recordset
+Dim class2taxyearno As DAO.Recordset
+Dim class2main As DAO.Recordset
+
+
+Dim TopHrpRate As Currency
+Dim loopcounter As Variant
+Dim RecordCounter As Integer
+Dim TaxYearCounter As Integer
+
+Dim Criteria As String
+Dim frmMain As Form
+
+Dim b1stEntry As Integer
+
+b1stEntry = False
+
+Set frmMain = Forms!frmClass2LiabMain
+fromdate = frmMain!txtFromDate
+todate = frmMain!txtToDate
+civildate = frmMain!txtCalcDate
+
+Set cl2liabDB = CurrentDb()
+Set class2breakdown = cl2liabDB.OpenRecordset("Class 2 Civil Breakdown Table", DB_OPEN_TABLE)
+Set class2rate = cl2liabDB.OpenRecordset("Class 2 Rate Table", DB_OPEN_TABLE, DB_READONLY)
+Set class2main = cl2liabDB.OpenRecordset("Class 2 Liability Breakdown Table", DB_OPEN_DYNASET)
+
+yearto = DatePart("yyyy", todate)
+
+fromyear = DatePart("yyyy", fromdate)
+
+calcyear = DatePart("yyyy", frmMain!txtCalcDate)
+calcmonth = DatePart("m", frmMain!txtCalcDate)
+calcday = DatePart("d", frmMain!txtCalcDate)
+
+civildate = DateSerial(calcyear - 6, calcmonth, calcday)
+
+If civildate > fromdate Then
+    fromdate = civildate
+    fromyear = calcyear - 6
+End If
+
+If Weekday(fromdate) <> 1 Then
+    StartDate = fromdate - Weekday(fromdate) + 1
+Else
+    StartDate = fromdate
+End If
+
+If Weekday(todate) <> 7 Then
+    EndDate = todate + (7 - Weekday(todate))
+Else
+    EndDate = todate
+End If
+
+'breakdown start and end dates
+startyear = DatePart("yyyy", StartDate)
+startmonth = DatePart("m", StartDate)
+startday = DatePart("d", StartDate)
+
+endyear = DatePart("yyyy", EndDate)
+endmonth = DatePart("m", EndDate)
+endday = DatePart("d", EndDate)
+
+'determine tax year of startdate and end date
+
+April6Date = DateSerial(fromyear, 4, 6)
+If StartDate >= April6Date Then
+    fromtaxyear = startyear
+    Else
+    fromtaxyear = startyear - 1
+End If
+
+April6Date = DateSerial(yearto, 4, 6)
+If EndDate > April6Date Then
+    totaxyear = endyear
+    Else
+    totaxyear = endyear - 1
+End If
+
+April6Date = DateSerial(calcyear, 4, 6)
+If frmMain!txtCalcDate >= April6Date Then
+    calctaxyear = calcyear
+    Else
+    calctaxyear = calcyear - 1
+End If
+
+'determine start and end dates according to liablity rules
+
+'iterate for each tax year
+loopcounter = fromtaxyear
+
+Do While loopcounter < totaxyear + 1
+
+    If class2rate.NoMatch Then
+        DoCmd.Hourglass False
+        Exit Function
+    End If
+
+    class2rate.Index = "Tax Yr"
+    class2rate.Seek "=", loopcounter
+
+    'Code to cope with split years
+    Set class2taxyearno = cl2liabDB.OpenRecordset("SELECT DISTINCTROW [Tax Yr], [Start Wk], [Men Wk Rte], [No of Wks]FROM [CLASS 2 RATE TABLE]WHERE ([Tax Yr]=""" & loopcounter & """);")
+    
+    class2taxyearno.MoveLast
+    
+    TaxYearCounter = class2taxyearno.Recordcount
+
+    class2taxyearno.MoveFirst
+        
+        'iterate for each split rate within each tax year
+        While TaxYearCounter > 0
+
+            April6Date = DateSerial(loopcounter, 4, 6)
+            If Weekday(April6Date) <> 1 Then
+                taxyearstart = April6Date + (7 - Weekday(April6Date) + 1)
+            Else
+                taxyearstart = April6Date
+            End If
+
+            April5Date = DateSerial(loopcounter + 1, 4, 5)
+            If Weekday(April5Date) <> 7 Then
+                taxyearend = April5Date + (7 - Weekday(April5Date))
+            Else
+                taxyearend = April5Date
+            End If
+            
+            If class2taxyearno![Start Wk] = 1 Then
+                'cope with split year
+                splitdate = taxyearstart + class2taxyearno![No of Wks] * 7 - 1
+            
+                If splitdate < taxyearend Then
+                    splitrate1 = class2taxyearno![Men Wk Rte]
+                    taxyearend = splitdate
+                Else
+                    splitdate = ""
+                End If
+            Else
+                If splitdate + 1 > taxyearstart Then
+                    splitrate2 = class2taxyearno![Men Wk Rte]
+                    taxyearstart = splitdate + 1
+                End If
+            End If
+            
+            If StartDate > taxyearstart Then
+                datestore1 = StartDate
+            Else
+                datestore1 = taxyearstart
+            End If
+
+            If EndDate < taxyearend Then
+                datestore2 = EndDate
+            Else
+                datestore2 = taxyearend
+            End If
+            'this unstructured check enables correct processing when start date
+            'is after split date in a split year
+            If datestore1 >= datestore2 Then
+                GoTo civiljump
+            End If
+                
+            class2breakdown.AddNew
+            class2breakdown("From") = datestore1
+            class2breakdown("To") = datestore2
+            class2breakdown("Tax Year") = loopcounter
+
+            If frmMain!txtCalcDate > class2rate![HRP Date] And frmMain!cboHRPApply = "Yes" Then
+                'hrp to apply
+                If taxyearstart > splitdate Then
+                    If splitrate1 > splitrate2 Then
+                        Set class2hrp = cl2liabDB.OpenRecordset("SELECT DISTINCTROW [Tax Yr], [Men Wk Rte] FROM [CLASS 2 RATE TABLE]WHERE (([Tax Yr]>=""" & (loopcounter + 1) & """ AND [Tax Yr]<=""" & calctaxyear & """));")
+                    End If
+                Else
+                    Set class2hrp = cl2liabDB.OpenRecordset("SELECT DISTINCTROW [Tax Yr], [Men Wk Rte] FROM [CLASS 2 RATE TABLE]WHERE (([Tax Yr]>=""" & loopcounter & """ AND [Tax Yr]<=""" & calctaxyear & """));")
+                End If
+
+                class2hrp.MoveLast
+
+                RecordCounter = class2hrp.Recordcount
+                TopHrpRate = 0
+
+                class2hrp.MoveFirst
+
+                While RecordCounter > 0
+                            If class2hrp![Men Wk Rte] > TopHrpRate Then
+                            TopHrpRate = class2hrp![Men Wk Rte]
+                        End If
+                    class2hrp.MoveNext
+                    RecordCounter = RecordCounter - 1
+                Wend
+                class2breakdown("Rate") = TopHrpRate
+                class2breakdown("HRP Applied") = "Yes"
+            Else
+                class2breakdown("Rate") = class2taxyearno![Men Wk Rte]
+                class2breakdown("HRP Applied") = "No"
+            End If
+            
+            ' Find [No Credits] from "Class 2 Liability Breakdown Table"
+            Criteria = "[Tax Year] = '" + class2breakdown("Tax Year") + "' "
+            Criteria = Criteria + " AND [To] = #" & Format(class2breakdown("To"), "m/d/yy") & "#"
+
+            class2main.FindFirst Criteria
+            If class2main.NoMatch Then
+                class2breakdown("No Credits") = 0
+            Else
+
+                ' 6 years ago, on a Sunday
+                Dim dtmCivil
+                dtmCivil = DateAdd("yyyy", -6, CVDate(Format(frmMain!txtCalcDate)))
+                ' Ensure a Sunday
+                While DatePart("w", dtmCivil, 1) <> 1
+                    dtmCivil = DateAdd("d", -1, dtmCivil)
+                Wend
+
+                ' If 1st entry then must ask for number of credits
+                If class2breakdown.Recordcount = 0 And class2main("No Credits") > 0 And dtmCivil > CVDate(Format(frmMain!txtFromDate)) Then
+                    b1stEntry = True
+                    n1stEntryTaxYear = class2breakdown("Tax Year")
+                    n1stEntryFrom = class2breakdown("From")
+                    n1stEntryTo = class2breakdown("To")
+                    n1stEntryMaxNoCredits = class2main("No Credits")
+                    class2breakdown("No Conts In Period") = (class2breakdown("To") - class2breakdown("From")) / 7
+                    n1stEntryMaxNoConts = class2breakdown("No Conts In Period")
+                    class2breakdown("No Credits") = 0 + n1stEntryNoCredits
+                Else
+                    class2breakdown("No Credits") = class2main("No Credits")
+                End If
+            End If
+
+            class2breakdown("No Conts In Period") = (class2breakdown("To") - class2breakdown("From")) / 7
+            class2breakdown("No Conts") = class2breakdown("No Conts In Period") - class2breakdown("No Credits")
+
+            class2breakdown("Total") = class2breakdown("No Conts") * class2breakdown("Rate")
+
+            If frmMain!txtCalcDate > class2rate![Dte Lte for STB] Then
+                class2breakdown("L") = "Yes"
+            Else
+                class2breakdown("L") = "No"
+            End If
+            If frmMain!txtCalcDate > class2rate![Fnl Dte For Pen] Then
+                class2breakdown("LX") = "Yes"
+            Else
+                class2breakdown("LX") = "No"
+            End If
+            If class2breakdown("L") = "Yes" And class2breakdown("LX") = "Yes" Then
+                class2breakdown("L") = "No"
+            End If
+
+        class2breakdown.Update
+civiljump:
+        class2taxyearno.MoveNext
+        TaxYearCounter = TaxYearCounter - 1
+        Wend
+    loopcounter = loopcounter + 1
+Loop
+
+exit_class2_6years:
+    DoCmd.Hourglass False
+    Class2_6years = b1stEntry
+    Exit Function
+err_class2_6years:
+    MsgBox Error$
+    Resume exit_class2_6years
+End Function
+
+Function Class2_Liab_Calculation()
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+' Modification history
+' Author    : Mustaq Hussain
+' Date      : 24 August 1995
+' Reason    : Handle Credits, and moved original Class2_Liab_Calculation() to Class2_Liablities_Exist()
+'               as it was large
+    On Error GoTo err_Class2_Liab_Calculation
+    
+    DoCmd.Hourglass True
+    DoCmd.SetWarnings False
+    
+    Dim class2breakdown As DAO.Recordset
+    Dim class2rate As DAO.Recordset
+    
+    Dim Ignored As Integer  ' Needed because of need for a return
+
+
+    Set cl2liabDB = CurrentDb()
+    Set class2breakdown = cl2liabDB.OpenRecordset("Class 2 Liability Breakdown Table", DB_OPEN_TABLE)
+    Set class2rate = cl2liabDB.OpenRecordset("Class 2 Rate Table", DB_OPEN_TABLE, DB_READONLY)
+    
+    If class2breakdown.Recordcount = 0 Then
+
+        Ignored = Class2_Liablities_Exist()
+
+    Else
+    
+        Set class2breakdown = cl2liabDB.OpenRecordset("Class 2 Liability Breakdown Table", DB_OPEN_DYNASET)
+
+        ' Update each record with credits taken into account
+
+        class2breakdown.MoveFirst
+        
+        Do Until class2breakdown.EOF
+            class2breakdown.Edit
+            class2breakdown("No Conts") = class2breakdown("No Conts In Period") - class2breakdown("No Credits")
+            class2breakdown("Total") = class2breakdown("Rate") * class2breakdown("No Conts")
+            class2breakdown.Update
+            class2breakdown.MoveNext
+        Loop
+
+        Forms!frmClass2LiabMain.Recalc
+        Forms!frmClass2LiabMain!txtTotalAmount = Forms!frmClass2LiabMain.sfmBreakdown.Form!grandtotal
+
+    End If
+
+
+exit_Class2_Liab_Calculation:
+    DoCmd.Hourglass False
+    Exit Function
+err_Class2_Liab_Calculation:
+    MsgBox Error$
+    Resume exit_Class2_Liab_Calculation
+End Function
+
+Function Class2_Liablities_Exist()
+
+' Modification history
+' Author        : Mustaq Hussain
+' Date          : 25 August 1995
+' Reason        : Moved Class2_Liab_Calculation (), here so that it can deal with Credits
+'               keep Calculate button un-grayed
+' Author        : Christopher Schuler
+' Date          : 8 June 1999
+' Purpose       : Change Request Problem No P990600123 Correction to condition for applying 'hrp'
+' Author        : Christopher Schuler
+' Date          : 25 October 2000
+' Purpose       : inc no. 200901542(=P201100035) Highest rate not being applied when hrp applies
+
+
+On Error GoTo err_Class2_Liablities_Exist
+DoCmd.Hourglass True
+DoCmd.SetWarnings False
+
+
+Dim fromdate As Variant
+Dim todate As Variant
+Dim fromyear As Integer
+Dim frommonth As Integer
+Dim fromday As Integer
+Dim fromtaxyear As Variant
+Dim yearto As Integer
+Dim monthto As Integer
+Dim dayto As Integer
+Dim totaxyear As Variant
+Dim April6Date As Variant
+Dim April5Date As Variant
+Dim StartDate As Variant
+Dim EndDate As Variant
+
+Dim startyear As Integer
+Dim startmonth As Integer
+Dim startday As Integer
+Dim endyear As Integer
+Dim endmonth As Integer
+Dim endday As Integer
+
+Dim calcyear As Integer
+Dim calcmonth As Integer
+Dim calcday As Integer
+Dim calctaxyear As Variant
+
+Dim taxyearstart As Variant
+Dim taxyearend As Variant
+Dim splitdate As Variant
+Dim splitrate1 As Currency
+Dim splitrate2 As Currency
+Dim datestore1 As Variant
+Dim datestore2 As Variant
+
+
+Dim class2breakdown As DAO.Recordset
+Dim class2rate As DAO.Recordset
+Dim class2hrp As DAO.Recordset
+Dim class2taxyearno As DAO.Recordset
+
+
+Dim TopHrpRate As Currency
+Dim loopcounter As Variant
+Dim RecordCounter As Integer
+Dim TaxYearCounter As Integer
+
+
+'validate input
+fromdate = Forms!frmClass2LiabMain!txtFromDate
+todate = Forms!frmClass2LiabMain!txtToDate
+
+If fromdate = "" Or IsNull(fromdate) Then
+    MsgBox "You must input a 'from date'", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtFromDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+If todate = "" Or IsNull(todate) Then
+    MsgBox "You must input a 'to date'", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtToDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+If fromdate < #4/6/1975# Then
+    MsgBox "The 'from date' must be after 05/04/75", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtFromDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+If todate > #11/4/2015# Then
+    MsgBox "The 'to date' cannot be after 11/04/15", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtFromDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+If fromdate > todate Then
+    MsgBox "The 'from date' cannot be after the 'to date'", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtFromDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+If IsNull(Forms!frmClass2LiabMain!txtCalcDate) Then
+    Forms!frmClass2LiabMain!txtCalcDate = Date
+End If
+If Forms!frmClass2LiabMain!txtCalcDate < #4/6/1975# Then
+    MsgBox "The 'calculation date' must be after 05/04/75", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtCalcDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+If todate > Date Then
+    MsgBox "The 'to date' must not be after " & Date & " - Please reinput", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtToDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+If Forms!frmClass2LiabMain!txtCalcDate > Date Then
+    MsgBox "The 'calculation date' must not be after " & Date & " - Please reinput", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtCalcDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+If todate > Forms!frmClass2LiabMain!txtCalcDate Then
+    MsgBox "The 'to date' must not be after the 'calculation date' - Please reinput", 0 + 16, "Warning"
+    Forms!frmClass2LiabMain!txtToDate.SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+
+Set cl2liabDB = CurrentDb()
+Set class2breakdown = cl2liabDB.OpenRecordset("Class 2 Liability Breakdown Table", DB_OPEN_TABLE)
+Set class2rate = cl2liabDB.OpenRecordset("Class 2 Rate Table", DB_OPEN_TABLE, DB_READONLY)
+
+fromyear = DatePart("yyyy", fromdate)
+frommonth = DatePart("m", fromdate)
+fromday = DatePart("d", fromdate)
+
+yearto = DatePart("yyyy", todate)
+monthto = DatePart("m", todate)
+dayto = DatePart("d", todate)
+
+calcyear = DatePart("yyyy", Forms!frmClass2LiabMain!txtCalcDate)
+calcmonth = DatePart("m", Forms!frmClass2LiabMain!txtCalcDate)
+calcday = DatePart("d", Forms!frmClass2LiabMain!txtCalcDate)
+
+'determine start and end dates according to liablity rules
+If Weekday(fromdate) <> 1 Then
+    StartDate = fromdate - Weekday(fromdate) + 1
+Else
+    StartDate = fromdate
+End If
+
+If Weekday(todate) <> 7 Then
+    EndDate = todate + (7 - Weekday(todate))
+Else
+    EndDate = todate
+End If
+
+'breakdown start and end dates
+startyear = DatePart("yyyy", StartDate)
+startmonth = DatePart("m", StartDate)
+startday = DatePart("d", StartDate)
+
+endyear = DatePart("yyyy", EndDate)
+endmonth = DatePart("m", EndDate)
+endday = DatePart("d", EndDate)
+
+'determine tax year of startdate & enddate
+
+April6Date = DateSerial(fromyear, 4, 6)
+
+If StartDate >= April6Date Then
+    fromtaxyear = startyear
+    Else
+    fromtaxyear = startyear - 1
+End If
+
+April6Date = DateSerial(yearto, 4, 6)
+If EndDate >= April6Date Then
+    totaxyear = endyear
+    Else
+    totaxyear = endyear - 1
+End If
+
+April6Date = DateSerial(calcyear, 4, 6)
+If Forms!frmClass2LiabMain!txtCalcDate >= April6Date Then
+    calctaxyear = calcyear
+    Else
+    calctaxyear = calcyear - 1
+End If
+'convert to correct format
+'fromtaxyear = fromtaxyear - 1900
+'totaxyear = totaxyear - 1900
+'calctaxyear = calctaxyear - 1900
+'display warning where appropriate
+If fromtaxyear < 1978 Then
+    Forms!frmClass2LiabMain!lblWarn.Visible = True
+    Forms!frmClass2LiabMain!lblText.Visible = True
+Else
+    Forms!frmClass2LiabMain!lblText.Visible = False
+    Forms!frmClass2LiabMain!lblWarn.Visible = False
+End If
+
+'iterate for each tax year
+loopcounter = fromtaxyear
+
+Do While loopcounter < totaxyear + 1
+
+    If class2rate.NoMatch Then
+        DoCmd.Hourglass False
+        Exit Function
+    End If
+
+    class2rate.Index = "Tax Yr"
+    class2rate.Seek "=", loopcounter
+
+    'Code to cope with split years
+    Set class2taxyearno = cl2liabDB.OpenRecordset("SELECT DISTINCTROW [CLASS 2 RATE TABLE].[Tax Yr],[CLASS 2 RATE TABLE].[Start Wk], [CLASS 2 RATE TABLE].[Men Wk Rte],[CLASS 2 RATE TABLE].[No of Wks]FROM [CLASS 2 RATE TABLE]WHERE (([CLASS 2 RATE TABLE].[Tax Yr]=""" & loopcounter & """));")
+    
+    If class2taxyearno.EOF Then
+        GoTo EndOfLoop   'crude way of leaving loop when class 2 details do not exist
+    End If
+        
+    
+    ' next line required to give correct record count
+    class2taxyearno.MoveLast
+    
+    TaxYearCounter = class2taxyearno.Recordcount
+        If TaxYearCounter > 2 Then
+            MsgBox "There are more than two Class 2 rates for the " & loopcounter & " year. No calculation possible", 0 + 16, "Warning"
+            DoCmd.Hourglass False
+            Exit Function
+        End If
+
+        class2taxyearno.MoveFirst
+
+        'iterate for each split rate within each tax year
+        While TaxYearCounter > 0
+
+            April6Date = DateSerial(loopcounter, 4, 6)
+            If Weekday(April6Date) <> 1 Then
+                taxyearstart = April6Date + (7 - Weekday(April6Date) + 1)
+            Else
+                taxyearstart = April6Date
+            End If
+
+            April5Date = DateSerial(loopcounter + 1, 4, 5)
+            If Weekday(April5Date) <> 7 Then
+                taxyearend = April5Date + (7 - Weekday(April5Date))
+            Else
+                taxyearend = April5Date
+            End If
+            
+            If class2taxyearno![Start Wk] = 1 Then
+                'cope with split year
+                splitdate = taxyearstart + class2taxyearno![No of Wks] * 7 - 1
+                If splitdate < taxyearend Then
+                    splitrate1 = class2taxyearno![Men Wk Rte]
+                    taxyearend = splitdate
+                Else
+                    splitdate = ""
+                End If
+            Else
+                If splitdate + 1 > taxyearstart Then
+                    splitrate2 = class2taxyearno![Men Wk Rte]
+                    taxyearstart = splitdate + 1
+                End If
+            End If
+            
+            If StartDate > taxyearstart Then
+                datestore1 = StartDate
+            Else
+                datestore1 = taxyearstart
+            End If
+
+            If EndDate < taxyearend Then
+                datestore2 = EndDate
+            Else
+                datestore2 = taxyearend
+            End If
+            'this unstructured check enables correct processing when start date
+            'is after split date in a split year
+            If datestore1 >= datestore2 Then
+                GoTo jump
+            End If
+            class2breakdown.AddNew
+            class2breakdown("From") = datestore1
+            class2breakdown("To") = datestore2
+            class2breakdown("Tax Year") = loopcounter
+
+            If Forms!frmClass2LiabMain!txtCalcDate >= class2rate![HRP Date] And Forms!frmClass2LiabMain!cboHRPApply = "Yes" Then
+                'hrp to apply
+
+                If taxyearstart > splitdate Then
+                    If splitrate1 > splitrate2 Then
+                        Set class2hrp = cl2liabDB.OpenRecordset("SELECT DISTINCTROW [CLASS 2 RATE TABLE].[Tax Yr], [CLASS 2 RATE TABLE].[Men Wk Rte]FROM [CLASS 2 RATE TABLE]WHERE (([CLASS 2 RATE TABLE].[Tax Yr]>=""" & (loopcounter + 1) & """ AND [CLASS 2 RATE TABLE].[Tax Yr]<=""" & calctaxyear & """));")
+                    End If
+                Else
+                    Set class2hrp = cl2liabDB.OpenRecordset("SELECT DISTINCTROW [CLASS 2 RATE TABLE].[Tax Yr], [CLASS 2 RATE TABLE].[Men Wk Rte]FROM [CLASS 2 RATE TABLE]WHERE (([CLASS 2 RATE TABLE].[Tax Yr]>=""" & loopcounter & """ AND [CLASS 2 RATE TABLE].[Tax Yr]<=""" & calctaxyear & """));")
+                End If
+                ' next line required to give correct record count (inc no. 200901542)
+                class2hrp.MoveLast
+
+                RecordCounter = class2hrp.Recordcount
+                TopHrpRate = 0
+
+                class2hrp.MoveFirst
+
+                While RecordCounter > 0
+                            If class2hrp![Men Wk Rte] > TopHrpRate Then
+                            TopHrpRate = class2hrp![Men Wk Rte]
+                            End If
+                    class2hrp.MoveNext
+                    RecordCounter = RecordCounter - 1
+                Wend
+                class2breakdown("Rate") = TopHrpRate
+                class2breakdown("HRP Applied") = "Yes"
+            Else
+                class2breakdown("Rate") = class2taxyearno![Men Wk Rte]
+                class2breakdown("HRP Applied") = "No"
+            End If
+            class2breakdown("No Conts In Period") = (class2breakdown("To") - class2breakdown("From")) / 7
+            class2breakdown("Total") = class2breakdown("No Conts In Period") * class2breakdown("Rate")
+            class2breakdown("No Conts") = class2breakdown("No Conts In Period")
+                
+            ' EARS00018013386 (incident no.) changes to '>' to use '>='
+            ' EARS00019197146 Change '>=' back to '>'
+            If Forms!frmClass2LiabMain!txtCalcDate > class2rate![Fnl Dte For Pen] Then
+                class2breakdown("LX") = "Yes"
+                Else
+                class2breakdown("LX") = "No"
+            End If
+            If Forms!frmClass2LiabMain!txtCalcDate >= class2rate![Dte Lte for STB] Then
+                class2breakdown("L") = "Yes"
+                Else
+                class2breakdown("L") = "No"
+            End If
+            If class2breakdown("L") = "Yes" And class2breakdown("LX") = "Yes" Then
+                class2breakdown("L") = "No"
+            End If
+
+        class2breakdown.Update
+jump:
+        class2taxyearno.MoveNext
+        TaxYearCounter = TaxYearCounter - 1
+        Wend
+    loopcounter = loopcounter + 1
+Loop
+
+
+EndOfLoop:
+
+
+With Forms!frmClass2LiabMain
+    .Recalc
+    !txtTotalAmount.Visible = True
+    !txtTotalAmount = .sfmBreakdown.Form!grandtotal
+    !txtFromDate.Locked = True
+    !txtToDate.Locked = True
+    !txtCalcDate.Locked = True
+    !cboHRPApply.Locked = True
+    !cmdCivil.Enabled = True
+    !cmdPrint.Enabled = True
+    !cmdPrint.SetFocus
+End With
+
+exit_Class2_Liablities_Exist:
+    DoCmd.Hourglass False
+    Exit Function
+err_Class2_Liablities_Exist:
+    MsgBox Error$
+    Resume exit_Class2_Liablities_Exist
+
+End Function

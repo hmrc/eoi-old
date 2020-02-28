@@ -1,0 +1,532 @@
+Option Compare Database   'Use database order for string comparisons
+
+' Author        : Mustaq Hussain
+' Date          : 12 February 1997
+' Purpose       : Conversion modules
+
+Option Explicit
+
+
+Global Const cConversionLELEmployee = 1
+Global Const cConversionLELEmployer = 2
+Global Const cConversionUELEmployee = 3
+Global Const cConversionUELEmployer = 4
+Global Const cConversionAboveUEL = 5
+
+Global To_FirstLine As Integer
+
+
+
+
+Function bValidConversionCalculation()
+' Author        : Mustaq Hussain
+' Date          : 20 February 1997
+' Fuction Name  : bValidConversionCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' History       : Jane Mullen
+' Date          : 1 May 1997
+' Purpose       : Refresh 'Convert To' table after calculation (ie Requery sub form)
+'               : Also amended calls to curRound to new fn curRoundCnvn
+' Author        : Lisa Scothern
+' Date          : 1 October 1997
+' Purpose       : RFC541K - Removed local function curRoundCnvn() and replaced calls to curRoundCnvn() with
+'               : calls to curRound() (a global function which now does the same thing and correctly rounds
+'               : down exactly 0.5p and less).
+            
+
+    Dim nBand As Integer, nLEL As Currency, nUEL As Currency
+    Dim fltEELEL As Double, fltERLEL As Double, fltEEUEL As Double, fltERUEL As Double, fltERAboveUEL As Double
+
+    Dim curEELELConts As Currency, curERLELConts As Currency
+    Dim curEEUELConts As Currency, curERUELConts As Currency, curERAboveUELConts As Currency
+    
+    Dim curToEarnings, curToEEConts, curToTotalConts, curToERConts, curToCOEarnings, curToCONI
+    
+    Dim curFromEarnings As Currency
+    Dim curWeeklyEarnings As Currency
+
+    Dim NumFrom As Integer
+    
+    Dim curTotalContsDue, curEEContsDue, curERContsDue
+
+    Dim strFromCat As String, strToCat As String
+
+    Dim myDB As Database
+    Dim FromSet As DAO.Recordset
+    Dim ToSet As DAO.Recordset
+    Dim round As Currency
+
+    On Error GoTo Err_bValidConversionCalculation
+
+    DoCmd.Hourglass True
+
+    ' Assume valid
+    bValidConversionCalculation = True
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set FromSet = myDB.OpenRecordset("tblConversionFrom")
+    Set ToSet = myDB.OpenRecordset("tblConversionTo")
+    
+
+    ' ''''''''''''''''''''''''''Valid Entries'''''''''''''''''''''''''''''''''''''''''''''''''''
+
+    ' Check equal number of records
+    If FromSet.Recordcount <> ToSet.Recordcount Then
+        Beep
+        MsgBox ("Number of entries in the From and To conversion tables must be equal")
+        Forms![frmConversionMain]![subConversionFrom].SetFocus
+        bValidConversionCalculation = False
+        GoTo ConversionError
+    End If
+    
+    ' Check for no categories
+    If (FromSet.Recordcount = 0) And (ToSet.Recordcount = 0) Then
+        Beep
+        MsgBox ("No Entries have been entered in either conversion tables")
+        Forms![frmConversionMain]![subConversionFrom].SetFocus
+        bValidConversionCalculation = False
+        GoTo ConversionError
+    End If
+
+    ' Check Tax year, Cat set, and valid conversion set
+    
+    FromSet.MoveFirst
+    ToSet.MoveFirst
+    
+    
+    If Not FromSet.EOF Then
+        NumFrom = 1
+        Do Until FromSet.EOF
+            If IsNull(FromSet![Taxyear]) Then
+                Beep
+                MsgBox ("Record " & NumFrom & " in Conversion From Table requires a Tax Year")
+                Forms![frmConversionMain]![subConversionFrom].SetFocus
+                bValidConversionCalculation = False
+                GoTo ConversionError
+            End If
+
+            If IsNull(ToSet![Taxyear]) Then
+                Beep
+                MsgBox ("Record " & NumFrom & " in Conversion To Table requires a Tax Year")
+                Forms![frmConversionMain]![SubConversionTo].SetFocus
+                bValidConversionCalculation = False
+                GoTo ConversionError
+           End If
+            
+            If IsNull(FromSet![Category]) Then
+                Beep
+                MsgBox ("Record " & NumFrom & " in Conversion From Table requires a Category")
+                Forms![frmConversionMain]![subConversionFrom].Form![Cat].SetFocus
+                bValidConversionCalculation = False
+                GoTo ConversionError
+            End If
+
+            If IsNull(ToSet![Category]) Then
+                Beep
+                MsgBox ("Record " & NumFrom & " in Conversion To Table requires a Category")
+                Forms![frmConversionMain]![SubConversionTo].Form![Cat].SetFocus
+                bValidConversionCalculation = False
+                GoTo ConversionError
+            End If
+            
+            ' Check conversion allowed
+            If FromSet![Category] = ToSet![Category] Then
+                Beep
+                MsgBox ("Record " & NumFrom & " Conversion is not allowed")
+                Forms![frmConversionMain]![subConversionFrom].SetFocus
+                bValidConversionCalculation = False
+                GoTo ConversionError
+            End If
+            
+            NumFrom = NumFrom + 1
+            
+            FromSet.MoveNext
+            ToSet.MoveNext
+        Loop
+    Else
+        Beep
+        MsgBox ("No Entries")
+        Forms![frmConversionMain]![subConversionFrom].SetFocus
+        bValidConversionCalculation = False
+        GoTo ConversionError
+    End If
+    
+    ' Check sum of weeks
+    FromSet.MoveFirst
+    ToSet.MoveFirst
+    If Not FromSet.EOF Then
+        Do Until FromSet.EOF
+            ' Must not exceed 56 weeks
+            If DSum("[NoOfWeeks]", "tblConversionFrom", "[TaxYear] = '" + FromSet![Taxyear] + "'") > 56 Then
+                Beep
+                MsgBox ("Total No of Weeks must not exceed 56 per Tax Year")
+                Forms![frmConversionMain]![subConversionFrom].SetFocus
+                bValidConversionCalculation = False
+                GoTo ConversionError
+            End If
+            FromSet.MoveNext
+        Loop
+    Else
+        Beep
+        MsgBox ("No Entries")
+        Forms![frmConversionMain]![subConversionFrom].SetFocus
+        bValidConversionCalculation = False
+        GoTo ConversionError
+    End If
+    
+    ' ''''''''''''''''''''''''''Valid Entries Checked'''''''''''''''''''''''''''''''''''''''''''
+
+
+    ' Carry out calculation
+    ' Calculate only if entries exist
+    If Not ToSet.EOF Then
+
+        FromSet.MoveFirst
+        ToSet.MoveFirst
+        Do Until ToSet.EOF
+            ToSet.Edit
+                
+            curWeeklyEarnings = FromSet![TotalEarnings] / FromSet![NoOfWeeks]
+            ' Get band and LEL and UEL (To or From data can be used, as they will be the same)
+            WeeklyBand FromSet![Taxyear], curWeeklyEarnings, nBand, nLEL, nUEL
+            
+            ' Check LEL reached
+            If curWeeklyEarnings < nLEL Then
+                Beep
+                MsgBox ("Weekly Earnings below LEL, cannot carry out conversion")
+                bValidConversionCalculation = False
+                GoTo ConversionError
+            End If
+
+            ' Get percentage rates, using To category
+            UseClass1Rate510Pre CInt(FromSet![Taxyear]), FromSet![5/10Pre], ToSet![Category], cConversionLELEmployee, nBand, fltEELEL
+            UseClass1Rate510Pre CInt(FromSet![Taxyear]), FromSet![5/10Pre], ToSet![Category], cConversionLELEmployer, nBand, fltERLEL
+            UseClass1Rate510Pre CInt(FromSet![Taxyear]), FromSet![5/10Pre], ToSet![Category], cConversionUELEmployee, nBand, fltEEUEL
+            UseClass1Rate510Pre CInt(FromSet![Taxyear]), FromSet![5/10Pre], ToSet![Category], cConversionUELEmployer, nBand, fltERUEL
+            UseClass1Rate510Pre CInt(FromSet![Taxyear]), FromSet![5/10Pre], ToSet![Category], cConversionAboveUEL, nBand, fltERAboveUEL
+
+            
+            strFromCat = FromSet![Category]
+            strToCat = ToSet![Category]
+            curFromEarnings = FromSet![TotalEarnings]
+
+            ' Initial calculated values
+            curEELELConts = 0
+            curERLELConts = 0
+            curEEUELConts = 0
+            curERUELConts = 0
+            curERAboveUELConts = 0
+            curToCOEarnings = Null
+            curToCONI = Null
+            
+            
+            ' Upto LEL contributions
+            curEELELConts = curRound(IIf(nLEL > curWeeklyEarnings, curWeeklyEarnings, nLEL) * fltEELEL * FromSet![NoOfWeeks])
+            curERLELConts = curRound(IIf(nLEL > curWeeklyEarnings, curWeeklyEarnings, nLEL) * fltERLEL * FromSet![NoOfWeeks])
+            
+            ' Between LEL & UEL contributions
+            If curWeeklyEarnings - nLEL > 0 Then
+                curEEUELConts = curRound(IIf(curWeeklyEarnings > nUEL, nUEL - nLEL, curWeeklyEarnings - nLEL) * fltEEUEL * FromSet![NoOfWeeks])
+                curERUELConts = curRound(IIf(curWeeklyEarnings > nUEL, nUEL - nLEL, curWeeklyEarnings - nLEL) * fltERUEL * FromSet![NoOfWeeks])
+            End If
+            
+            ' Above UEL contributions
+            curERAboveUELConts = curRound(IIf(curWeeklyEarnings - nUEL > 0, curWeeklyEarnings - nUEL, 0) * fltERAboveUEL * FromSet![NoOfWeeks])
+
+
+            curToEEConts = curEELELConts + curEEUELConts
+            curToERConts = curERLELConts + curERUELConts + curERAboveUELConts
+            curToTotalConts = curToEEConts + curToERConts
+            
+            ' Contracted out
+
+            Select Case strFromCat
+                Case "A", "B", "C"
+                    Select Case strToCat
+                        Case "D", "E", "F", "G", "S"
+                            curToCOEarnings = curRound(curFromEarnings - nLEL * FromSet![NoOfWeeks])
+                            curToCONI = curRound(curEEUELConts)
+                    End Select
+                Case "D"
+                    Select Case strToCat
+                        Case "E", "F", "G", "S"
+                            curToCOEarnings = curRound(curFromEarnings - nLEL * FromSet![NoOfWeeks])
+                            curToCONI = curRound(curEEUELConts)
+                    End Select
+                Case "E"
+                    Select Case strToCat
+                        Case "D", "F", "G", "S"
+                            curToCOEarnings = curRound(curFromEarnings - nLEL * FromSet![NoOfWeeks])
+                            curToCONI = curRound(curEEUELConts)
+                    End Select
+                Case "F"
+                    Select Case strToCat
+                        Case "D", "E", "G", "S"
+                            curToCOEarnings = curRound(curFromEarnings - nLEL * FromSet![NoOfWeeks])
+                            curToCONI = curRound(curEEUELConts)
+                    End Select
+                Case "G"
+                    Select Case strToCat
+                        Case "D", "E", "F", "S"
+                            curToCOEarnings = curRound(curFromEarnings - nLEL * FromSet![NoOfWeeks])
+                            curToCONI = curRound(curEEUELConts)
+                    End Select
+                Case "S"
+                    Select Case strToCat
+                        Case "D", "E", "F", "G"
+                            curToCOEarnings = curRound(curFromEarnings - nLEL * FromSet![NoOfWeeks])
+                            curToCONI = curRound(curEEUELConts)
+                    End Select
+            End Select
+
+
+            ' Running totals
+            curTotalContsDue = curTotalContsDue + curToTotalConts
+            curEEContsDue = curEEContsDue + curToEEConts
+            curERContsDue = curERContsDue + curToERConts
+            
+            ' Converted values
+            ToSet![EEConts] = curToEEConts
+            ToSet![TotalConts] = curToTotalConts
+            ToSet![ERConts] = curToERConts
+            ToSet![COEarnings] = curToCOEarnings
+            ToSet![CONI] = curToCONI
+
+            ' Prefixed converted values
+            'ToSet![TaxYear] = FromSet![TaxYear]
+           ' ToSet![5/10Pre] = FromSet![5/10Pre]
+            'ToSet![NoOfWeeks] = FromSet![NoOfWeeks]
+           ' ToSet![TotalEarnings] = FromSet![TotalEarnings]
+
+
+            ToSet.Update
+            
+            FromSet.Edit
+            ' Update From
+            FromSet![ERConts] = FromSet![TotalConts] - FromSet![EEConts]
+            FromSet.Update
+
+            FromSet.MoveNext
+            ToSet.MoveNext
+        Loop
+
+    
+    Else
+        Beep
+        MsgBox ("No entries")
+        Forms![frmConversionMain]![subConversionFrom].SetFocus
+        bValidConversionCalculation = False
+        GoTo ConversionError
+    End If
+        With Forms![frmConversionMain]
+        ' Update Details section, to reflect database
+        ![subConversionFrom].Form.Recalc
+    
+    
+        ' Total contributions
+        !nTotalContributions = curTotalContsDue
+        !nTotalEEContributions = curEEContsDue
+        !nTotalERContributions = curERContsDue
+    
+        !nNITotalPaid = IIf(IsNull(!nNITotalPaid), 0, !nNITotalPaid)
+        !nEENITotalPaid = IIf(IsNull(!nEENITotalPaid), 0, !nEENITotalPaid)
+        
+        !nERNITotalPaid = !nNITotalPaid - !nEENITotalPaid
+        
+        ' Underpayment/Overpayment
+        !nNITotalUnderpayment = !nTotalContributions - !nNITotalPaid
+        !nNITotalOverpayment = !nNITotalPaid - !nTotalContributions
+        
+        !nEENIUnderpayment = !nTotalEEContributions - !nEENITotalPaid
+        !nEENIOverpayment = !nEENITotalPaid - !nTotalEEContributions
+        
+        !nERNIUnderpayment = !nTotalERContributions - !nERNITotalPaid
+        !nERNIOverpayment = !nERNITotalPaid - !nTotalERContributions
+        
+        ' Ensure values not negative
+        !nNITotalUnderpayment = IIf(!nNITotalUnderpayment < 0, 0, !nNITotalUnderpayment)
+        !nNITotalOverpayment = IIf(!nNITotalOverpayment < 0, 0, !nNITotalOverpayment)
+        
+        !nEENIUnderpayment = IIf(!nEENIUnderpayment < 0, 0, !nEENIUnderpayment)
+        !nEENIOverpayment = IIf(!nEENIOverpayment < 0, 0, !nEENIOverpayment)
+        
+        !nERNIUnderpayment = IIf(!nERNIUnderpayment < 0, 0, !nERNIUnderpayment)
+        !nERNIOverpayment = IIf(!nERNIOverpayment < 0, 0, !nERNIOverpayment)
+        
+        ' Offsets
+        If !nERNIUnderpayment > 0 And !nEENIOverpayment > 0 Then
+            !nNITotalUnderpayment = 0
+            !nNITotalOverpayment = 0
+        End If
+    
+        ![SubConversionTo].Requery
+    End With
+    
+ConversionError:
+
+    ToSet.Close
+    FromSet.Close
+
+Exit_bValidConversionCalculation:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidConversionCalculation:
+    MsgBox Error$
+    Resume Exit_bValidConversionCalculation
+
+End Function
+
+Sub UseClass1Rate510Pre(ByVal nYear As Integer, ByVal s510Pre, ByVal sCategory As String, ByVal nRateRequired As Integer, ByVal nBand As Integer, Percentage As Double)
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : UseClass1Rate
+' Purpose       : Get Percentage from Class 1 Rate table
+' History Date  : 18 September 1995
+'               : Allow for calculation where start of Directorship does not straddle split year
+' History Date  : 9 October 1995
+'               : Allow for calculation where end of Directorship in first period for split years
+' History Date  : 19 October 1995
+'               : Checks Annual 'To' for split years
+' History Date  : 31 October 1995
+'               : Split has average using three periods (82 & 83)
+' History Date  : 16 October 1995
+'               : The [CLASS 1 RATE TABLE] use the PAYE Calender not the normal calender
+' Author        : Mustaq Hussain
+' Date          : 12 February 1997
+' Reason        : RFC 457 : New conversion calculation, using pre 5/10 dates
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim sYear As String, SQLQuery As String, sColumn As String
+
+    Dim nMonth As Integer, nDay As Integer, nStart As Integer, nStartMonth As Integer, nYearPro As Integer
+
+    Dim bAveragePercentage As Integer
+    
+    Dim vReturnedValue As Variant
+    
+    On Error GoTo Err_Class_1_Rate
+
+
+    ' Need to convert Tax Yr into a string, without a leading space
+    sYear = Mid(Str(nYear), 2, 5)
+    
+
+    ' Construct field to lookup
+    Select Case nRateRequired
+
+        Case cConversionLELEmployee:  sColumn = IIf(nYear > 1984, "[Up to LEL" + Mid(Str(nBand), 2, 3) + " (employee)]", "[Up to LEL1 (employee)]")
+
+        Case cConversionUELEmployee:  sColumn = IIf(nYear > 1984, "[Employee Rte" + Str(nBand) + "]", "[Employee Rte 1]")
+        
+        Case cConversionLELEmployer:  sColumn = IIf(nYear > 1984, "[Up to LEL" + Mid(Str(nBand), 2, 3) + " (employer)]", "[Up to LEL1 (employer)]")
+
+        Case cConversionUELEmployer:  sColumn = IIf(nYear > 1984, "[Employer Rte" + Str(nBand) + "]", "[Employer Rte 4]")
+
+        Case cConversionAboveUEL:     sColumn = IIf(nYear > 1984, "[Above UEL (employer)]", "*")
+
+    End Select
+
+
+    ' Check for years without UEL
+    If nRateRequired = cConversionAboveUEL And nYear < 1985 Then
+    
+        Percentage = 0
+        
+    Else
+        
+        ' Query to get the Annual Bands for [Tax Yr]
+        SQLQuery = "SELECT [Start Week], [Start Month], " + sColumn + " FROM [CLASS 1 RATE TABLE]"
+        SQLQuery = SQLQuery + "WHERE [Tax Yr] = '" + sYear + "' AND [Cat] = '" + sCategory + "';"
+        
+
+        Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset(SQLQuery)
+    
+        mySet.MoveFirst
+         
+        ' Ensure NULL treated as 0
+        vReturnedValue = mySet.Fields(2).value
+        If IsNull(vReturnedValue) Then
+            Percentage = 0
+        Else
+            Percentage = vReturnedValue
+        End If
+
+
+        ' Check for split periods
+        mySet.MoveLast
+        If mySet.Recordcount > 1 Then
+            'Is a split period
+                If s510Pre = "No" Then
+                    vReturnedValue = mySet.Fields(2).value
+                    Percentage = vReturnedValue
+                End If
+
+        End If ' Finish split year
+
+
+    End If
+
+Exit_Class_1_Rate:
+    Exit Sub
+
+Err_Class_1_Rate:
+    MsgBox Error$
+    Resume Exit_Class_1_Rate
+
+End Sub
+
+Sub WeeklyBand(ByVal nYear As Integer, ByVal nTotal_Earnings As Currency, nBand As Integer, nLEL As Currency, nUEL As Currency)
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : AnnualBand
+' Purpose       : To get the Band, LEL and UEL for the specified year, in an auunal period
+' History
+' Author        : Mustaq Hussain
+' Date          : 17 July 1996
+' Purpose       : Default to band 1, if LEL not reached
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim sYear As String, SQLQuery As String
+
+    On Error GoTo Err_AnnualBand
+
+    ' Need to convert Tax Yr into a string, without a leading space
+    sYear = Mid(Str(nYear), 2, 5)
+
+    ' Query to get the Annual Bands for [Tax Yr]
+    SQLQuery = "SELECT * FROM [BAND TABLE] WHERE [Tax Yr] = '" + sYear + "';"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+    
+
+    ' Extract the Band and its Limit, for the earnings
+    nBand = 1
+    If nTotal_Earnings >= mySet![Wk Band 1] Then
+        nBand = 1
+        If nTotal_Earnings >= mySet![Wk Band 2] Then
+            nBand = 2
+            If nTotal_Earnings >= mySet![Wk Band 3] Then
+                nBand = 3
+                If nTotal_Earnings >= mySet![Wk Band 4] Then
+                    nBand = 4
+                End If
+            End If
+        End If
+    End If
+
+    ' Lower and Uppper Earnings Limits
+    nLEL = mySet![Wk Band 1]
+    nUEL = mySet![Wk Band 5]
+
+Exit_AnnualBand:
+    Exit Sub
+
+Err_AnnualBand:
+    MsgBox Error$
+    Resume Exit_AnnualBand
+
+End Sub

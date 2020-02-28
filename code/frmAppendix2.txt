@@ -1,0 +1,145 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+Option Explicit
+Private Sub Button5_Click()
+
+On Error GoTo Err_Button5_Click
+
+    Forms!frmAppendix2!cboBaseFigures.SetFocus
+
+Exit_Button5_Click:
+    Exit Sub
+
+Err_Button5_Click:
+    MsgBox Error$
+    Resume Exit_Button5_Click
+
+End Sub
+
+Private Sub cboBaseFigures_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+
+On Error GoTo Err_cboBaseFigures_Click
+
+Forms![frmAppendix2].subClass1PrimaryAndSecondaryPercentageRates.Visible = False
+Forms![frmAppendix2].subAppendix2.Visible = True
+Forms![frmAppendix2].subAppendix3.Visible = False
+
+    'Dim MyDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    Dim calcType As Integer
+    Dim CalcForm As String
+    
+    Set myDB = CurrentDb()
+
+    'determine which calculation subform is required
+    
+    Set MyRecordSet = myDB.OpenRecordset("SELECT DISTINCTROW [Base Figures].index FROM [Base Figures] WHERE (([Base Figures].[Calculation]= """ & [Forms]![frmAppendix2].[cboBaseFigures] & """));")
+
+    calcType = MyRecordSet!Index
+
+    Select Case calcType
+
+    Case 1
+
+    CalcForm = "frmClass2/4Application"
+
+    Case 2
+
+    CalcForm = "frmClass2/4ReviewOfLiability"
+
+    Case 3
+
+    CalcForm = "frmLiabilityForClass1Deferment"
+    'CalcForm = "frmLiabilityForClass1Deferment16"
+
+    Case 4
+
+    CalcForm = "frmClass4ReviewOfLiability"
+
+    Case 5
+
+    'CalcForm = "frmClass1Prim&Sec%Rates2000"
+    CalcForm = "frmClass1Prim&Sec%Rates2016"
+
+    Case 6
+
+    CalcForm = "frmClass1C/OHMF"
+
+    Case 7
+
+    CalcForm = "frmClass1NotC/OHMF"
+
+    End Select
+
+    'Forms!frmAppendix2.subAppendix2.SourceObject = CalcForm
+    Forms!frmAppendix2.subAppendix2.SourceObject = CalcForm
+
+    
+Exit_cboBaseFigures_Click:
+    Exit Sub
+
+Err_cboBaseFigures_Click:
+    MsgBox Error$
+    Resume Exit_cboBaseFigures_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cmdClose_Click
+
+
+    DoCmd.Close
+
+Exit_cmdClose_Click:
+    Exit Sub
+
+Err_cmdClose_Click:
+    MsgBox Error$
+    Resume Exit_cmdClose_Click
+    
+End Sub
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+'History    : Jane Mullen
+'Date       : 11 Febraury 1997
+'Purpose    : remove prepared by fields and references too
+
+On Error GoTo err_Form_Load
+
+DoCmd.SetWarnings False
+
+Dim Sname As String
+Dim Fname As String
+
+DoCmd.Maximize
+
+
+Forms!frmAppendix2.subAppendix2.SourceObject = "frmClass2/4Application"
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub

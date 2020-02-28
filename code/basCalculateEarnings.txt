@@ -1,0 +1,842 @@
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Function CalculateEarnings(InvalidInput As Integer) As Integer
+
+'Author     Jane Watson
+'Date       14 July 1997
+'Purpose    To Calculate Earnings
+
+On Err GoTo Err_CalculateEarnings
+
+    'Declarations
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim Yourset As DAO.Recordset
+    Dim SQLQuery As String
+    Dim SQLString As String
+   
+    Dim EEWeekRate, EEAnnMinRate1, EEAnnMinRate2, EEAnnMinRate3, EEAnnMinRate4, EEAnnMaxRate As Double
+    Dim EEWeekOverRate, EEAnnMinOverRate1, EEAnnMinOverRate2, EEAnnMinOverRate3, EEAnnMinOverRate4, EEAnnMaxOverRate As Double
+    Dim EEUptoLELRate, EEOverLELRate, WEEOverLELRate, Total As Double
+    Dim WeekEarnLEL, AnnMinEarn1, AnnMinEarn2, AnnMinEarn3, AnnMinEarn4, AnnMaxEarn As Currency
+    Dim WeekEENI, AnnMinEENI1, AnnMinEENI2, AnnMinEENI3, AnnMinEENI4, AnnMaxEENI As Currency
+    Dim EENIPaid, ERNIPaid As Currency
+    Dim UpperContributions As Currency
+    Dim Band, NumWeeks, Response, Recordcount, Record, Weeks, Counter, i, Count As Integer
+    Dim EmployeeEarnings, WEmployeeEarnings, COEmployeeEarnings As Currency
+    Dim StartWeeks() As Integer
+    Dim NoWeeks()  As Integer
+    
+    'SQL statement to determine which year's data to use on BAND TABLE
+    SQLQuery = "SELECT * FROM [BAND TABLE] WHERE [Tax Yr] = '" & Right$(Str$(Forms!frmEarningsCalculatorMain.[Taxyear]), 4) & "'"
+    
+    'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+    SQLString = "SELECT * FROM [CLASS 1 RATE TABLE] WHERE"
+    SQLString = SQLString & " [CLASS 1 RATE TABLE].[Tax Yr] = '" & Right$(Str$(Forms!frmEarningsCalculatorMain.[Taxyear]), 4)
+    SQLString = SQLString & "' AND [CLASS 1 RATE TABLE].[Cat] = '" & Forms!frmEarningsCalculatorMain.[Category] & "'"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+    Set Yourset = myDB.OpenRecordset(SQLString)
+
+    'Defining bands
+    WeekEarnLEL = mySet![Wk Band 1]
+    AnnMinEarn1 = mySet![Ann Band 1]
+    AnnMinEarn2 = mySet![Ann Band 2]
+    AnnMinEarn3 = mySet![Ann Band 3]
+    AnnMinEarn4 = mySet![Ann Band 4]
+    AnnMaxEarn = mySet![Ann Band 5]
+    
+    '''''''''''''''''''''''''''''''''''''
+    'Find rates for split years, or if not a split year, for an ordinary year
+    
+    Yourset.MoveFirst
+    Recordcount = 0
+    'Count how many rate changes
+    Do Until Yourset.EOF
+        Recordcount = Recordcount + 1
+        Yourset.MoveNext
+    Loop
+
+    Yourset.MoveFirst
+    If Recordcount > 1 Then
+    'Split Year
+    ReDim startweek(Recordcount)
+    ReDim NoWeeks(Recordcount)
+
+        'Store Start Weeks for number of records
+        Yourset.MoveFirst
+        For Record = 1 To Recordcount
+            startweek(Record) = Yourset![start week]
+            Yourset.MoveNext
+        Next Record
+
+        'Calculate Num Weeks
+        Yourset.MoveFirst
+        For Counter = 1 To Recordcount
+            If Counter < Recordcount Then
+                NoWeeks(Counter) = startweek(Counter + 1) - startweek(Counter)
+            Else
+                NoWeeks(Counter) = 53 - startweek(Counter)
+            End If
+        Next Counter
+
+        'Initialise variables
+        EEWeekRate = 0
+        EEAnnMinRate1 = 0
+        EEAnnMinRate2 = 0
+        EEAnnMinRate3 = 0
+        EEAnnMinRate4 = 0
+        EEAnnMaxRate = 0
+        EEWeekOverRate = 0
+        EEAnnMinOverRate1 = 0
+        EEAnnMinOverRate2 = 0
+        EEAnnMinOverRate3 = 0
+        EEAnnMinOverRate4 = 0
+        EEAnnMaxOverRate = 0
+        
+
+        Yourset.MoveFirst
+        For Count = 1 To Recordcount
+            'These are not true calculated values until exit of loop and / 52
+            EEWeekRate = EEWeekRate + Yourset![Up to LEL1 (employee)] * NoWeeks(Count)
+            EEAnnMinRate1 = EEAnnMinRate1 + Yourset![Up to LEL1 (employee)] * NoWeeks(Count)
+            EEAnnMinRate2 = EEAnnMinRate2 + Yourset![Up to LEL2 (employee)] * NoWeeks(Count)
+            EEAnnMinRate3 = EEAnnMinRate3 + Yourset![Up to LEL3 (employee)] * NoWeeks(Count)
+            EEAnnMinRate4 = EEAnnMinRate4 + Yourset![Up to LEL4 (employee)] * NoWeeks(Count)
+            EEAnnMaxRate = EEAnnMaxRate + Yourset![Up to LEL4 (employee)] * NoWeeks(Count)
+            
+            EEAnnMinOverRate1 = EEAnnMinOverRate1 + Yourset![Employee Rte 1] * NoWeeks(Count)
+            EEAnnMinOverRate2 = EEAnnMinOverRate2 + Yourset![employee rte 2] * NoWeeks(Count)
+            EEAnnMinOverRate3 = EEAnnMinOverRate3 + Yourset![employee rte 3] * NoWeeks(Count)
+            EEAnnMinOverRate4 = EEAnnMinOverRate4 + Yourset![Employee Rte 4] * NoWeeks(Count)
+            EEAnnMaxOverRate = EEAnnMaxOverRate + Yourset![Employee Rte 4] * NoWeeks(Count)
+            
+            Yourset.MoveNext
+        Next Count
+
+        'Calculating average rate for year
+        EEWeekRate = EEWeekRate / 52
+        EEAnnMinRate1 = EEAnnMinRate1 / 52
+        EEAnnMinRate2 = EEAnnMinRate2 / 52
+        EEAnnMinRate3 = EEAnnMinRate3 / 52
+        EEAnnMinRate4 = EEAnnMinRate4 / 52
+        EEAnnMaxRate = EEAnnMaxRate / 52
+        
+        EEAnnMinOverRate1 = EEAnnMinOverRate1 / 52
+        EEAnnMinOverRate2 = EEAnnMinOverRate2 / 52
+        EEAnnMinOverRate3 = EEAnnMinOverRate3 / 52
+        EEAnnMinOverRate4 = EEAnnMinOverRate4 / 52
+        EEAnnMaxOverRate = EEAnnMaxOverRate / 52
+    Else
+        'For Ordinary Years
+        EEWeekRate = Yourset![Up to LEL1 (employee)]
+        EEAnnMinRate1 = Yourset![Up to LEL1 (employee)]
+        EEAnnMinRate2 = Yourset![Up to LEL2 (employee)]
+        EEAnnMinRate3 = Yourset![Up to LEL3 (employee)]
+        EEAnnMinRate4 = Yourset![Up to LEL4 (employee)]
+        EEAnnMaxRate = Yourset![Up to LEL4 (employee)]
+        
+        EEWeekOverRate = 0
+        EEAnnMinOverRate1 = Yourset![Employee Rte 1]
+        EEAnnMinOverRate2 = Yourset![employee rte 2]
+        EEAnnMinOverRate3 = Yourset![employee rte 3]
+        EEAnnMinOverRate4 = Yourset![Employee Rte 4]
+        EEAnnMaxOverRate = Yourset![Employee Rte 4]
+
+    End If
+    '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    
+    'Maximum Employee National insurance contributions
+    WeekEENI = curRound(EEWeekRate * WeekEarnLEL)
+
+    AnnMinEENI1 = curRound(AnnMinEarn1 * EEAnnMinRate1)
+    
+    AnnMinEENI2 = curRound((AnnMinEarn2 - AnnMinEarn1) * EEAnnMinOverRate2 + AnnMinEarn1 * EEAnnMinRate2)
+ 
+    AnnMinEENI3 = curRound((AnnMinEarn3 - AnnMinEarn1) * EEAnnMinOverRate3 + AnnMinEarn1 * EEAnnMinRate3)
+    
+    AnnMinEENI4 = curRound((AnnMinEarn4 - AnnMinEarn1) * EEAnnMinOverRate4 + AnnMinEarn1 * EEAnnMinRate4)
+
+    AnnMaxEENI = curRound((AnnMaxEarn - AnnMinEarn1) * EEAnnMaxOverRate + AnnMinEarn1 * EEAnnMaxRate)
+
+    
+    'Test of WeekEENI
+    If Forms!frmEarningsCalculatorMain.TotalConts < WeekEENI Then
+        Beep
+        MsgBox "The Total Contributions must be greater than the NI due on the Weekly LEL"
+        Forms!frmEarningsCalculatorMain.TotalConts.SetFocus
+        CalculateEarnings = False
+        InvalidInput = True
+        Exit Function
+    End If
+
+    If Forms!frmEarningsCalculatorMain.EmployeeConts < WeekEENI Then
+        Beep
+        MsgBox "The Employee Contributions must be greater than the NI due on the Weekly LEL"
+        Forms!frmEarningsCalculatorMain.EmployeeConts.SetFocus
+        CalculateEarnings = False
+        InvalidInput = True
+        Exit Function
+    End If
+
+   'Creating variable for EmployeeConts
+   EENIPaid = Forms!frmEarningsCalculatorMain.EmployeeConts
+    
+   'Calculates NI band and rates
+    If EENIPaid >= AnnMinEENI2 Then
+        If EENIPaid >= AnnMinEENI3 Then
+            If EENIPaid >= AnnMinEENI4 Then
+                EEUptoLELRate = EEAnnMinRate4
+                EEOverLELRate = EEAnnMinOverRate4
+                Band = 4
+            Else
+                EEUptoLELRate = EEAnnMinRate3
+                EEOverLELRate = EEAnnMinOverRate3
+                Band = 3
+            
+            End If
+        Else
+            EEUptoLELRate = EEAnnMinRate2
+            EEOverLELRate = EEAnnMinOverRate2
+            Band = 2
+        
+        End If
+    Else
+        EEUptoLELRate = EEAnnMinRate1
+        EEOverLELRate = EEAnnMinOverRate1
+        Band = 1
+    
+    End If
+
+    ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    'Actual Calculation starts here
+    
+    If EENIPaid >= AnnMinEENI1 Then   'Enough conts for a whole year
+        'Calculation of Contributions
+        UpperContributions = curRound(EENIPaid - (AnnMinEarn1 * EEUptoLELRate))
+        'Calculation of Employee Earnings
+        EmployeeEarnings = curRdPounds(AnnMinEarn1 + (UpperContributions / EEOverLELRate))
+    Else
+        'Else Contributions are not equivalent to a year, calculate maximum number of weeks
+        NumWeeks = EENIPaid / WeekEENI
+        NumWeeks = Int(CCur(NumWeeks))
+        
+        If NumWeeks < 1 Then
+            NumWeeks = 1
+        End If
+        
+        'Calculate Weekly EENI over LEL
+        WEEOverLELRate = curRound((EENIPaid / NumWeeks) - WeekEENI)
+        'Calculate Weekly Earnings
+        WEmployeeEarnings = curRound(((WEEOverLELRate / EEOverLELRate) + WeekEarnLEL))
+        'Calculation of Employee Earnin
+        EmployeeEarnings = curRdPounds(WEmployeeEarnings * NumWeeks)
+    End If
+
+    'Contracted Out Earnings
+    If Forms!frmEarningsCalculatorMain!COConts.Enabled = True Then
+        COEmployeeEarnings = curRdPounds(Forms!frmEarningsCalculatorMain!COConts / EEOverLELRate)
+    Else
+        COEmployeeEarnings = 0
+    End If
+     
+    'Scheme Type 5's
+    
+    'Calculate Employer NI Paid
+    ERNIPaid = Forms!frmEarningsCalculatorMain!TotalConts - EENIPaid
+
+    If ERNIPaid = 0 Then
+        Beep
+        Response = MsgBox("The Total Contributions is equal to the Employee Contributions, this indicates Scheme Type 5, do you wish to continue?", 32 + 4, "Scheme Type 5")
+        'Response is yes (proceed with Calculation)
+        If Response = 6 Then
+            CalculateEarnings = True
+        Else
+            CalculateEarnings = False
+            Exit Function
+        End If
+    End If
+    
+    'MTC Ratio Check
+    If (Forms!frmEarningsCalculatorMain!Category = "A") Or (Forms!frmEarningsCalculatorMain!Category = "D") Or (Forms!frmEarningsCalculatorMain!Category = "E") Then
+        If ERNIPaid > 0 Then
+            If (Forms!frmEarningsCalculatorMain!Category = "A") Then
+                'MTC for Non Contracted Out
+                If MTC_Check(EmployeeEarnings, 0) = False Then
+                    Beep
+                    MsgBox "These figures will not pass a ratio test, the calculation has been terminated", 48, "Warning!"
+                    CalculateEarnings = False
+                    Exit Function
+                Else
+                    CalculateEarnings = True
+                End If
+            Else
+                'MTC for Contracted Out
+                If MTC_Check(EmployeeEarnings, COEmployeeEarnings) = False Then
+                    Beep
+                    MsgBox "These figures will not pass a ratio test, the calculation has been terminated", 48, "Warning!"
+                    CalculateEarnings = False
+                    Exit Function
+                Else
+                    CalculateEarnings = True
+                End If
+            End If
+        End If
+    End If
+    
+    If Forms!frmEarningsCalculatorMain!COConts.Enabled = True Then
+        Forms!frmEarningsCalculatorMain.COEarnings = COEmployeeEarnings
+        Forms!frmEarningsCalculatorMain.CONI = Forms!frmEarningsCalculatorMain.COConts
+        Forms!frmEarningsCalculatorMain.Earnings = EmployeeEarnings
+        Forms!frmEarningsCalculatorMain.TConts = Forms!frmEarningsCalculatorMain.TotalConts
+        Forms!frmEarningsCalculatorMain.EEConts = Forms!frmEarningsCalculatorMain.EmployeeConts
+    Else
+        Forms!frmEarningsCalculatorMain.Earnings = EmployeeEarnings
+        Forms!frmEarningsCalculatorMain.TConts = Forms!frmEarningsCalculatorMain.TotalConts
+        Forms!frmEarningsCalculatorMain.EEConts = Forms!frmEarningsCalculatorMain.EmployeeConts
+    End If
+  
+
+    CalculateEarnings = True
+
+    'Close all recordsets
+    mySet.Close
+    Yourset.Close
+
+Exit_CalculateEarnings:
+    Exit Function
+
+Err_CalculateEarnings:
+    MsgBox Error$
+    Resume Exit_CalculateEarnings
+
+End Function
+
+
+Function CalculateEarnings1999(InvalidInput As Integer) As Integer
+
+'Author     Christopher Schuler
+'Date       22 November 1997
+'Purpose    To Calculate Earnings for 1999
+
+On Err GoTo Err_CalculateEarnings1999
+
+    'Declarations
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim Yourset As DAO.Recordset
+    Dim SQLQuery As String
+    Dim SQLString As String
+    Dim WkLEL As Currency        'Weekly Lower Earnings Limit
+    Dim WkER_ET As Currency         'Weekly Earnings threshold
+    Dim WkUEL As Currency           'Weekly Upper earnings limit
+    Dim MnthLEL As Currency        'Monthly Lower Earnings Limit
+    Dim MnthER_ET As Currency         'Monthly Earnings threshold
+    Dim MnthUEL As Currency           'Monthly Upper earnings limit
+    
+    Dim TotalConts As Currency      'Total contributions
+    Dim EEConts As Currency          'Employee contributions
+    Dim EERate                       'Employee rate for contributions
+    Dim ERRate                       'Employer rate for contributions
+    Dim UpToLEL As Currency           'Earnings equal to Annual LEL
+    Dim LELtoET As Currency           'Earnings above Annual LEL up to and including Earnings Threshold
+    Dim ETtoUEL As Currency           'Earnings above Earnings Threshold up to and including Annual UEL
+    Dim NofW As Double              ' Minimum possible No. of weeks
+    Dim Nofm As Double               ' Minimum possible No. of months
+    Forms!frmEarningsCalculatorMain.Refresh
+
+    'SQL statement to determine which year's data to use on BAND TABLE
+    SQLQuery = "SELECT * FROM [tblBandLimits1999] WHERE [Tax Yr] = '" & Right$(Str$(Forms!frmEarningsCalculatorMain.[Taxyear]), 4) & "'"
+    
+    'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+    SQLString = "SELECT * FROM [tblClass1_1999] WHERE"
+    SQLString = SQLString & " [tblClass1_1999].[Tax Yr] = '" & Right$(Str$(Forms!frmEarningsCalculatorMain.[Taxyear]), 4) & "'"
+    SQLString = SQLString & " AND [tblClass1_1999].[Cat] = '" & Forms!frmEarningsCalculatorMain.[Category] & "'"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+    Set Yourset = myDB.OpenRecordset(SQLString)
+    'Defining bands
+    WkLEL = mySet![WkLEL]
+    WkER_ET = mySet![WkER_ET]
+    WkUEL = mySet![WkUEL]
+    MnthLEL = mySet![MnthLEL]
+    MnthER_ET = mySet![MnthER_ET]
+    MnthUEL = mySet![MnthUEL]
+
+    EERate = Yourset![EE_Rate]
+    ERRate = Yourset![ER_Rate]
+
+    mySet.Close
+    Yourset.Close
+
+
+EEConts = Forms!frmEarningsCalculatorMain.EmployeeConts
+TotalConts = Forms!frmEarningsCalculatorMain.TotalConts
+
+    If TotalConts > EEConts Then
+        
+        ETtoUEL = (TotalConts - EEConts) / ERRate
+            
+        If ETtoUEL > Int(ETtoUEL) Then
+            ETtoUEL = Int(ETtoUEL) + 1
+        End If
+    
+    Else
+
+        ETtoUEL = 0
+
+    End If
+   
+    LELtoET = (EEConts / EERate) - ETtoUEL
+        
+        If LELtoET > Int(LELtoET) Then
+            LELtoET = Int(LELtoET) + 1
+        End If
+
+
+If LELtoET < 0 Then
+
+            'No. of Months x (MnthUEL - MnthLEL) = EEConts / EERate so
+        Nofm = EEConts / (EERate * (MnthUEL - MnthLEL))
+        
+            
+                Nofm = Int(Nofm + 0.5)
+
+                Nofm = IIf(Nofm < 1, 1, Nofm)
+
+                Nofm = IIf(Nofm > 12, 12, Nofm)
+         
+    If (Nofm * (MnthUEL - MnthLEL) * EERate) > (EEConts + WkLEL / 2) Or (Nofm * (MnthUEL - MnthLEL) * EERate) < (EEConts - WkLEL / 2) Then
+
+    
+        NofW = EEConts / (EERate * (WkUEL - WkLEL))
+            
+            If NofW > Int(NofW) Then
+                  NofW = Int(NofW) + 1
+            End If
+
+            NofW = IIf(NofW > 52, 52, NofW)
+
+        UpToLEL = NofW * WkLEL
+
+        LELtoET = NofW * (WkER_ET - WkLEL)
+    
+        ETtoUEL = Int(((EEConts / EERate) - LELtoET) + 0.5)
+    
+     Else
+        
+        UpToLEL = Nofm * MnthLEL
+        
+        LELtoET = Nofm * (MnthER_ET - MnthLEL)
+
+        ETtoUEL = Int(((EEConts / EERate) - LELtoET) + 0.5)
+
+     End If
+
+Else
+        
+        
+        Nofm = LELtoET / (MnthER_ET - MnthLEL)
+
+        Nofm = Int(Nofm + 0.5)
+         
+        Nofm = IIf(Nofm < 1, 1, Nofm)
+
+        Nofm = IIf(Nofm > 12, 12, Nofm)
+
+
+        If Nofm * (MnthER_ET - MnthLEL) > (LELtoET + WkLEL / 2) Or Nofm * (MnthER_ET - MnthLEL) < (LELtoET - WkLEL / 2) Then
+        
+            NofW = LELtoET / (WkER_ET - WkLEL)
+    
+                If NofW > Int(NofW) Then
+        
+                    NofW = Int(NofW) + 1
+                    
+        
+                End If
+                
+                NofW = IIf(NofW > 52, 52, NofW)
+
+            UpToLEL = NofW * WkLEL
+        
+        Else
+            
+            UpToLEL = Nofm * MnthLEL
+        
+        End If
+
+End If
+    
+    
+    'MTC Ratio Check
+                If MTC_Check1999(UpToLEL, LELtoET, ETtoUEL) = False Then
+                    Beep
+                    MsgBox "These figures will not pass a ratio test, the calculation has been terminated", 48, "Warning!"
+                    CalculateEarnings1999 = False
+                    Exit Function
+                Else
+                    CalculateEarnings1999 = True
+                End If
+    
+With Forms!frmEarningsCalculatorMain
+    .Earnings = UpToLEL
+    .TConts = LELtoET
+    .EEConts = ETtoUEL
+    .COEarnings = .TotalConts
+    .CONI = .EmployeeConts
+End With
+
+
+Exit_CalculateEarnings1999:
+    Exit Function
+
+Err_CalculateEarnings1999:
+    MsgBox Error$
+    Resume Exit_CalculateEarnings1999
+
+End Function
+
+Function CalculateEarnings2000() As Integer
+'Author     Peter Morton
+'Date       01/12/00
+'Purpose    To Calculate Earnings for 2000
+
+On Err GoTo Err_CalculateEarnings2000
+
+    'Declarations
+    Dim myDB As Database
+    Dim BandSet As DAO.Recordset
+    Dim ClassSet As DAO.Recordset
+    Dim SQLBand As String
+    Dim SQLClass As String
+    Dim WkLEL As Currency        'Weekly Lower Earnings Limit
+    Dim WkEE_ET As Currency         'Weekly Employees Earnings threshold
+    Dim WkER_ET As Currency         'Weekly Employer Earnings threshold
+    Dim WkUEL As Currency           'Weekly Upper earnings limit
+    Dim MnthLEL As Currency        'Monthly Lower Earnings Limit
+    Dim MnthEE_ET As Currency         'Monthly Employees Earnings threshold
+    Dim MnthER_ET As Currency         'Monthly Employers Earnings threshold
+    Dim MnthUEL As Currency           'Monthly Upper earnings limit
+    Dim AnnLEL As Currency            'Annual LEL
+    Dim AnnEE_ET As Currency          'Annual EEET
+    Dim AnnER_ET As Currency          'Annual ERET
+    Dim AnnUEL As Currency            'Annual UEL
+    Dim SecCont As Currency           'ER conts
+    Dim MaxWeekCont As Currency
+    Dim MaxMonthCont As Currency
+
+    Dim TotalConts As Currency      'Total contributions
+    Dim EEConts As Currency          'Employee contributions
+    Dim EERate                       'Employee rate for contributions
+    Dim ERRate                       'Employer rate for contributions
+    Dim UpToLEL As Currency           'Earnings equal to Annual LEL
+    Dim LELToEEET As Currency           'Earnings above Annual LEL up to and including Employers Earnings Threshold
+    Dim EEETToERET As Currency           'Earnings above Employers Earnings Threshold up to and including the Employers Earnings threshold
+    Dim ERETToUEL As Currency           'Earnings above Employers Earnings Threshold up to and including Annual UEL
+    'Dim NofW As Double              ' Minimum possible No. of weeks
+    'Dim Nofm As Double               ' Minimum possible No. of months
+    Forms!frmEarningsCalculatorMain2000.Refresh
+
+    'SQL statement to determine which year's data to use on BAND TABLE
+    SQLBand = "SELECT * FROM [tblBandLimits1999] WHERE [Tax Yr] = '" & Right$(Str$(Forms!frmEarningsCalculatorMain2000.[Taxyear]), 4) & "'"
+    
+    'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+    SQLClass = "SELECT * FROM [tblClass1_1999] WHERE"
+    SQLClass = SQLClass & " [tblClass1_1999].[Tax Yr] = '" & Right$(Str$(Forms!frmEarningsCalculatorMain2000.[Taxyear]), 4) & "'"
+    SQLClass = SQLClass & " AND [tblClass1_1999].[Cat] = '" & Forms!frmEarningsCalculatorMain2000.[Category] & "'"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set BandSet = myDB.OpenRecordset(SQLBand)
+    Set ClassSet = myDB.OpenRecordset(SQLClass)
+    'Defining bands
+    WkLEL = BandSet![WkLEL]
+    WkEE_ET = BandSet![WkEE_ET]
+    WkER_ET = BandSet![WkER_ET]
+    WkUEL = BandSet![WkUEL]
+    MnthLEL = BandSet![MnthLEL]
+    MnthEE_ET = BandSet![MnthEE_ET]
+    MnthER_ET = BandSet![MnthER_ET]
+    MnthUEL = BandSet![MnthUEL]
+    AnnLEL = BandSet![AnnLEL]
+    AnnEE_ET = BandSet![AnnEE_ET]
+    AnnER_ET = BandSet![AnnER_ET]
+    AnnUEL = BandSet![AnnUEL]
+
+    EERate = ClassSet![EE_Rate]
+    ERRate = ClassSet![ER_Rate]
+
+    BandSet.Close
+    ClassSet.Close
+
+
+EEConts = Forms!frmEarningsCalculatorMain2000.EmployeeConts
+TotalConts = Forms!frmEarningsCalculatorMain2000.TotalConts
+    
+CalculateEarnings2000 = True
+
+If EEConts > curRound((WkUEL - WkEE_ET) * EERate) * 53 Then  'greater than maximum payable
+    MsgBox "The EE Contribution is greater than the maximum for the year"
+    CalculateEarnings2000 = False
+    Exit Function
+
+ElseIf EEConts = curRound((WkUEL - WkEE_ET) * EERate) * 53 Then  'maximum payable
+      UpToLEL = WkLEL * 53
+      LELToEEET = (WkEE_ET * 53) - (WkLEL * 53)
+      EEETToERET = (WkER_ET * 53) - (WkEE_ET * 53)
+      ERETToUEL = (WkUEL * 53) - (WkER_ET * 53)
+
+Else
+      SecCont = TotalConts - EEConts
+      ERETToUEL = SecCont / ERRate  'as not max then no amount above uel
+               
+      
+      EEETToERET = (EEConts - (ERETToUEL * EERate)) / EERate
+      
+      
+      If EEETToERET < 0 Then 'negative
+            MaxWeekCont = (WkUEL - WkEE_ET) * EERate
+            MaxWeekCont = curRound(MaxWeekCont)
+            If EEConts / MaxWeekCont = vRoundUp(EEConts / MaxWeekCont) Then 'divides ok
+               UpToLEL = WkLEL * (EEConts / MaxWeekCont)
+               LELToEEET = (WkEE_ET - WkLEL) * (EEConts / MaxWeekCont)
+               EEETToERET = (WkER_ET - WkEE_ET) * (EEConts / MaxWeekCont)
+               ERETToUEL = (WkUEL - WkER_ET) * (EEConts / MaxWeekCont)
+            Else 'try above but for monthly rates
+                MaxMonthCont = (MnthUEL - MnthEE_ET) * EERate
+                MaxMonthCont = curRound(MaxMonthCont)
+                If EEConts / MaxMonthCont = vRoundUp(EEConts / MaxMonthCont) Then 'divides ok
+                   UpToLEL = MnthLEL * (EEConts / MaxMonthCont)
+                   LELToEEET = (MnthEE_ET - MnthLEL) * (EEConts / MaxMonthCont)
+                   EEETToERET = (MnthER_ET - MnthEE_ET) * (EEConts / MaxMonthCont)
+                   ERETToUEL = (MnthUEL - MnthER_ET) * (EEConts / MaxMonthCont)
+                 Else 'fails
+                   MsgBox "Unable to calculate - EE Contribution not divisible by weekly or monthly amounts"
+                   CalculateEarnings2000 = False
+                   Exit Function
+                 End If
+            End If
+      Else 'not negative
+            If EEETToERET >= (51 * (WkER_ET - WkEE_ET)) + 1 Then
+                UpToLEL = 52 * WkLEL
+                LELToEEET = (WkEE_ET * 52) - (WkLEL * 52)
+
+            Else
+               MsgBox "Unable to calculate - Column 1c is less than 51 x  (Weekly ERET - Weekly EEET) + 1"
+               CalculateEarnings2000 = False
+               Exit Function
+            End If
+      
+      
+      End If
+End If
+    
+
+    'MTC Ratio Check
+                If MTC_Check2000(UpToLEL, LELToEEET, EEETToERET, ERETToUEL) = False Then
+                    Beep
+                    MsgBox "These figures will not pass a ratio test, the calculation has been terminated", 48, "Warning!"
+                    CalculateEarnings2000 = False
+                    Exit Function
+                Else
+                    CalculateEarnings2000 = True
+                End If
+    
+With Forms!frmEarningsCalculatorMain2000
+    !LEL = UpToLEL
+    !LELToEEET = LELToEEET
+    !EEETToERET = EEETToERET
+    !ERETToUEL = ERETToUEL
+    !COEarnings = .TotalConts
+    !CONI = .EmployeeConts
+End With
+
+Exit_CalculateEarnings2000:
+    Exit Function
+
+Err_CalculateEarnings2000:
+    MsgBox Error$
+    Resume Exit_CalculateEarnings2000
+
+
+End Function
+
+Function MTC_Check(ByVal EmployeeEarnings As Currency, ByVal COEmployeeEarnings As Currency) As Integer
+
+'Author     : Jane Watson
+'Date       : 17 October 1997
+'Purpose    : To run an MCT_Check when a match is found
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim bValid As Integer
+    
+    On Err GoTo Err_MTC_Check
+    DoCmd.SetWarnings False
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions]"
+    
+    'Populate MTC temporary table
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions")
+    
+
+        mySet.AddNew
+    
+        mySet![Taxyear] = LTrim(Forms!frmEarningsCalculatorMain!Taxyear)
+        mySet![Category] = Forms!frmEarningsCalculatorMain!Category
+        mySet![Total] = Forms!frmEarningsCalculatorMain!TotalConts
+        mySet![Primary] = Forms!frmEarningsCalculatorMain!EmployeeConts
+        mySet![NIEarnings] = EmployeeEarnings
+        mySet![COEarnings] = COEmployeeEarnings
+        mySet![COElement] = Forms!frmEarningsCalculatorMain!COConts
+    
+        mySet.Update
+    
+    'Perform MTC_Check Calculation
+    bValid = bValidRatioCalculation()
+
+    
+    'Pass back Boolean expression
+    mySet.MoveFirst
+    
+    If mySet![Pass] = False Then
+        MTC_Check = False
+    Else
+        MTC_Check = True
+    End If
+    
+    'Close recordset
+    mySet.Close
+
+Exit_MTC_Check:
+DoCmd.SetWarnings True
+    Exit Function
+
+Err_MTC_Check:
+    MsgBox Error$
+    Resume Exit_MTC_Check
+
+End Function
+
+Function MTC_Check1999(ByVal UpToLEL As Currency, ByVal LELtoET As Currency, ByVal ETtoUEL As Currency) As Integer
+
+'Author     : Christopher Schuler
+'Date       : 15 March 2000
+'Purpose    : To run an MTC_Check when a match is found
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim bValid As Integer
+    
+    On Err GoTo Err_MTC_Check1999
+    DoCmd.SetWarnings False
+    
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions1999]"
+    
+    'Populate MTC temporary table
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions1999")
+    
+
+        mySet.AddNew
+    
+        mySet![Taxyear] = Forms!frmEarningsCalculatorMain!Taxyear
+        mySet![Category] = Forms!frmEarningsCalculatorMain!Category
+        mySet![Total] = Forms!frmEarningsCalculatorMain!TotalConts
+        mySet![EEConts] = Forms!frmEarningsCalculatorMain!EmployeeConts
+        mySet![UpToLEL] = UpToLEL
+        mySet![LELtoET] = LELtoET
+        mySet![ETtoUEL] = ETtoUEL
+    
+        mySet.Update
+    
+    'Perform MTC_Check1999Calculation
+    bValid = bValidRatioCalculation1999()
+
+    
+    'Pass back Boolean expression
+    mySet.MoveFirst
+    
+    If mySet![Pass] = False Then
+        MTC_Check1999 = False
+    Else
+        MTC_Check1999 = True
+    End If
+    
+    'Close recordset
+    mySet.Close
+
+Exit_MTC_Check1999:
+DoCmd.SetWarnings True
+    Exit Function
+
+Err_MTC_Check1999:
+    MsgBox Error$
+    Resume Exit_MTC_Check1999
+
+End Function
+
+Function MTC_Check2000(ByVal UpToLEL As Currency, ByVal LELToEEET As Currency, ByVal EEETToERET As Currency, ByVal ERETToUEL As Currency) As Integer
+
+'Author     : Peter Morton
+'Date       : 04/12/00
+'Purpose    : To run an MTC_Check when a match is found
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim bValid As Integer
+    
+    On Err GoTo Err_MTC_Check2000
+    DoCmd.SetWarnings False
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions1999]"
+    
+    'Populate MTC temporary table
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions1999")
+    
+    With mySet
+        .AddNew
+    
+        ![Taxyear] = Forms!frmEarningsCalculatorMain2000!Taxyear
+        ![Category] = Forms!frmEarningsCalculatorMain2000!Category
+        ![Total] = Forms!frmEarningsCalculatorMain2000!TotalConts
+        ![EEConts] = Forms!frmEarningsCalculatorMain2000!EmployeeConts
+        ![UpToLEL] = UpToLEL
+        ![LELToEEET] = LELToEEET
+        ![EEETToERET] = EEETToERET
+        ![ERETToUEL] = ERETToUEL
+    
+        .Update
+    End With
+    'Perform MTC_Check2000Calculation
+    bValid = bValidRatioCalculation2000()
+
+    
+    'Pass back Boolean expression
+    mySet.MoveFirst
+    
+    If mySet![Pass] = False Then
+        MTC_Check2000 = False
+    Else
+        MTC_Check2000 = True
+    End If
+    
+    'Close recordset
+    mySet.Close
+
+Exit_MTC_Check2000:
+    DoCmd.SetWarnings True
+    Exit Function
+
+Err_MTC_Check2000:
+    MsgBox Error$
+    Resume Exit_MTC_Check2000
+
+End Function

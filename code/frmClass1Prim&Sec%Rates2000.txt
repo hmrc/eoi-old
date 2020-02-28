@@ -1,0 +1,63 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+'---------------------------------------------------'
+' Author:  Christopher Schuler - Andersen Consulting'
+'---------------------------------------------------'
+
+Private Sub cboTaxYear_Click()
+
+'Author     Christopher Schuler
+'Date       8 March 2000
+'Purpose    Change to old subform if taxyear is prior to 2000
+
+On Error GoTo Err_cboTaxYear_Click
+ Dim test As String
+ 
+
+
+If Forms!frmAppendix2.subAppendix2.Form.cboTaxYear < 2000 Then
+    Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Visible = True
+    Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.SsubClass1PrimaryAndSecondaryPercentageRatesetFocus
+    Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Form.cboTaxYear = Forms!frmAppendix2.subAppendix2.Form.cboTaxYear
+    Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Form.TaxYearUpdatePre2000
+    Forms!frmAppendix2.subAppendix2.Visible = False
+    
+ElseIf Forms!frmAppendix2.subAppendix2.Form.cboTaxYear > 2015 Then
+'need to change the 2016 page from here
+    Forms!frmAppendix2.subAppendix2.Visible = True
+    Forms!frmAppendix2.subAppendix2.SetFocus
+    test = Forms!frmAppendix2.subAppendix2.Form.cboTaxYear
+    Forms!frmAppendix2.subAppendix2.SourceObject = "frmClass1Prim&Sec%Rates2016"
+    Forms!frmAppendix2.subAppendix2.Form.cboTaxYear = test
+    'Forms!frmAppendix2.subAppendix2.Form.cboTaxYear = Forms!frmAppendix2.subAppendix2.Form.cboTaxYear
+    Forms!frmAppendix2.subAppendix2.Requery
+
+
+
+Else
+
+    Requery
+
+End If
+
+Exit_cboTaxYear_Click:
+    Exit Sub
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub Form_Load()
+
+
+If IsNull(Forms!frmAppendix2.subAppendix2.Form.cboTaxYear) Then
+
+       Forms!frmAppendix2.subAppendix2.Form.cboTaxYear = DMax("[tax year]", "Class 1 Contribution Primary And Secondary Percentage Rates")
+
+End If
+
+End Sub

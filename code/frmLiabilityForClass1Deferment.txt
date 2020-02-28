@@ -1,0 +1,128 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cboTaxYear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cboTaxYear_Click
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    Dim RecordTotal As Integer
+    Dim test As String
+    
+
+    DoCmd.SetWarnings False
+
+    Set myDB = CurrentDb()
+    
+    ' needs to carry the date over from the other form
+    If IsNull(Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear) Then
+        Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = DMax("[tax year]", "Class 1 Contribution Primary And Secondary Percentage Rates")
+        Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Liability For Class 1 Deferment] WHERE [Tax Year] = """ & Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear & """;")
+        'test = Forms!frmAppendix2.frmLiabilityForClass1Deferment16.Form.cboTaxYear
+        'Forms![frmApp[endix2]![subAppendix2].Form.cboTaxYear = "2015"
+    'ElseIf Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear > 2015 Then
+    '    Forms!frmAppendix2.subAppendix2.SourceObject = "frmLiabilityForClass1Deferment16"
+    'Exit Sub
+    End If
+    
+
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Liability For Class 1 Deferment] WHERE [Tax Year] = """ & Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear & """;")
+
+   If Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear > 2015 Then
+   
+   ' Alter the form for 2016, disable unused fields and rename others
+   Forms![frmAppendix2]![subAppendix2].Form.Text41.Visible = False
+   Forms![frmAppendix2]![subAppendix2].Form.[Wholly Contracted].Visible = False
+   Forms![frmAppendix2]![subAppendix2].Form.[Text28].Visible = False
+   Forms![frmAppendix2]![subAppendix2].Form.[53 Contracted].Visible = False
+   Forms![frmAppendix2]![subAppendix2].Form.[52 Contracted].Visible = False
+   Forms![frmAppendix2]![subAppendix2].Form.[12 Contracted].Visible = False
+   Forms![frmAppendix2]![subAppendix2].Form.[Text34].Caption = "Wholly Standard"
+  
+        
+   With Forms![frmAppendix2]![subAppendix2].Form
+        .[One Paying Employment] = MyRecordSet![One Paying Employment]
+        .[Two Paying Employment] = MyRecordSet![Two Paying Employment]
+        .[53 Standard] = MyRecordSet![53 Standard]
+        .[52 Standard] = MyRecordSet![52 Standard]
+        .[12 Standard] = MyRecordSet![12 Standard]
+        .[53 Reduced] = MyRecordSet![53 Reduced]
+        .[52 Reduced] = MyRecordSet![52 Reduced]
+        .[12 Reduced] = MyRecordSet![12 Reduced]
+        .[Wholly Standard] = MyRecordSet![Wholly Standard]
+        .[Wholly Reduced] = MyRecordSet![Wholly Reduced]
+    End With
+   Else
+    ' Make older columns visible
+   Forms![frmAppendix2]![subAppendix2].Form.Text41.Visible = True
+   Forms![frmAppendix2]![subAppendix2].Form.[Wholly Contracted].Visible = True
+   Forms![frmAppendix2]![subAppendix2].Form.[Text28].Visible = True
+   Forms![frmAppendix2]![subAppendix2].Form.[53 Contracted].Visible = True
+   Forms![frmAppendix2]![subAppendix2].Form.[52 Contracted].Visible = True
+   Forms![frmAppendix2]![subAppendix2].Form.[12 Contracted].Visible = True
+   Forms![frmAppendix2]![subAppendix2].Form.[Text34].Caption = "Wholly Standard\ Standard && Contracted Out"
+    
+    With Forms![frmAppendix2]![subAppendix2].Form
+        .[One Paying Employment] = MyRecordSet![One Paying Employment]
+        .[Two Paying Employment] = MyRecordSet![Two Paying Employment]
+        .[53 Standard] = MyRecordSet![53 Standard]
+        .[52 Standard] = MyRecordSet![52 Standard]
+        .[12 Standard] = MyRecordSet![12 Standard]
+        .[53 Reduced] = MyRecordSet![53 Reduced]
+        .[52 Reduced] = MyRecordSet![52 Reduced]
+        .[12 Reduced] = MyRecordSet![12 Reduced]
+        .[53 Contracted] = MyRecordSet![53 Contracted]
+        .[52 Contracted] = MyRecordSet![52 Contracted]
+        .[12 Contracted] = MyRecordSet![12 Contracted]
+        .[Wholly Standard] = MyRecordSet![Wholly Standard]
+        .[Wholly Reduced] = MyRecordSet![Wholly Reduced]
+        .[Wholly Contracted] = MyRecordSet![Wholly Contracted]
+    End With
+    End If
+
+
+Exit_cboTaxYear_Click:
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub Form_Load()
+
+    On Error GoTo err_Form_Load
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    
+    Set myDB = CurrentDb()
+                
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Liability For Class 1 Deferment];")
+
+    MyRecordSet.MoveLast
+    
+    'Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = MyRecordSet![Tax Year]
+
+    cboTaxYear_Click
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+
+End Sub

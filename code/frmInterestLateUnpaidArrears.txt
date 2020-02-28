@@ -1,0 +1,20 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Form_BeforeDelConfirm(Cancel As Integer, Response As Integer)
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_Form_BeforeDelConfirm
+Response = DATA_ERRCONTINUE
+exit_Form_BeforeDelConfirm:
+    Exit Sub
+err_Form_BeforeDelConfirm:
+    MsgBox Error$
+    Resume exit_Form_BeforeDelConfirm
+End Sub

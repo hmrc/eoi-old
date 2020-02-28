@@ -1,0 +1,43 @@
+Option Compare Database
+Option Explicit
+
+Public Function IsItMDE(dbs As Database) As Boolean
+    Dim strMDE As String
+    On Error Resume Next
+    strMDE = dbs.Properties("MDE")
+    If Err = 0 And strMDE = "T" Then
+        ' This is an MDE database.
+        IsItMDE = True
+    Else
+        IsItMDE = False
+    End If
+    
+End Function
+
+Public Function DisableShiftKeyBypass() As Boolean
+On Error GoTo errDisableShift
+
+Dim DB As Database
+Dim prop As Property
+Const conPropNotFound = 3270
+
+Set DB = CurrentDb()
+
+DB.Properties("AllowByPassKey") = False
+DisableShiftKeyBypass = True
+
+exitDisableShift:
+Exit Function
+
+errDisableShift:
+If Err = conPropNotFound Then
+    Set prop = DB.CreateProperty("AllowByPassKey", dbBoolean, False)
+    DB.Properties.Append prop
+    Resume Next
+Else
+    MsgBox "DisableShiftKeyBypass did not complete successfully"
+    DisableShiftKeyBypass = False
+    GoTo exitDisableShift
+End If
+
+End Function

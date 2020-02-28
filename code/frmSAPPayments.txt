@@ -1,0 +1,378 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+ Const gcPAY_PERIOD_WEEKLY = 1
+ Const gcPAY_PERIOD_MONTHLY = 2
+ Const gcPAY_PERIOD_IRREGULAR = 3
+
+
+Const cLIABILITY_INITIALISE = "Initalise"
+Const cLIABILITY_UPDATE = "Updated"
+
+Private Function bYearSet() As Integer
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : bYearSet
+' Purpose       : Move to Year, if not valid
+            
+    On Error GoTo Err_bYearSet
+
+    ' Assume has been set
+    bYearSet = True
+
+    If IsNull(Forms!frmSAPRecoverable!subPayments.Form!Year) Or (Forms!frmSAPRecoverable!subPayments.Form!Year < 1991) Then
+        ' Has not been set
+        bYearSet = False
+        Forms!frmSAPRecoverable!subPayments.Form!Year.SetFocus
+    End If
+
+Exit_bYearSet:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bYearSet:
+    MsgBox Error$
+    Resume Exit_bYearSet
+
+End Function
+
+Private Sub EnterLiabilityIfAllowed()
+    
+    ' Can not enter condition
+    If Forms!frmSAPRecoverable!subPayments.Form!Period = gcPERIOD_FIRST Or Forms!frmSAPRecoverable!subPayments.Form!Year < 94 Then
+        Screen.PreviousControl.SetFocus
+    End If
+    
+
+End Sub
+
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 13 December 1995
+' Fuction Name  : Form_BeforeUpdate
+' Purpose       : Ensure a valid record available
+            
+    On Error GoTo Err_Form_BeforeUpdate
+
+    Cancel = Not bYearSet()
+
+Exit_Form_BeforeUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Form_BeforeUpdate:
+    MsgBox Error$
+    Resume Exit_Form_BeforeUpdate
+
+End Sub
+
+Private Sub Liability_Enter()
+' Author        : Mustaq Hussain
+' Date          : 13 December 1995
+' Fuction Name  : Liability_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Liability_Enter
+
+    bNotUsed = bYearSet()
+
+Exit_Liability_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Liability_Enter:
+    MsgBox Error$
+    Resume Exit_Liability_Enter
+
+End Sub
+
+Private Sub Liability_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Liability_Exit
+' Purpose       : Ensure Liability set correctly
+            
+    Dim bNotUsed As Integer
+    
+    On Error GoTo Err_Liability_Exit
+    
+    ' Assume can leave
+    Cancel = False
+
+    SetClass1NICLiability (cLIABILITY_UPDATE)
+
+
+Exit_Liability_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Liability_Exit:
+    MsgBox Error$
+    Resume Exit_Liability_Exit
+
+End Sub
+
+Private Sub NIC_Comp__Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : NIC_Comp__Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_NIC_Comp__Enter
+
+    bNotUsed = bYearSet()
+
+
+Exit_NIC_Comp__Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NIC_Comp__Enter:
+    MsgBox Error$
+    Resume Exit_NIC_Comp__Enter
+
+End Sub
+
+Private Sub Paid_Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : Paid_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Paid_Enter
+
+    bNotUsed = bYearSet()
+
+
+Exit_Paid_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Paid_Enter:
+    MsgBox Error$
+    Resume Exit_Paid_Enter
+
+End Sub
+
+Private Sub Payment_Enter()
+' Author        : Mustaq Hussain
+' Date          : 29 November 1995
+' Fuction Name  : Payment_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Payment_Enter
+
+    bNotUsed = bYearSet()
+
+
+Exit_Payment_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Payment_Enter:
+    MsgBox Error$
+    Resume Exit_Payment_Enter
+
+End Sub
+
+Private Sub Period_Enter()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Period_Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Period_Enter
+
+    bNotUsed = bYearSet()
+
+Exit_Period_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Period_Enter:
+    MsgBox Error$
+    Resume Exit_Period_Enter
+
+End Sub
+
+Private Sub Period_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 December 1995
+' Fuction Name  : Period_Exit
+' Purpose       : Update Liability
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_Period_Exit
+    
+    ' Assume can exit
+    Cancel = False
+
+    SetClass1NICLiability (cLIABILITY_INITIALISE)
+
+Exit_Period_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Period_Exit:
+    MsgBox Error$
+    Resume Exit_Period_Exit
+
+End Sub
+
+Private Sub Period_GotFocus()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Period_GotFocus
+' Purpose       : Repopulate
+            
+    On Error GoTo Err_Period_GotFocus
+
+    Forms!frmSAPRecoverable!subPayments.Form!Period.Requery
+
+Exit_Period_GotFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Period_GotFocus:
+    MsgBox Error$
+    Resume Exit_Period_GotFocus
+
+End Sub
+
+Private Sub SetClass1NICLiability(strState As String)
+' Author        : Mustaq Hussain
+' Date          : 7 december 1995
+' Fuction Name  : SetInitialClass1NICLiability
+' Purpose       : Update Liability
+            
+    On Error GoTo Err_SetInitialClass1NICLiability
+
+    ' Set Liability
+    If Forms!frmSAPRecoverable!subPayments.Form!Period = gcPERIOD_SECOND Or Forms!frmSAPRecoverable!subPayments.Form!Year >= 1995 Then
+        ' Update only if initalised
+        If strState = cLIABILITY_INITIALISE Then
+            Forms!frmSAPRecoverable!subPayments.Form!Liability = 0
+        End If
+            
+    Else
+        If Not IsNull(Forms!frmSAPRecoverable!subPayments.Form!Liability) Then
+            Forms!frmSAPRecoverable!subPayments.Form!Liability = Null
+        End If
+    End If
+    
+    Forms!frmSAPRecoverable!subPayments.Form!Liability.Requery
+
+
+Exit_SetInitialClass1NICLiability:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_SetInitialClass1NICLiability:
+    MsgBox Error$
+    Resume Exit_SetInitialClass1NICLiability
+
+End Sub
+
+Private Function SetPeriodCombo(fld As Control, ID As Long, row As Long, col As Long, code As Integer)
+' Author        : Mustaq Hussain
+' Date          : 21 November 1995
+' Fuction Name  : SetPeriodCombo
+' Purpose       : Sets period comb box
+            
+    On Error GoTo Err_SetPeriodCombo
+
+    Select Case code
+        Case LB_INITIALIZE          'Initialize.
+            SetPeriodCombo = True
+        Case LB_OPEN                'Open.
+            SetPeriodCombo = Timer   'Unique ID for control
+        Case LB_GETROWCOUNT         'Number of rows.
+            SetPeriodCombo = IIf(Forms!frmSAPRecoverable!subPayments.Form!Year = 1994, 2, 1)
+        Case LB_GETCOLUMNCOUNT      'Number of columns.
+            SetPeriodCombo = 1
+        Case LB_GETCOLUMNWIDTH      'Column width.
+            SetPeriodCombo = -1      'Set the default width.
+        Case LB_GETVALUE            'Get the data.
+            ' Value depends on year
+            If Forms!frmSAPRecoverable!subPayments.Form!Year = 1994 Then
+                SetPeriodCombo = IIf(row = 0, gcPERIOD_FIRST, gcPERIOD_SECOND)
+            Else
+                SetPeriodCombo = gcPERIOD_YEAR
+            End If
+    End Select
+
+
+
+Exit_SetPeriodCombo:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_SetPeriodCombo:
+    MsgBox Error$
+    Resume Exit_SetPeriodCombo
+
+End Function
+
+Private Sub SAP__Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : SAP__Enter
+' Purpose       : Only enter if Year valid
+            
+    Dim bNotUsed As Integer
+
+    On Error GoTo Err_SAP__Enter
+
+    bNotUsed = bYearSet()
+
+
+Exit_SAP__Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_SAP__Enter:
+    MsgBox Error$
+    Resume Exit_SAP__Enter
+
+End Sub
+
+
+Private Sub Year_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Year_AfterUpdate
+' Purpose       : Set Period and Liability defaults
+            
+    On Error GoTo Err_Year_AfterUpdate
+
+        Forms!frmSAPRecoverable!subPayments.Form!Period = gcPERIOD_YEAR
+
+    ' Set Liability
+    SetClass1NICLiability (cLIABILITY_INITIALISE)
+
+
+Exit_Year_AfterUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Year_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Year_AfterUpdate
+
+End Sub

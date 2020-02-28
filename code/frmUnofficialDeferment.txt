@@ -1,0 +1,437 @@
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub cboTaxYear_AfterUpdate()
+
+
+On Error GoTo err_cboTaxYear_AfterUpdate
+
+DoCmd.Echo False
+
+Select Case cboTaxYear
+
+Case Is > 2015
+
+    DoCmd.OpenForm "frmUnofficialDeferment16", , , , , , cboTaxYear
+    
+    With Forms!frmUnofficialDeferment16
+        !Surname = Me!Surname
+        !Initial = Me!Initial
+        !NIPrefix = Me!NIPrefix
+        !NInumber = Me!NInumber
+        !NIsuffix = Me!NIsuffix
+        !txtRef = Me!txtRef
+    End With
+
+    DoCmd.Close acForm, "frmUnofficialDeferment"
+    'GoTo Exit_cboTaxyear_AfterUpdate
+    
+Case Is > 2008
+
+    DoCmd.OpenForm "frmUnofficialDeferment09", , , , , , cboTaxYear
+    
+    With Forms!frmUnofficialDeferment09
+        !Surname = Me!Surname
+        !Initial = Me!Initial
+        !NIPrefix = Me!NIPrefix
+        !NInumber = Me!NInumber
+        !NIsuffix = Me!NIsuffix
+        !txtRef = Me!txtRef
+    End With
+
+    DoCmd.Close acForm, "frmUnofficialDeferment"
+    'GoTo Exit_cboTaxyear_AfterUpdate
+        
+        
+End Select
+
+
+exit_cboTaxYear_AfterUpdate:
+DoCmd.Echo True
+
+    Exit Sub
+
+err_cboTaxYear_AfterUpdate:
+    MsgBox Error$
+    Resume exit_cboTaxYear_AfterUpdate
+
+End Sub
+
+''''''''''''''''''''''''''''''''''''''''''''
+' AUTHOR : CHRIS SCHULER  - ACCENTURE 2006 '
+''''''''''''''''''''''''''''''''''''''''''''
+
+
+Private Sub close_Click()
+
+            
+On Error GoTo Err_close_Click
+
+Newbutton_Click
+
+DoCmd.Close
+
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+
+On Error GoTo Err_cmdPrint_Click
+
+    Dim DocName As String
+
+    If Forms!frmUnofficialDeferment!cboTaxYear = "" Or IsNull(Forms!frmUnofficialDeferment!cboTaxYear) Then
+        MsgBox "Print not available, please enter required Tax Year.", 0 + 48, "Information"
+        Forms!frmUnofficialDeferment.cboTaxYear.SetFocus
+        Exit Sub
+    End If
+    
+    UnofficialDeferment
+    
+    DocName = "rptUnofficialDeferment"
+    DoCmd.OpenReport DocName, A_NORMAL
+
+Exit_cmdPrint_Click:
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+    
+End Sub
+
+
+Private Sub Form_Load()
+
+On Error GoTo err_Form_Load
+
+DoCmd.SetWarnings False
+
+Dim Sname As String
+Dim Fname As String
+
+DoCmd.Maximize
+
+
+Sname = getsurname()
+Fname = getinitials()
+Forms![frmUnofficialDeferment]!PreparedBy.Enabled = True
+
+Forms![frmUnofficialDeferment]![PreparedBy] = Fname & " " & Sname
+Forms![frmUnofficialDeferment]!PreparedBy.Enabled = False
+
+    'check if year passed in
+    If Me.OpenArgs <> "" Then
+        cboTaxYear = OpenArgs
+    Else
+        cboTaxYear = strCurrentTaxYear("CLASS 1 RATE TABLE")
+    End If
+    
+    cboTaxYear_AfterUpdate
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+
+On Error GoTo Err_Form_Unload
+
+Newbutton_Click
+
+Exit_Form_Unload:
+    Exit Sub
+
+Err_Form_Unload:
+    MsgBox Error$
+    Resume Exit_Form_Unload
+
+End Sub
+
+
+
+Private Sub Newbutton_Click()
+
+    On Error GoTo Err_NewButton_Click
+    
+    DoCmd.SetWarnings False
+    
+    DoCmd.Hourglass True
+    
+'Runs the required SQL to delete all of the data input on the subform
+    
+    DoCmd.RunSQL "DELETE * FROM [tblUnofficialDeferment]"
+    
+    Forms![frmUnofficialDeferment]![SubUnofficialDeferment].Form.Requery
+
+
+'Re-initialises all of the input fields and set focus back to first input field
+    With Forms!frmUnofficialDeferment
+        !Surname = ""
+        !Initial = ""
+        !NIPrefix = ""
+        !NInumber = ""
+        !NIsuffix = ""
+        
+        !txtRef = ""
+    
+        !cboTaxYear = DLast("[taxyear]", "[Contribution Period Table]")
+    
+        !Surname.Locked = False
+        !Initial.Locked = False
+        !NIPrefix.Locked = False
+        !NInumber.Locked = False
+        !NIsuffix.Locked = False
+        !cboTaxYear.Locked = False
+        !txtAnnualMax = Null
+        !txtLiability = Null
+        !txtDifference = Null
+        !txtIfNOTUD = Null
+        !lblDue.Visible = False
+        !Surname.SetFocus
+    
+    End With
+        
+Exit_NewButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NewButton_Click:
+    MsgBox Error$
+    Resume Exit_NewButton_Click
+
+End Sub
+
+Private Sub NIPrefix_LostFocus()
+
+On Error GoTo Err_NIPrefix_LostFocus
+
+Forms![frmUnofficialDeferment]![NIPrefix] = UCase(Forms![frmUnofficialDeferment]![NIPrefix])
+
+Exit_NIPrefix_LostFocus:
+    Exit Sub
+
+Err_NIPrefix_LostFocus:
+    MsgBox Error$
+    Resume Exit_NIPrefix_LostFocus
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub NIsuffix_LostFocus()
+
+On Error GoTo Err_NIsuffix_LostFocus
+
+Forms![frmUnofficialDeferment]![NIsuffix] = UCase(Forms![frmUnofficialDeferment]![NIsuffix])
+
+Exit_NIsuffix_LostFocus:
+    Exit Sub
+
+Err_NIsuffix_LostFocus:
+    MsgBox Error$
+    Resume Exit_NIsuffix_LostFocus
+
+End Sub
+
+
+Private Sub cmdCalc_Click()
+On Error GoTo Err_cmdCalc_Click
+
+
+DoCmd.Hourglass True
+
+If IsNull(Forms!frmUnofficialDeferment!cboTaxYear) Or Forms!frmUnofficialDeferment!cboTaxYear = "" Then
+    MsgBox "Please enter the required tax year.", 0 + 48, "Information"
+    Forms!frmUnofficialDeferment!cboTaxYear.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+
+UnofficialDeferment
+
+Exit_cmdCalc_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_cmdCalc_Click:
+    MsgBox Err.Description
+    Resume Exit_cmdCalc_Click
+    
+End Sub
+
+Private Sub SubUnofficialDeferment_Exit(Cancel As Integer)
+'Forms![frmUnofficialDeferment].SubUnofficialDeferment.Form![Name of Employer].Width = 1000
+End Sub
+
+
+Sub UnofficialDeferment()
+On Error GoTo Err_UnofficialDeferment
+
+Dim UDCat As String  'Category
+Dim UDTaxYear As String
+Dim EERate As Double 'Employee's rate
+Dim EE_NIC_Rebate As Double
+Dim EE_AboveUEL As Double
+Dim UDDB As Database
+Dim UDset As DAO.Recordset
+Dim NCO_Rate As Double 'Non Contracted_out rate
+Set UDDB = CurrentDb()
+    
+Set UDset = UDDB.OpenRecordset("Select * from [tblUnofficialDeferment]")
+
+UDset.MoveFirst
+
+While Not UDset.EOF
+
+    UDset.Edit
+    
+    UDCat = UDset!Category
+    UDTaxYear = Forms!frmUnofficialDeferment!cboTaxYear
+    
+    EERate = DLookup("[EE_Rate]", "tblClass1_1999", "[Tax Yr] = '" & UDTaxYear & "' AND cat = '" & UDCat & "'")
+    EE_NIC_Rebate = DLookup("[EE NIC Rebate]", "tblClass1_1999", "[Tax Yr] = '" & UDTaxYear & "' AND cat = '" & UDCat & "'")
+    EE_AboveUEL = DLookup("[EE_AboveUEL]", "tblClass1_1999", "[Tax Yr] = '" & UDTaxYear & "' AND cat = '" & UDCat & "'")
+    NCO_Rate = DLookup("[EE_Rate]", "tblClass1_1999", "[Tax Yr] = '" & UDTaxYear & "' AND cat = 'A'")
+    'UDset![Gross Pay] = UDset![Earnings at LEL 1a] + UDset![Earnings at LEL - ET 1b] + UDset![Earnings at ET - UEL 1c] + UDset![Earnings over UEL]
+    'Calculate the [Earnings over UEL] and [NICs due Non - Contracted Out] depending on category
+    Select Case UDCat
+    
+        Case "A"
+            UDset![Earnings over UEL] = (curRound(UDset![Employee NICS 1e]) - curRound((UDset![Earnings at ET - UEL 1c] * EERate))) * 100
+            
+            If UDset![Earnings over UEL] < 0 Then
+                
+                UDset![Earnings over UEL] = 0
+                
+            End If
+            
+            UDset![NICs due Non - Contracted Out] = UDset![Employee NICS 1e]
+            
+        Case "D", "F"
+            UDset![Earnings over UEL] = curRound(UDset![Employee NICS 1e] + curRound(UDset![Earnings at LEL - ET 1b] * EE_NIC_Rebate) - curRound(UDset![Earnings at ET - UEL 1c] * EERate)) * 100
+        
+            UDset![NICs due Non - Contracted Out] = curRound((UDset![Earnings at ET - UEL 1c] * NCO_Rate) + curRound(UDset![Earnings over UEL] * EE_AboveUEL))
+            
+'        Case "J"
+'            UDset![Earnings over UEL] = curRound(((UDset![Employee NICS 1e] - (UDset![Earnings at ET - UEL 1c] * EERate)) * 100))
+'
+'
+'            UDset![NICs due Non - Contracted Out] = UDset![Employee NICS 1e]
+        
+        Case "J", "L", "S"
+            UDset![Earnings over UEL] = (UDset![Employee NICS 1e] + curRound(UDset![Earnings at LEL - ET 1b] * EE_NIC_Rebate) - curRound(UDset![Earnings at ET - UEL 1c] * EERate)) * 100
+
+            UDset![NICs due Non - Contracted Out] = UDset![Employee NICS 1e] + curRound(UDset![Earnings at LEL - ET 1b] * EE_NIC_Rebate)
+
+
+'        Case "S"
+'            UDset![Earnings over UEL] = curRound(((UDset![Employee NICS 1e] + (UDset![Earnings at LEL - ET 1b] * EE_NIC_Rebate)) - (UDset![Earnings at ET - UEL 1c] * EERate)) * 100)
+'
+'            UDset![NICs due Non - Contracted Out] = 0
+            
+    End Select
+    
+    UDset![Gross Pay] = UDset![Earnings at LEL 1a] + UDset![Earnings at LEL - ET 1b] + UDset![Earnings at ET - UEL 1c] + UDset![Earnings over UEL]
+    
+
+    If UDCat = "J" Or UDCat = "L" Or UDCat = "S" Then
+        UDset![If NOT Unofficial Deferment] = curRound((UDset![Earnings at ET - UEL 1c] * NCO_Rate)) + curRound((UDset![Earnings over UEL] * EE_AboveUEL)) - UDset![Employee NICS 1e]
+    Else
+        UDset![If NOT Unofficial Deferment] = 0
+    End If
+    
+    UDset.Update
+    UDset.MoveNext
+Wend
+UDset.Close
+
+'Calculate Unofficial Deferment using the 8 steps
+With Forms!frmUnofficialDeferment
+    .SubUnofficialDeferment.Form.Requery
+    
+    !txtStep1 = (![txtUEL] - ![txtET]) * 53
+    !txtStep2 = ![txtStep1] * 0.11
+    !txtStep3 = DSum("[Earnings at ET - UEL 1c]", "[tblUnofficialDeferment]")
+    !txtStep4 = ![txtStep3] - ![txtStep1]
+    !txtStep5 = IIf(![txtStep4] < 0 Or IsNull(![txtStep4]), 0, (![txtStep4] * 0.01))
+    !txtStep6 = curRound(DSum("[Earnings over UEL]", "[tblUnofficialDeferment]"))
+    !txtStep7 = ![txtStep6] * 0.01
+    !txtStep8 = ![txtStep2] + ![txtStep5] + ![txtStep7]
+    !txtAnnualMax = ![txtStep8]
+    !txtLiability = DSum("[NICs due Non - Contracted Out]", "[tblUnofficialDeferment]")
+    !txtDifference = IIf(DSum("[Employee NICS 1e]", "[tblUnofficialDeferment]") = 0, 0, ![txtAnnualMax] - ![txtLiability])
+    !txtIfNOTUD = curRound(DSum("[If NOT Unofficial Deferment]", "[tblUnofficialDeferment]"))
+    
+    If !txtDifference = 0 Or !txtIfNOTUD < !txtDifference Then
+        
+        !lblDue.Visible = False
+        !lblDue2.Visible = True
+    Else
+    
+        !lblDue.Visible = True
+        !lblDue2.Visible = False
+    
+    End If
+    
+End With
+
+Exit_UnofficialDeferment:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_UnofficialDeferment:
+    MsgBox Err.Description & " in Unofficial Deferment procedure"
+    Resume Exit_UnofficialDeferment
+End Sub

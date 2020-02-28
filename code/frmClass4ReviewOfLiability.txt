@@ -1,0 +1,147 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cboTaxYear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cboTaxYear_Click
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    Dim RecordTotal As Integer
+
+    DoCmd.SetWarnings False
+
+    Set myDB = CurrentDb()
+    
+    With Forms![frmAppendix2]![subAppendix2].Form
+    
+        If .cboTaxYear > "1986" Then
+            .Standard.Height = 1125
+        Else
+            .Standard.Height = 255
+        End If
+        
+        If .cboTaxYear > "1998" Then
+            .Reduced.Height = 1125
+        Else
+            .Reduced.Height = 255
+        End If
+    
+        If .cboTaxYear > "1977" Then
+            .[Contracted Out].Height = 1200
+        Else
+            .[Contracted Out].Height = 255
+        End If
+    
+        If .cboTaxYear = "1989" Then
+            .[Standard2].Height = 1200
+        Else
+            .[Standard2].Height = 255
+        End If
+        If .cboTaxYear > "2002" Then
+            .Box35.Visible = True
+        Else
+            .Box35.Visible = False
+        End If
+        
+        
+        Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Class 4 Base Figures For Review Of Liability] WHERE [Tax Year] = """ & .cboTaxYear & """;")
+    
+        MyRecordSet.MoveFirst
+
+        .[Lower Limit2].Visible = False
+        .[Upper Limit2].Visible = False
+        .[Percentage2].Visible = False
+        .[Payable On Upper Limit2].Visible = False
+        .[Standard2].Visible = False
+        .[Reduced2].Visible = False
+        .[Contracted Out2].Visible = False
+        
+        If (.cboTaxYear = "1985") Or (.cboTaxYear = "1986") Then
+            .[txtWarning].Visible = True
+        Else
+            .[txtWarning].Visible = False
+        End If
+        
+
+
+        .[Lower Limit] = MyRecordSet![Lower Limit]
+        .[Upper Limit] = MyRecordSet![Upper Limit]
+        .[Percentage] = MyRecordSet![Percentage]
+        .[Payable On Upper Limit] = MyRecordSet![Payable On Upper Limit]
+        .[Standard] = MyRecordSet![Standard]
+        .[Reduced] = MyRecordSet![Reduced]
+        .[Contracted Out] = MyRecordSet![Contracted Out]
+    
+        MyRecordSet.MoveLast
+        
+        RecordTotal = MyRecordSet.Recordcount
+
+        If RecordTotal > 1 Then
+        
+            .[Lower Limit2].Visible = True
+            .[Upper Limit2].Visible = True
+            .[Percentage2].Visible = True
+            .[Payable On Upper Limit2].Visible = True
+            .[Standard2].Visible = True
+            .[Reduced2].Visible = True
+            .[Contracted Out2].Visible = True
+            
+            .[Lower Limit2] = MyRecordSet![Lower Limit]
+            .[Upper Limit2] = MyRecordSet![Upper Limit]
+            .[Percentage2] = MyRecordSet![Percentage]
+            .[Payable On Upper Limit2] = MyRecordSet![Payable On Upper Limit]
+            .[Standard2] = MyRecordSet![Standard]
+            .[Reduced2] = MyRecordSet![Reduced]
+            .[Contracted Out2] = MyRecordSet![Contracted Out]
+    
+        End If
+    End With
+Exit_cboTaxYear_Click:
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub Form_Load()
+' History
+' Author : Mustaq Hussain
+' Date   : 5 November 1996
+' Reason : Default year
+
+On Error GoTo err_Form_Load
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+
+
+    Set myDB = CurrentDb()
+                
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Class 4 Base Figures For Review Of Liability];")
+
+    MyRecordSet.MoveLast
+
+    Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = MyRecordSet![Tax Year]
+
+    cboTaxYear_Click
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+
+End Sub

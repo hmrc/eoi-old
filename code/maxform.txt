@@ -1,0 +1,292 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub close_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_close_Click
+
+
+     DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+    
+
+End Sub
+
+' History
+' Author    : Lisa Scothern
+' Date      : 15/05/97
+' Purpose   : Validate contracted out category selected by user - RFC 642F
+'
+Private Sub COCatList_Click()
+    On Error GoTo Err_COCatList_AUp
+
+    Dim maxdb As Database
+    Dim post77dyna As DAO.Recordset
+    Dim strSelect As String, strTaxYr As String
+    
+    Set maxdb = DBEngine.Workspaces(0).Databases(0)
+
+    strTaxYr = Right$(Str$(Me!Taxyear), 4)
+    strSelect = "SELECT DISTINCTROW post77max.class1Dprim, post77max.class1Dstand, post77max.class1Dco, post77max.class1Fprim, post77max.class1Fstand, post77max.class1Fco, post77max.class1Gprim, post77max.class1Gstand, post77max.class1Gco FROM post77max WHERE post77max.taxyear = '" & strTaxYr & "'"
+
+    Set post77dyna = maxdb.OpenRecordset(strSelect)
+        
+    'Assumes "Limit To List" property is "Yes" on COCatList control
+    ' COCATLIST_OnFocus() prevents categories F & G being available for pre 97 tax years
+    Select Case (COCatList)
+    Case "D"
+        Me!class1Catprim = post77dyna!class1Dprim
+        Me!class1CatStand = post77dyna!class1Dstand
+        Me!class1CatCO = post77dyna!class1Dco
+    Case "F"
+        Me!class1Catprim = post77dyna!class1Fprim
+        Me!class1CatStand = post77dyna!class1Fstand
+        Me!class1CatCO = post77dyna!class1Fco
+    Case "G"
+        Me!class1Catprim = post77dyna!class1Gprim
+        Me!class1CatStand = post77dyna!class1Gstand
+        Me!class1CatCO = post77dyna!class1Gco
+    Case Else
+        ' Shouldn't get here!
+        MsgBox "Please select a category from the list!", 48
+        Error 1
+    End Select
+
+    post77dyna.Close
+
+
+Exit_COCatList_AUp:
+    Exit Sub
+
+Err_COCatList_AUp:
+    MsgBox Error$    ' In case a database or dynaset error occurs for some reason
+    Resume Exit_COCatList_AUp
+
+End Sub
+
+' History
+' Author    : Lisa Scothern
+' Date      : 16/05/97
+' Purpose   : Define which categories are available for the user to chose in the Contracted Out Combo Box
+'           : RFC 642F
+Private Sub COCatList_GotFocus()
+
+    On Error GoTo Err_COCatList_GotFocus
+
+    Dim strCatD As String, strCatRest As String
+
+    strCatD = "D"
+    strCatRest = ";F;G"
+
+    If Me!Taxyear > 1996 Then
+        Me!COCatList.RowSource = strCatD & strCatRest
+    Else
+        Me!COCatList.RowSource = strCatD
+    End If
+
+
+Exit_COCatList_GotFocus:
+    Exit Sub
+
+Err_COCatList_GotFocus:
+    MsgBox Error$
+    Resume Exit_COCatList_GotFocus
+
+End Sub
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author : Mustaq Hussain
+' Date   : 8 Oct 1996
+' Reason : LER 109 , incorrect 1995/96 tax rates ( default to currenct tax year )
+' History
+' Author : Lisa Scothern
+' Date   : 16 May 1997
+' Reason : Initialise taxyear field on form instead of taxyear column in maxdatatable. (maxdatatable is no longer
+'        : used as it introduced errors if user tabbed to taxyear field and tabbed straight off again without
+'        : entering a value) - discovered whilst doing RFC 642F
+' Author:  Chris Schuler
+' Date   : 25 Sept 2003
+' Reason : taxyear now defaults to max from post77max table
+
+
+Dim dummy As Integer
+
+On Error GoTo err_Form_Load
+    DoCmd.Maximize
+    
+    'Forms!maxform!taxyear = strCurrentTaxYear("CLASS 1 RATE TABLE")
+    dummy = maxmodule()
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+
+
+Function maxmodule()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+' History
+' Author    : Lisa Scothern
+' Date      : 14/05/97
+' Purpose   : Altered test40 caption - it nolonger assumes the only contracted out category is 'D'
+'           : 'F' and 'G' are now possible; also hide the list box to select these categories
+'           : when necessary (i.e. if tax year < 1978) - see RFC 642F
+' Author    : Chris Schuler
+' Date      : 25 Sept 2003
+' Purpose   : Function moved to form module (basmodule deleted)
+
+On Error GoTo err_maxmodule
+DoCmd.Hourglass True
+
+Dim maxdb As Database
+Dim pre78dyna As DAO.Recordset
+Dim post77dyna As DAO.Recordset
+Dim strSelect As String, strTaxYr As String
+
+
+DoCmd.DoMenuItem acFormBar, A_FILE, A_SAVERECORD, , A_MENU_VER20
+
+Set maxdb = DBEngine.Workspaces(0).Databases(0)
+
+strTaxYr = Right$(Str$(Me!Taxyear), 4)
+
+With Me
+    If !Taxyear < 1978 Then
+        strSelect = "SELECT DISTINCTROW pre78max.class1A, pre78max.class1B, pre78max.class2m, pre78max.class2w, pre78max.class3, pre78max.class4, pre78max.class12, pre78max.class124m, pre78max.class124w FROM pre78max WHERE pre78max.taxyear = '" & strTaxYr & "'"
+        ' Ignore old select statement...
+        'Set pre78dyna = maxdb.Recordset("SELECT DISTINCTROW maxdatastore.taxyear, pre78max.class1A, pre78max.class1B, pre78max.class2m, pre78max.class2w, pre78max.class3, pre78max.class4, pre78max.class12, pre78max.class124m, pre78max.class124w FROM maxdatastore INNER JOIN pre78max ON maxdatastore.taxyear = pre78max.taxyear;")
+        
+        Set pre78dyna = maxdb.OpenRecordset(strSelect)
+        
+        'Query table appropriate to tax year selected.
+        'NB: the form data field names are based on a post 77 query ( the most common type )
+        
+        !class1A = pre78dyna!class1A
+        !class1BE = pre78dyna!Class1B
+        !class1Catprim = pre78dyna!class2m
+        !class1CatStand = pre78dyna!class2w
+        !Class2 = pre78dyna!Class3
+        !Class3 = pre78dyna!class4
+        !class12 = pre78dyna!class12
+        !class24 = pre78dyna!class124m
+        !class124w = pre78dyna!class124w
+        
+        'Set form design to that appropriate for pre 78 tax years
+        
+        !Text19.Caption = "Reduced ( Cat B ):"
+        
+        !Text40.Caption = "CLASS 2"
+        !Text21.Caption = "Man:"
+        !Text23.Caption = "Woman:"
+        !Text25.Visible = False
+        !class1CatCO.Visible = False
+        
+        !Text27.Caption = "Class 3:"
+        !Text29.Caption = "Class 4:"
+        !Text31.Visible = False
+        !class4.Visible = False
+        !COCatList.Visible = False
+        
+        !Text48.Visible = True
+        !class124w.Visible = True
+        !Text35.Caption = "Class 1, 2, 4 man:"
+        
+        pre78dyna.Close
+    
+    Else
+    
+        strSelect = "SELECT DISTINCTROW post77max.class1A, post77max.class1BE, post77max.class1Dprim, post77max.class1Dstand, post77max.class1Dco, post77max.class2, post77max.class3, post77max.class4, post77max.class12, post77max.class24 FROM post77max WHERE post77max.taxyear = '" & strTaxYr & "'"
+        ' Ignore old select statement...
+        'Set post77dyna = maxdb.Recordset("SELECT DISTINCTROW maxdatastore.taxyear, post77max.class1A, post77max.class1BE, post77max.class1Dprim, post77max.class1Dstand, post77max.class1Dco, post77max.class2, post77max.class3, post77max.class4, post77max.class12, post77max.class24 FROM maxdatastore INNER JOIN post77max ON maxdatastore.taxyear = post77max.taxyear;")
+        
+        Set post77dyna = maxdb.OpenRecordset(strSelect)
+        
+        
+        'Query table appropriate to tax year selected.
+        'NB: the form data field names are based on a post 77 query ( the most common type )
+        
+        !class1A = post77dyna!class1A
+        !class1BE = post77dyna!class1BE
+        !class1Catprim = post77dyna!class1Dprim
+        !class1CatStand = post77dyna!class1Dstand
+        !class1CatCO = post77dyna!class1Dco
+        !Class2 = post77dyna!Class2
+        !Class3 = post77dyna!Class3
+        !class4 = post77dyna!class4
+        !class12 = post77dyna!class12
+        !class24 = post77dyna!class24
+        
+        'Set form design to that appropriate for post 77 tax years
+        
+        !Text19.Caption = "Reduced ( Cat B/E ):"
+        
+        !Text40.Caption = "CLASS 1 CONTRACTED OUT CAT: "
+        !Text21.Caption = "Total primary:"
+        !Text23.Caption = "Standard element:"
+        !Text25.Visible = True
+        !class1CatCO.Visible = True
+        !COCatList.Visible = True
+        
+        !Text27.Caption = "Class 2:"
+        !Text29.Caption = "Class 3:"
+        !Text31.Visible = True
+        !class4.Visible = True
+        
+        !Text48.Visible = False
+        !class124w.Visible = False
+        !Text35.Caption = "Class 2 and 4:"
+        
+        'Clear down any 'F', 'G', or 'S' categories that might be displayed
+        !COCatList.value = "D"   'Default to 'D' when new tax year is selected
+        
+        post77dyna.Close
+    
+    End If
+End With
+
+
+exit_maxmodule:
+    DoCmd.Hourglass False
+    Exit Function
+err_maxmodule:
+    MsgBox Error$
+    Resume exit_maxmodule
+End Function
+
+
+
+Private Sub taxyear_AfterUpdate()
+If Taxyear > 2002 Then
+    subMaxForm.Visible = True
+    Me![subMaxForm].Form![Class2].Requery
+    Me![subMaxForm].Form![Class3].Requery
+Else
+    subMaxForm.Visible = False
+End If
+End Sub

@@ -1,0 +1,2029 @@
+Option Compare Database   'Use database order for string comparisons
+' Author        : Mustaq Hussain
+' Date          : 3 November 1995
+
+Option Explicit
+
+Global Const gcHIGHER_RATE_YES = 1
+Global Const gcHIGHER_RATE_NO = 2
+
+Global Const gcENTITLEMENT_SMP_DUE = "SMP Due"
+Global Const gcENTITLEMENT_WEEK_WORKED = "Week Worked"
+Global Const gcENTITLEMENT_EXCLUDED = "Employee Excluded"
+Public StartPayPeriod As Boolean
+Public StartPayPeriodMonthly As Boolean
+Public StartPayPeriodDays As Integer
+Public PaymentDay As Integer
+Public PaymentDate As Integer
+Public PaymentType As Integer
+Public chkBornEarly As Boolean 'pmor Jan 03
+
+
+Function bValidationOftxtDueBorn() As Integer
+' Author        : Mustaq Hussain
+' Date          : 25 November 1995
+' Fuction Name  : bValidationOftxtDueBorn
+' Purpose       : TRUE if all Due/Born date valid
+            
+    On Error GoTo Err_bValidationOftxtDueBorn
+
+    ' Assume invalid
+    bValidationOftxtDueBorn = False
+
+    If Forms![frmSMPPayable].txtDueBorn < CVDate(Format$("6/4/1991", "dd/mm/yyyy")) Then
+        GoTo Exit_bValidationOftxtDueBorn
+    End If
+
+    If Forms![frmSMPPayable].txtDueBorn > (CVDate(Format$(Date, "dd/mm/yyyy")) + (15 * 7)) Then
+        GoTo Exit_bValidationOftxtDueBorn
+    End If
+    
+    ' Valid
+    bValidationOftxtDueBorn = True
+
+Exit_bValidationOftxtDueBorn:
+    Exit Function
+    
+Err_bValidationOftxtDueBorn:
+    MsgBox Error$
+    Resume Exit_bValidationOftxtDueBorn
+
+End Function
+
+Function bValidationOftxtMPPStarts() As Integer
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : bValidationOftxtMPPStarts
+' Purpose       : Return TRUE if Sunday
+
+    On Error GoTo Err_bValidationOftxtMPPStarts
+
+    ' Assume invalid
+    bValidationOftxtMPPStarts = False
+
+    'pmor Jan03 - If born early allow any day start
+    If chkBornEarly = True Then
+        'no check done
+        bValidationOftxtMPPStarts = True
+    Else
+        
+        If Forms![frmSMPPayable]!txtDueBorn < #4/1/2007# Then
+            ' Must be a Sunday
+            If Weekday(Forms![frmSMPPayable]!txtMPPStarts) <> 1 Then
+                MsgBox ("MPP must be a Sunday")
+                GoTo Exit_bValidationOftxtMPPStarts
+            End If
+        End If
+    End If
+    ' Is valid
+    bValidationOftxtMPPStarts = True
+
+
+Exit_bValidationOftxtMPPStarts:
+    Exit Function
+
+Err_bValidationOftxtMPPStarts:
+    MsgBox Error$
+    Resume Exit_bValidationOftxtMPPStarts
+
+End Function
+
+Function bValidSMPEarningsDate() As Integer
+' Author        : Mustaq Hussain
+' Date          : 8 December 1995
+' Fuction Name  : bValidSMPEarningsDate
+' Purpose       : Return TRUE
+            
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Variant
+    Dim nNoOfDatesFilled As Integer, nNoOfEntries As Integer
+    
+    On Error GoTo Err_bValidSMPEarningsDate
+    
+    ' Assume invalid
+    bValidSMPEarningsDate = False
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+    ' Query to get the number of Earnings
+    SQLQuery = "SELECT COUNT([Earnings]) FROM [tblSMPEarnings] ;"
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveLast
+    nNoOfEntries = mySet.Fields(0)
+
+    ' Query to get number of Dates
+    SQLQuery = "SELECT COUNT([Date]) FROM [tblSMPEarnings] ;"
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+    nNoOfDatesFilled = mySet.Fields(0).value
+    
+    mySet.Close
+    myDB.Close
+
+    ' Check number of entries
+    If nNoOfDatesFilled <> nNoOfEntries And nNoOfDatesFilled <> 0 Then
+        Beep
+        MsgBox ("All Dates in Earnings table must be either empty or filled")
+        GoTo Exit_bValidSMPEarningsDate
+    End If
+
+
+    ' Is valid
+    bValidSMPEarningsDate = True
+
+                                       
+Exit_bValidSMPEarningsDate:
+    Exit Function
+    
+Err_bValidSMPEarningsDate:
+    MsgBox Error$
+    Resume Exit_bValidSMPEarningsDate
+
+End Function
+
+Function bValidSMPPayableCalculation() As Integer
+' Author        : Mustaq Hussain
+' Date          : 25 November 1995
+' Fuction Name  : bValidSMPPayableCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calcualtion
+' History
+' Author        : Mustaq Hussain
+' Date          : 21 June 1996
+' Purpose       : LER 90 : txt5DPAverageWeeklyEarnings added and txt5DPAverageWeeklyEarnings made invisible
+' History
+' Author        : Mustaq Hussain
+' Date          : 16 October 1996
+' Purpose       : RFC 442 : Move focus to error
+' History
+' Author        : Lisa Scothern
+' Date          : 7 February 1997
+' Purpose       : RFC 515N : Surname, NINO & Reference fields now optional - removed checks to see if NULL
+
+            
+    Dim nLEL As Currency
+
+    On Error GoTo Err_bValidSMPPayableCalculation
+
+    DoCmd.Hourglass True
+
+    ' Assume validation incorrect
+    bValidSMPPayableCalculation = False
+
+
+    ' Check information fields set
+    ' Check Due/Born date set correctly
+    If bValidtxtDueBorn() = False Then
+        Forms![frmSMPPayable].txtDueBorn.SetFocus
+        GoTo Exit_bValidSMPPayableCalculation
+    End If
+
+
+    ' Check pay period dates correct
+    If Forms![frmSMPPayable].grpPayPeriod = gcPAY_PERIOD_IRREGULAR Then
+        If bValidSMPtxtIrregularDates() = False Then
+            Forms![frmSMPPayable].grpPayPeriod.SetFocus
+            GoTo Exit_bValidSMPPayableCalculation
+        End If
+    End If
+    
+    
+    ' Check MPP start date set correctly
+    If bValidtxtMPPStarts() = False Then
+        Forms![frmSMPPayable].txtMPPStarts.SetFocus
+        GoTo Exit_bValidSMPPayableCalculation
+    End If
+    
+    ' Check Dates in Earnings set correctly
+    If bValidSMPEarningsDate() = False Then
+        Forms![frmSMPPayable]![subEarnings].SetFocus
+        GoTo Exit_bValidSMPPayableCalculation
+    End If
+    
+    SetAverageWeeklyEarningsSMP "tblSMPEarnings", "frmSMPPayable"
+    
+    'Forms.frmSMPPayable.txt5DPAverageWeeklyEarnings = Int(Forms.frmSMPPayable.txtAverageWeeklyEarnings * 100000) / 100000
+    Forms!frmSMPPayable.txt5DPAverageWeeklyEarnings = Int((Forms!frmSMPPayable.txtAverageWeeklyEarnings + 0.0000001) * 100000) / 100000 '+ 0.0000001 allows for numerical storage errors eg 74.975 is actually stored as 74.97499999 possibly
+    ' Check earnings set
+    If Forms![frmSMPPayable].txtAverageWeeklyEarnings = 0 Then
+        Beep
+        MsgBox ("Earnings not set")
+        Forms![frmSMPPayable]![subEarnings].SetFocus
+        GoTo Exit_bValidSMPPayableCalculation
+    End If
+
+    
+    SetMPPRates
+    SetSMPDueAndUnderOverPayment
+
+    ' Validation was correct
+    bValidSMPPayableCalculation = True
+
+Exit_bValidSMPPayableCalculation:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidSMPPayableCalculation:
+    MsgBox Error$
+    Resume Exit_bValidSMPPayableCalculation
+
+End Function
+
+Function bValidSMPRecoverableCalculation() As Integer
+' Author        : Mustaq Hussain
+' Date          : 25 November 1995
+' Fuction Name  : bValidSMPRecoverableCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' History
+' Author        : Mustaq Hussain
+' Date          : 16 October 1996
+' Purpose       : RFC 442 : Move focus on error
+' History
+' Author        : Lisa Scothern
+' Date          : 7 February 1997
+' Purpose       : RFC 515O : Name & Reference field now optional - removed check to see if NULL
+' History
+' Author        : Lisa Scothern
+' Date          : 22 September 1997
+' Purpose       : RFC 541C: Round with curRound() - exactly 0.5p rounded down
+' Author        : Lisa Scothern
+' Date          : 28 October 1997
+' Purpose       : Change to RFC 541C: Round with curRoundUp() - any fraction of a penny -> round up to next penny
+' Author        : Christopher Schuler
+' Date          : 20 January 2000
+' Purpose       : NIC rebate added to calculation
+' Author        : Christopher Schuler
+' Date          : 8 January 2001
+' Purpose       : qualifying level for small employer's relief is changed to £40000
+' Author        : Christopher Schuler
+' Date          : 31 March 2004
+' Purpose       : SER rate can vary so lookup intoduced
+            
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim nTaxYear As Integer
+    Dim strTaxPeriod As String
+    Dim dtmDateFrom
+    Dim ctrUnder As Currency
+    Dim ctrOver As Currency
+    Dim MinQL As Currency 'Minimum Qualifying level for Small Employers
+
+
+    On Error GoTo Err_bValidSMPRecoverableCalculation
+
+    DoCmd.Hourglass True
+    
+    ' Assume validation correct
+    bValidSMPRecoverableCalculation = True
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSMPPayments")
+
+    ' Calculate amount only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+            mySet.Edit
+                
+                nTaxYear = mySet![Taxyear]
+                
+                ' Set the start period for NIC Comp and report specific objects
+                Select Case mySet![Period]
+                    Case gcPERIOD_YEAR
+                        dtmDateFrom = CVDate("6/4/" + Format$(nTaxYear))
+                        strTaxPeriod = "6/4/" + Format$(nTaxYear) + " to 5/4/" + Format$(nTaxYear + 1)
+                    Case gcPERIOD_FIRST
+                        dtmDateFrom = CVDate("6/4/" + Format$(nTaxYear))
+                        strTaxPeriod = "6/4/" + Format$(nTaxYear) + " to 3/9/" + Format$(nTaxYear)
+                    Case gcPERIOD_SECOND
+                        dtmDateFrom = "4/9/" + Format$(nTaxYear)
+                        strTaxPeriod = "4/9/" + Format$(nTaxYear) + " to 5/4/" + Format$(nTaxYear + 1)
+                End Select
+                mySet![TaxPeriod] = strTaxPeriod
+
+                
+                ' Set SMP and NIC Comp Due
+                If nTaxYear <= 1993 Or (nTaxYear = 1994 And mySet![Period] = gcPERIOD_FIRST) Then
+                    ' Before 3/9/1994
+                    mySet![SMPRecoveryDue] = mySet![SMPPaid]
+                    mySet![NICCompensationRecoveryDue] = curRoundUp(mySet![SMPPaid] * flSMPNICCompPercentageRate(dtmDateFrom))
+                Else
+                    ' After 3/9/1994
+                    MinQL = DLookup("MinQualifyingLevel", "tblSER", "TaxYear = " & nTaxYear) 'use lookup instead of hard coding
+
+                    If nTaxYear < 2002 Then
+                        If (mySet![Class1NICLiability] - mySet!Rebate) <= MinQL Or IsNull(mySet![Class1NICLiability]) Then
+                            mySet![SMPRecoveryDue] = mySet![SMPPaid]
+                            mySet![NICCompensationRecoveryDue] = curRoundUp(mySet![SMPPaid] * flSMPNICCompPercentageRate(dtmDateFrom))
+                        Else
+                            mySet![SMPRecoveryDue] = curRoundUp(mySet![SMPPaid] * 0.92)
+                            mySet![NICCompensationRecoveryDue] = 0
+                        End If
+                    Else
+                        If (mySet![Class1NICLiability] - mySet!Rebate) <= MinQL Or IsNull(mySet![Class1NICLiability]) Then
+                            mySet![SMPRecoveryDue] = mySet![SMPPaid]
+                            mySet![NICCompensationRecoveryDue] = curRoundUp(mySet![SMPPaid] * flSMPNICCompPercentageRate(dtmDateFrom))
+                        Else
+                            mySet![SMPRecoveryDue] = curRoundUp(mySet![SMPPaid] * 0.92)
+                            mySet![NICCompensationRecoveryDue] = 0
+                        End If
+                    End If
+                End If
+
+                ' Total SMP+NIC Due
+                mySet![TotalRecoveryDue] = mySet![SMPRecoveryDue] + mySet![NICCompensationRecoveryDue]
+
+                ' Under and Over payment
+                ctrUnder = mySet![TotalUnderRecovered]
+                ctrOver = mySet![TotalOverRecovered]
+                SetEachUnderOverpayment mySet![TotalRecoveryDue], mySet![SMPRecovered] + mySet![NICCompensationRecovered], ctrUnder, ctrOver
+                mySet![TotalUnderRecovered] = ctrUnder
+                mySet![TotalOverRecovered] = ctrOver
+                
+                ' Liability field
+                If mySet![Period] = gcPERIOD_FIRST Or nTaxYear < 1994 Then
+                    mySet![Class1NICLiabilityReport] = "N/A"
+                Else
+                    mySet![Class1NICLiabilityReport] = "£" + Format$(mySet![Class1NICLiability], "#,0.00")
+                End If
+
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+    Else
+        Beep
+        MsgBox ("No entries")
+        Forms![frmSMPRecoverable]![subPayments].SetFocus
+        ' Validation was incorrect
+        bValidSMPRecoverableCalculation = False
+    End If
+    
+    ' Update Details section, to reflect database
+    Forms![frmSMPRecoverable]![subPayments].Form.Recalc
+
+    mySet.Close
+    myDB.Close
+
+Exit_bValidSMPRecoverableCalculation:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidSMPRecoverableCalculation:
+    MsgBox Error$
+    Resume Exit_bValidSMPRecoverableCalculation
+
+End Function
+
+Function bValidSMPtxtIrregularDates()
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : bValidSMPtxtIrregularDates
+' Purpose       : Check fully for valid Irregular dates
+            
+    On Error GoTo Err_bValidSMPtxtIrregularDates
+
+    ' Assume invalid date
+    bValidSMPtxtIrregularDates = False
+
+    ' Check date set
+    If IsNull(Forms![frmSMPPayable].txtIrregularFrom) Then
+        Beep
+        MsgBox ("Irregular From date not set")
+        GoTo Exit_bValidSMPtxtIrregularDates
+    End If
+    
+    ' Check date set
+    If IsNull(Forms![frmSMPPayable].txtIrregularTo) Then
+        Beep
+        MsgBox ("Irregular To date not set")
+        GoTo Exit_bValidSMPtxtIrregularDates
+    End If
+
+    ' Check From within valid range
+    If Forms![frmSMPPayable].txtIrregularFrom < CVDate(Format$("6/4/1989", "dd/mm/yyyy")) Then
+        Beep
+        MsgBox ("Irregular From date must be between: 6/4/1989 and QW + 5 dates inclusive")
+        GoTo Exit_bValidSMPtxtIrregularDates
+    End If
+    If Forms![frmSMPPayable].txtIrregularFrom >= (Forms![frmSMPPayable].txtQW + 6) Then
+        Beep
+        MsgBox ("Irregular From date must be between: 6/4/1989 and QW + 5 dates inclusive")
+        GoTo Exit_bValidSMPtxtIrregularDates
+    End If
+    
+    ' Check To within valid range
+    If Forms![frmSMPPayable].txtIrregularFrom < CVDate(Format$("6/4/1989", "dd/mm/yyyy")) Then
+        Beep
+        MsgBox ("Irregular From date must be after: 6/4/1989 ")
+        GoTo Exit_bValidSMPtxtIrregularDates
+    End If
+    If Forms![frmSMPPayable].txtIrregularTo < Forms![frmSMPPayable].txtIrregularFrom Then
+        Beep
+        MsgBox ("Irregular To date must be after Irregular From date")
+        GoTo Exit_bValidSMPtxtIrregularDates
+    End If
+    
+    ' Valid date by default
+    bValidSMPtxtIrregularDates = True
+
+Exit_bValidSMPtxtIrregularDates:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidSMPtxtIrregularDates:
+    MsgBox Error$
+    Resume Exit_bValidSMPtxtIrregularDates
+
+End Function
+
+Function bValidtxtDueBorn()
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : bValidtxtDueBorn
+' Purpose       : Check fully for valid Due/Born date
+            
+    On Error GoTo Err_bValidtxtDueBorn
+
+    ' Assume invalid date
+    bValidtxtDueBorn = False
+
+    ' Check date set
+    If IsNull(Forms![frmSMPPayable].txtDueBorn) Then
+        Beep
+        MsgBox ("Due/born date not set")
+        GoTo Exit_bValidtxtDueBorn
+    End If
+
+    ' Check within valid range
+    If bValidationOftxtDueBorn() = False Then
+        Beep
+        MsgBox ("Due/born date must be between: 6/4/1991 and  today + 11 weeks inclusive")
+        GoTo Exit_bValidtxtDueBorn
+    End If
+    
+    ' Valid date by default
+    bValidtxtDueBorn = True
+
+Exit_bValidtxtDueBorn:
+    Exit Function
+    
+Err_bValidtxtDueBorn:
+    MsgBox Error$
+    Resume Exit_bValidtxtDueBorn
+
+End Function
+
+Function bValidtxtMPPStarts()
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : bValidtxtMPPStarts
+' Purpose       : Check fully for valid Due/Born date
+' History
+' Author        : Mustaq Hussain
+' Date          : 28 August 1996
+' Reason        : RFC 431 : EWC regulations added
+' Author        : pmor
+' Date          : Jan 03
+' Reason        : Some checks done in Before Update which will give the option
+'                 of continuing so removed from here
+            
+    On Error GoTo Err_bValidtxtMPPStarts
+
+    ' Assume invalid date
+    bValidtxtMPPStarts = False
+
+    ' Check date set
+    If IsNull(Forms![frmSMPPayable].txtMPPStarts) Then
+        Beep
+        MsgBox ("MPP Start date not set")
+        GoTo Exit_bValidtxtMPPStarts
+    End If
+    
+    'pmor Jan03 - commented out
+    ' Check date within range
+    'If Forms!frmSMPPayable.txtEWC > CVDate("9 October 1994") Then
+        ' EWC>9/10/94 check
+     '   If Forms!frmSMPPayable.txtMPPStarts < (Forms!frmSMPPayable.txtEWC - 11 * 7) Or Forms!frmSMPPayable.txtMPPStarts > (Forms!frmSMPPayable.txtEWC + 7) Then
+      '      Beep
+       '     MsgBox ("MPP starts must be between: EWC - 11 weeks and EWC + 1 week inclusive")
+        '    GoTo Exit_bValidtxtMPPStarts
+        'End If
+    'Else
+        ' EWC<=9/10/94 check
+     '   If Forms!frmSMPPayable.txtMPPStarts < (Forms!frmSMPPayable.txtEWC - 11 * 7) Or Forms!frmSMPPayable.txtMPPStarts > (Forms!frmSMPPayable.txtEWC - 6 * 7) Then
+      '      Beep
+       '     MsgBox ("MPP starts must be between: EWC - 11 weeks and EWC - 6 week inclusive")
+        '    GoTo Exit_bValidtxtMPPStarts
+       ' End If
+
+   ' End If
+
+    ' Check is a Sunady
+    'If bValidationOftxtMPPStarts() = False Then
+     '   Beep
+      '  MsgBox ("MPP must be a Sunday")
+       ' GoTo Exit_bValidtxtMPPStarts
+    'End If
+    
+    ' Valid date by default
+    bValidtxtMPPStarts = True
+
+Exit_bValidtxtMPPStarts:
+    Exit Function
+    
+Err_bValidtxtMPPStarts:
+    MsgBox Error$
+    Resume Exit_bValidtxtMPPStarts
+
+End Function
+
+
+Sub ClearSMPPayable()
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : ClearSMPPayable
+' Purpose       : Clear the SMP's entry form, ready for new data
+' HISTORY
+' Author        : Lisa Scothern
+' Date          : 7 February 1997
+' Description   : Added instruction to clear down the new form field (Initials)
+'               : for RFC 515N
+
+
+    On Error GoTo Err_ClearSMPPayable
+    
+    DoCmd.SetWarnings False
+    DoCmd.Hourglass True
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblSMPEarnings]"
+    DoCmd.RunSQL "DELETE * FROM [tblSMPMPP]"
+        With Forms![frmSMPPayable]
+        ' Update Details section, no records
+        ![subEarnings].Form.Requery
+        ![subMPP].Form.Requery
+    
+        'Re-initialises all of the input fields and set focus back to first input field
+        
+        ' Clear information only fields
+        .txtName = Null
+        .txtInitials = Null
+        .txtRef = Null
+        .NIPrefix = Null
+        .NInumber = Null
+        .NIsuffix = Null
+        
+        !txtAverageWeeklyEarnings = Null
+        !txtSMPPaidByEmployer = Null
+        !txt5DPAverageWeeklyEarnings = Null
+        
+        !txtSMPPaidByEmployer = Null
+        !txtTotalSMPDue = Null
+        !txtUnderpaymentOfSMP = Null
+        !txtOverpaymentOfSMP = Null
+    
+        !txtDueBorn = Null
+        !txtEWC = Null
+        !txtQW = Null
+        
+        !txtMPPStarts = Null
+        !txtMPPStarts.Enabled = True 'pmor Jan03
+        !grpHigherRate.Enabled = False
+        !grpHigherRate = gcHIGHER_RATE_YES
+    
+        !grpPayPeriod = gcPAY_PERIOD_WEEKLY
+        !txtNoOfWeeks = 1
+        !txtNoOfMonths = 1
+        !txtIrregularFrom = Null
+        !txtIrregularTo = Null
+    
+        !txtDisplayEntitlementAmount = Null
+        !txtDisplayEntitlementAmount.Visible = False
+        !txtLEL = Null
+        !txtClass1BInc = Null
+        !txtClass1BUsed = Null 'pmor Mar03
+        !txtActDOB = Null 'pmor Jan03
+        !txtActDOB.Enabled = False
+        !chkPRI = False 'pmor Jan03
+        !chkPRI.Enabled = False
+    
+        !lblBornEarlyPRI.Visible = False
+    
+        chkBornEarly = False 'pmor Jan03
+        
+        EnablePayPeriodOptions ("frmSMPPayable")
+        
+    
+        ' Set focus
+        .txtName.SetFocus
+    End With
+    
+Exit_ClearSMPPayable:
+    DoCmd.SetWarnings True
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_ClearSMPPayable:
+    MsgBox Error$
+    Resume Exit_ClearSMPPayable
+
+End Sub
+
+Sub ClearSMPRecoverable()
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : ClearSMPRecoverable
+' Purpose       : Clear the SMP's entry form, ready for new data
+' HISTORY
+' Author        : Lisa Scothern
+' Date          : 7 February 1997
+' Description   : Added instructions to clear down the new form fields (Initials & NINO)
+'               : for RFC 515O
+
+            
+
+    On Error GoTo Err_ClearSMPRecoverable
+    
+    DoCmd.SetWarnings False
+    DoCmd.Hourglass True
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblSMPPayments]"
+    
+    ' Update Details section, no records
+    Forms![frmSMPRecoverable]![subPayments].Form.Requery
+
+    'Re-initialises all of the input fields and set focus back to first input field
+    
+    ' Clear information only fields
+    With Forms!frmSMPRecoverable
+        .txtName = Null
+        .txtInitials = Null
+        .NIPrefix = Null
+        .NInumber = Null
+        .NIsuffix = Null
+        .txtRef = Null
+        
+    
+        ' Set focus
+        .txtName.SetFocus
+    End With
+Exit_ClearSMPRecoverable:
+    DoCmd.SetWarnings True
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_ClearSMPRecoverable:
+    MsgBox Error$
+    Resume Exit_ClearSMPRecoverable
+
+End Sub
+
+Function curSMPLowerRateOf(dtmMPP) As Currency
+' Author        : Mustaq Hussain
+' Date          : 14 December 1995
+' Fuction Name  : curSMPLowerRateOf
+' Purpose       : Returns lower rate of SMP
+' History
+' Author        : Mustaq Hussain
+' Date          : 4 March 1996
+' Purpose       : Order results in desc order
+            
+    Dim myDB As Database
+    Dim MyLookUp As DAO.Recordset
+    Dim SQLQuery
+    Dim dtmEWC
+    
+
+    On Error GoTo Err_curSMPLowerRateOf
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+    dtmEWC = Forms![frmSMPPayable]!txtEWC
+
+    SQLQuery = "SELECT DISTINCTROW LowerRate FROM [tblSMPLowerWeeklyRates] "
+    SQLQuery = SQLQuery + " WHERE ((EWCFrom<= #" + Format$(dtmEWC, "mm/dd/yyyy") + "# And "
+    SQLQuery = SQLQuery + "(EWCTo>=#" + Format$(dtmEWC, "mm/dd/yy") + "# Or EWCTo Is Null) AND "
+    SQLQuery = SQLQuery + "MPPStartsFrom<=#" + Format$(dtmMPP, "mm/dd/yyyy") + "# ) AND "
+    SQLQuery = SQLQuery + "(MPPStartsTo>=#" + Format$(dtmMPP, "mm/dd/yyyy") + "# Or MPPStartsTo Is Null)) "
+    SQLQuery = SQLQuery + " Order by LowerRate Desc ; "
+
+    Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+    
+    curSMPLowerRateOf = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+
+    MyLookUp.Close
+
+
+Exit_curSMPLowerRateOf:
+    Exit Function
+    
+Err_curSMPLowerRateOf:
+    MsgBox Error$
+    Resume Exit_curSMPLowerRateOf
+
+End Function
+
+Function flSMPNICCompPercentageRate(dtmStartDate) As Double
+' Author        : Mustaq Hussain
+' Date          : 14 December 1995
+' Fuction Name  : flSMPNICCompPercentageRate
+' Purpose       : Returns percentage
+            
+    Dim myDB As Database
+    Dim MyLookUp As DAO.Recordset
+    Dim SQLQuery
+
+    On Error GoTo Err_flSMPNICCompPercentageRate
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+    SQLQuery = "SELECT DISTINCTROW NICPercentageRate FROM [tblSMPRecoveryRates] "
+    SQLQuery = SQLQuery + " WHERE (From<= #" + Format$(dtmStartDate, "mm/dd/yyyy") + "# And "
+    SQLQuery = SQLQuery + "(To>=#" + Format$(dtmStartDate, "mm/dd/yyyy") + "# Or To Is Null) );"
+    
+    Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+    
+    flSMPNICCompPercentageRate = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+
+    MyLookUp.Close
+
+Exit_flSMPNICCompPercentageRate:
+    Exit Function
+    
+Err_flSMPNICCompPercentageRate:
+    MsgBox Error$
+    Resume Exit_flSMPNICCompPercentageRate
+
+End Function
+
+Function MinClass1B(SF)
+' Fuction Name  : MinClass1B
+' Purpose       : Calculate the minimum Class1B income to just qualify for SMP
+'                   or return total sum of Class1B if not qualified
+
+
+    Dim myDB As Database, MysetA As DAO.Recordset
+    
+    Dim Count1B As Integer
+    Dim D As Integer
+    Dim i As Integer
+    Dim J As Integer
+    Dim K As Integer
+    Dim L As Integer
+    Dim M As Integer
+    Dim N As Integer
+    Dim P As Integer
+    Dim R As Integer
+    Dim Z As Integer
+    Dim SumAll As Currency
+    ReDim mySet(10) As Currency
+    ReDim Combination(4000) As Currency
+
+    Dim curClass1B
+
+    Dim MClass1B
+
+On Error GoTo Err_MinClass1B
+ DoCmd.Hourglass True
+
+ 
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set MysetA = myDB.OpenRecordset("tblSMPEarnings")
+    If Not MysetA.EOF Then
+        MysetA.MoveFirst
+    End If
+     
+    
+     'how many Class1B records and if any assign to array
+    Do
+        
+
+        If MysetA.Fields(3).value > 0 Then
+
+            
+
+            Count1B = Count1B + 1
+        
+            mySet(Count1B) = MysetA.Fields(3).value
+            
+            
+        End If
+     
+        MysetA.MoveNext
+
+    Loop Until MysetA.EOF
+
+    MysetA.Close
+    
+    If Count1B = 0 Then
+        Exit Function
+    End If
+    
+     
+'Consider combinations of one element, i.e. each value of Class1B individually
+For i = 1 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i)
+
+Next i
+
+'Consider combinations of two elements, i.e. all unique combinations of two amounts of Class1B
+For i = 1 To Count1B - 1
+    
+    For J = i + 1 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J)
+
+Next J, i
+
+'Consider combinations of three elements, i.e. all unique combinations of three amounts of Class1B
+For i = 1 To Count1B - 2
+    
+    For J = i + 1 To Count1B - 1
+     
+        For K = i + 1 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K)
+
+Next K, J, i
+
+'Consider combinations of four elements, i.e. all unique combinations of four amounts of Class1B
+For i = 1 To Count1B - 3
+    
+    For J = i + 1 To Count1B - 2
+     
+        For K = i + 2 To Count1B - 1
+
+            For L = i + 3 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L)
+
+Next L, K, J, i
+
+'Consider combinations of five elements, i.e. all unique combinations of five amounts of Class1B
+For i = 1 To Count1B - 4
+    
+    For J = i + 1 To Count1B - 3
+     
+        For K = i + 2 To Count1B - 2
+
+            For L = i + 3 To Count1B - 1
+
+                 For M = i + 4 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L) + mySet(M)
+
+Next M, L, K, J, i
+        
+'Consider combinations of six elements, i.e. all unique combinations of six amounts of Class1B
+For i = 1 To Count1B - 5
+    
+    For J = i + 1 To Count1B - 4
+     
+        For K = i + 2 To Count1B - 3
+
+            For L = i + 3 To Count1B - 2
+
+                 For M = i + 4 To Count1B - 1
+
+                    For N = i + 5 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L) + mySet(M) + mySet(N)
+
+Next N, M, L, K, J, i
+
+'Consider combinations of seven elements, i.e. all unique combinations of seven amounts of Class1B
+For i = 1 To Count1B - 6
+    
+    For J = i + 1 To Count1B - 5
+     
+        For K = i + 2 To Count1B - 4
+
+            For L = i + 3 To Count1B - 3
+
+                 For M = i + 4 To Count1B - 2
+
+                    For N = i + 5 To Count1B - 1
+
+                        For P = i + 6 To Count1B
+     
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L) + mySet(M) + mySet(N) + mySet(P)
+
+Next P, N, M, L, K, J, i
+
+'Consider combinations of eight elements, i.e. all unique combinations of eight amounts of Class1B
+For i = 1 To Count1B - 7
+    
+    For J = i + 1 To Count1B - 6
+     
+        For K = i + 2 To Count1B - 5
+
+            For L = i + 3 To Count1B - 4
+
+                 For M = i + 4 To Count1B - 3
+
+                    For N = i + 5 To Count1B - 2
+
+                        For P = i + 6 To Count1B - 1
+
+                            For R = i + 7 To Count1B
+     D = D + 1
+     
+     Combination(D) = mySet(i) + mySet(J) + mySet(K) + mySet(L) + mySet(M) + mySet(N) + mySet(P) + mySet(R)
+
+Next R, P, N, M, L, K, J, i
+
+'Consider combinations of nine elements, i.e. the one unique combination of nine amounts of Class1B
+
+
+
+            For i = 1 To Count1B
+          
+              SumAll = SumAll + mySet(i)
+
+            Next i
+          
+
+curClass1B = SumAll
+
+For Z = 1 To D
+    
+    If Combination(Z) >= SF And Combination(Z) <= curClass1B Then
+        
+        curClass1B = Combination(Z)
+
+    End If
+
+Next Z
+
+
+MinClass1B = curClass1B
+
+
+
+Exit_MinClass1B:
+    
+    Exit Function
+    
+Err_MinClass1B:
+    MsgBox Error$
+    Resume Exit_MinClass1B
+
+
+End Function
+
+Sub SetAverageWeeklyEarningsSMP(strTable As String, strForm As String)
+
+
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : SetAverageWeeklyEarnings
+' Purpose       : Calculate average weekly earnings
+' History       : Christopher Schuler
+' Date          : 9 July 1999
+' Purpose       : Include Class 1B income (method differs from SMP)
+
+    Dim myDB As Database, mySet As DAO.Recordset, MySet2 As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Variant
+    Dim vReturnedClass1B As Variant
+    Dim curGross As Currency
+    Dim curClass1B As Currency
+    Dim frmForm As Form
+    Dim curLEL, bLELReached
+    Dim ShortFall As Currency
+
+    On Error GoTo Err_SetAverageWeeklyEarningsSMP
+
+Forms!frmSMPPayable!txtClass1BInc = Null
+Forms!frmSMPPayable!txtClass1BUsed.Visible = False
+Forms!frmSMPPayable!lblClass1BEarnings.Visible = False
+Forms!frmSMPPayable!txtDisplayEntitlementAmount.Visible = False
+
+        ' Query to get total earnings
+        SQLQuery = "SELECT SUM([Earnings]), SUM([Class1B])  FROM [" + strTable + "] ;"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    vReturnedValue = mySet.Fields(0).value
+    If IsNull(vReturnedValue) Then
+        curGross = 0
+    Else
+        curGross = vReturnedValue
+    End If
+        
+    vReturnedClass1B = mySet.Fields(1).value
+    If IsNull(vReturnedClass1B) Then
+        curClass1B = 0
+    Else
+        curClass1B = vReturnedClass1B
+    End If
+    
+    mySet.Close
+    myDB.Close
+
+    Set frmForm = Forms(strForm)
+
+    ' Set the average weekly earnings
+    frmForm.txtAverageWeeklyEarnings = 0
+    Select Case frmForm.grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            frmForm.txtAverageWeeklyEarnings = curGross / frmForm.txtNoOfWeeks
+            
+        Case gcPAY_PERIOD_MONTHLY
+            frmForm.txtAverageWeeklyEarnings = curGross / frmForm.txtNoOfMonths * 12 / 52
+
+        Case gcPAY_PERIOD_IRREGULAR
+            frmForm.txtAverageWeeklyEarnings = curGross / (CVDate(frmForm.txtIrregularTo) - CVDate(frmForm.txtIrregularFrom) + 1) * 7
+    
+    End Select
+
+    
+        ' Check if LEL reached
+        curLEL = curGetLEL(Forms!frmSMPPayable!txtQW)
+        bLELReached = IIf(curLEL > Forms!frmSMPPayable!txtAverageWeeklyEarnings, False, True)
+
+        
+        ' Advise about LEL
+
+If Forms!frmSMPPayable!txtQW < #4/6/1999# Then
+    If bLELReached = False Then
+        Forms!frmSMPPayable!txtDisplayEntitlementAmount.Visible = True
+        Forms!frmSMPPayable!txtDisplayEntitlementAmount = "Employee's earnings below : £" + Format$(curLEL, "#0.00")
+        Forms!frmSMPPayable!txtLEL = curLEL
+        Exit Sub
+    Else
+        Forms!frmSMPPayable!txtDisplayEntitlementAmount = Null
+        Forms!frmSMPPayable!txtDisplayEntitlementAmount.Visible = False
+        Forms!frmSMPPayable!txtLEL = Null
+        Exit Sub
+    End If
+End If
+
+If Forms!frmSMPPayable!txtQW >= #4/6/1999# Then
+        Forms!frmSMPPayable!txtClass1BUsed.Visible = True
+        Forms!frmSMPPayable!lblClass1BEarnings.Visible = True
+
+    If bLELReached = False Then
+    
+    Select Case frmForm.grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            ShortFall = curRound((curLEL - frmForm.txtAverageWeeklyEarnings) * frmForm.txtNoOfWeeks)
+            
+        Case gcPAY_PERIOD_MONTHLY
+            ShortFall = curRound((curLEL - frmForm.txtAverageWeeklyEarnings) * frmForm.txtNoOfMonths * 52 / 12)
+
+        Case gcPAY_PERIOD_IRREGULAR
+            ShortFall = curRound((curLEL - frmForm.txtAverageWeeklyEarnings) * (CVDate(frmForm.txtIrregularTo) - CVDate(frmForm.txtIrregularFrom) + 1) / 7)
+    
+    End Select
+    
+
+curClass1B = MinClass1B(ShortFall)
+
+            ' Set the average weekly earnings including Class 1B
+            frmForm.txtAverageWeeklyEarnings = 0
+            Select Case frmForm.grpPayPeriod
+                Case gcPAY_PERIOD_WEEKLY
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / frmForm.txtNoOfWeeks
+                    
+                Case gcPAY_PERIOD_MONTHLY
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / frmForm.txtNoOfMonths * 12 / 52
+        
+                Case gcPAY_PERIOD_IRREGULAR
+                    frmForm.txtAverageWeeklyEarnings = (curGross + curClass1B) / (CVDate(frmForm.txtIrregularTo) - CVDate(frmForm.txtIrregularFrom) + 1) * 7
+            
+            End Select
+            Forms!frmSMPPayable!txtClass1BUsed = curClass1B
+            Forms!frmSMPPayable!txtClass1BInc.Visible = True
+            Forms!frmSMPPayable!txtClass1BInc = "(including Class 1B)"
+        Else
+            Forms!frmSMPPayable!txtClass1BUsed = 0
+            Forms!frmSMPPayable!txtClass1BInc.Visible = True
+            Forms!frmSMPPayable!txtClass1BInc = "(excluding Class 1B)"
+    End If
+    bLELReached = IIf(curLEL > Forms!frmSMPPayable!txtAverageWeeklyEarnings, False, True)
+    If bLELReached = False Then
+        If curClass1B = 0 Then
+           
+                    Forms!frmSMPPayable!txtDisplayEntitlementAmount.Visible = True
+                    Forms!frmSMPPayable!txtDisplayEntitlementAmount = "Employee's earnings below : £" + (Format$(curLEL, "#0.00")) + " retry with Class 1B if any"
+                    Forms!frmSMPPayable!txtLEL = curLEL
+                    Forms!frmSMPPayable!txtClass1BInc.Visible = False
+            Else
+                    Forms!frmSMPPayable!txtDisplayEntitlementAmount.Visible = True
+                    Forms!frmSMPPayable!txtDisplayEntitlementAmount = "Employee's earnings below : £" + Format$(curLEL, "#0.00")
+                    Forms!frmSMPPayable!txtLEL = curLEL
+        
+        End If
+    Else
+        If curClass1B = 0 Then
+            Forms!frmSMPPayable!txtClass1BInc.Visible = False
+        End If
+   End If
+
+End If
+
+Exit_SetAverageWeeklyEarningsSMP:
+    
+    Exit Sub
+    
+Err_SetAverageWeeklyEarningsSMP:
+    MsgBox Error$
+    Resume Exit_SetAverageWeeklyEarningsSMP
+
+End Sub
+
+Sub SetEWCQWAndMPPStart()
+' Author        : Mustaq Hussain
+' Date          : 14 December 1995
+' Fuction Name  : SetEWCAndQWAndMPPStart
+' Purpose       : Set EWC to previous Sunday to DueBorn date, QW 15 weeks before EWC, and blank MPP start
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 4 January 1996
+' Purpose       : If Born on Sunday then no need to set to previous Sunday
+            
+
+    On Error GoTo Err_SetEWCQWAndMPPStart
+    
+    Dim nDay As Integer
+    Dim nDaysToTakeOff As Integer
+
+
+    ' Day of the week baby DueBorn
+    nDay = Weekday(Forms![frmSMPPayable]!txtDueBorn)
+
+    ' Number of days to previous Sunday
+    nDaysToTakeOff = Switch(nDay = 1, 0, nDay = 2, 1, nDay = 3, 2, nDay = 4, 3, nDay = 5, 4, nDay = 6, 5, nDay > 6, 6)
+
+
+    ' Set EWC
+    Forms![frmSMPPayable]!txtEWC = Forms![frmSMPPayable]!txtDueBorn - nDaysToTakeOff
+
+    ' Set QW
+    Forms![frmSMPPayable]!txtQW = Forms![frmSMPPayable]!txtEWC - (15 * 7)
+
+    ' Enable Higher Rate choice if EWC <= 9/10/94
+    If Forms![frmSMPPayable]!txtEWC <= CVDate(Format$("9/10/1994", "dd/mm/yyyy")) Then
+        Forms![frmSMPPayable]!grpHigherRate.Enabled = True
+        Forms![frmSMPPayable]!grpHigherRate = gcHIGHER_RATE_YES
+    Else
+        Forms![frmSMPPayable]!grpHigherRate.Enabled = False
+        Forms![frmSMPPayable]!grpHigherRate = gcHIGHER_RATE_YES
+    End If
+
+    ' blank out MPP Starts
+    Forms![frmSMPPayable]!txtMPPStarts = Null
+
+Exit_SetEWCQWAndMPPStart:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_SetEWCQWAndMPPStart:
+    MsgBox Error$
+    Resume Exit_SetEWCQWAndMPPStart
+
+End Sub
+
+Sub SetMPPDates()
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : SetMPPDates
+' Purpose       : Set MPP dates in MPP subform
+
+'Jan 2003
+'pmor
+'On or after 6/04/2003, or if the born early flag is set, the MPP period is 26 weeks.
+'Additionally, if the born early flag is set the MPP starts the day after DOB. However the business
+'do not want this information automatically input
+'Apr 2007
+'csch
+'CCA10050 - On or after 6/04/2007, or if the born early flag is set, the MPP period is 39 weeks.
+' and weeklyrate can be split into two to align payments to weekly pay periods
+
+    Dim myDB As Database, mySet As DAO.Recordset
+
+    Dim nMPPNumber As Integer
+    Dim nDay As Integer
+    Dim nDaysToSunday As Integer
+    Dim dtmMPPWeek
+    Dim NoOfMPPWeeks As Integer 'pmor Jan03
+    Dim PayDay
+    Dim strPayDay As String
+    Dim BirthDate
+    
+   
+    
+    On Error GoTo Err_SetMPPDates
+
+
+    ' Day of the first MPP entered
+    nDay = Weekday(Forms![frmSMPPayable]!txtMPPStarts)
+
+    ' Days to Sunday
+    nDaysToSunday = Switch(nDay = 1, 0, nDay = 2, 6, nDay = 3, 5, nDay = 4, 4, nDay = 5, 3, nDay = 6, 2, nDay > 6, 1)
+
+    DoCmd.SetWarnings False
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblSMPMPP]"
+    
+    If Not IsNull(BirthDate = Forms![frmSMPPayable]!txtActDOB) Then
+    
+            BirthDate = Forms![frmSMPPayable]!txtActDOB
+        
+    Else
+    
+            BirthDate = Forms![frmSMPPayable]!txtDueBorn
+                
+    End If
+    
+    If BirthDate >= #4/1/2007# Or chkBornEarly = True Then
+        NoOfMPPWeeks = 39 'CCA10050
+        
+        'pmor Jan03
+    ElseIf Forms![frmSMPPayable]!txtDueBorn >= #4/6/2003# Then
+        NoOfMPPWeeks = 26
+    Else
+        NoOfMPPWeeks = 18
+    End If
+    'pmor Jan03 end
+    
+    
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblSMPMPP")
+
+
+StartPayPeriod = False
+    
+    If BirthDate >= #4/1/2007# And Forms![frmSMPPayable]!grpPayPeriod <> 3 Then
+        
+       
+        dtmMPPWeek = Forms!frmSMPPayable.txtMPPStarts
+        
+
+        If Forms![frmSMPPayable]!grpPayPeriod = 1 Then
+        
+             'weekly
+            'CCA10050
+            If MsgBox("Do you wish to pay complete weeks of SMP using the SMP Pay Week?", vbYesNo, "SMP Pay Week") = vbNo Then
+                
+                StartPayPeriod = True
+                 
+                   
+                strPayDay = InputBox("What is your employee's last pay date before the start of the SMP Pay Period {In the format dd/mm/yyyy}?", "Last pay date?")
+                PayDay = CDate(strPayDay)
+                
+                StartPayPeriodDays = PayDay + 8 - dtmMPPWeek  'number of days between start of MPP and next pay day
+                mySet.AddNew
+                mySet![Date] = PayDay + 7 'dates aligned with pay days instaed of MPP
+                mySet![Entitlement] = gcENTITLEMENT_SMP_DUE
+                mySet![Amount] = Null
+                mySet.Update
+                                    
+                dtmMPPWeek = PayDay + 14
+                
+            End If
+        
+            For nMPPNumber = 1 To NoOfMPPWeeks
+
+                mySet.AddNew
+                mySet![Date] = dtmMPPWeek
+                mySet![Entitlement] = gcENTITLEMENT_SMP_DUE
+                mySet![Amount] = Null
+                mySet.Update
+                dtmMPPWeek = dtmMPPWeek + 7
+
+            Next
+        Else
+            
+            
+            
+            For nMPPNumber = 1 To NoOfMPPWeeks
+
+                mySet.AddNew
+                mySet![Date] = dtmMPPWeek
+                mySet![Entitlement] = gcENTITLEMENT_SMP_DUE
+                mySet![Amount] = Null
+                mySet.Update
+                dtmMPPWeek = dtmMPPWeek + 7
+
+            Next
+            
+            Forms![frmSMPPayable]![subMPP].Form.Requery
+            
+            If MsgBox("Do you wish to pay complete weeks of SMP using the SMP Pay Week?", vbYesNo, "SMP Pay Week") = vbNo Then
+    
+                    StartPayPeriod = True
+                    
+                    DoCmd.OpenForm "frmMonthlyPaymentDay"
+                    
+                    Exit Sub
+            Else
+        
+                StartPayPeriod = False
+            
+            End If
+        End If
+            
+   Else
+   
+    
+        'pmor Jan03
+            If chkBornEarly = True Then
+                dtmMPPWeek = Forms!frmSMPPayable.txtMPPStarts
+            Else
+               dtmMPPWeek = Forms!frmSMPPayable.txtMPPStarts + nDaysToSunday
+            End If
+            
+            For nMPPNumber = 1 To NoOfMPPWeeks 'pmor 080103
+        
+                mySet.AddNew
+                mySet![Date] = dtmMPPWeek
+                mySet![Entitlement] = gcENTITLEMENT_SMP_DUE
+                mySet![Amount] = Null
+                mySet.Update
+                dtmMPPWeek = dtmMPPWeek + 7
+            Next
+    End If
+    
+    mySet.Close
+    myDB.Close
+
+
+    ' Update Details section, to reflect database
+    Forms![frmSMPPayable]![subMPP].Form.Requery
+    
+
+Exit_SetMPPDates:
+    DoCmd.SetWarnings True
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_SetMPPDates:
+    MsgBox Error$
+        Resume Exit_SetMPPDates
+
+End Sub
+
+Sub SetMPPRates()
+' Author        : Mustaq Hussain
+' Date          : 2 November 1995
+' Fuction Name  : SetMPPRates
+' Purpose       : Sets SMP Rates
+' History
+' Author        : Lisa Scothern
+' Date          : 22 September 1997
+' Purpose       : RFC 541C: Round with curRound() - exactly 0.5p rounded down (and not with curRoundUp())
+' Author        : Lisa Scothern
+' Date          : 28 October 1997
+' Purpose       : Change to RFC 541C: Round with curRoundUp() - any fraction of a penny -> round up to next penny
+' Author        : pmor
+' Date          : Jan 03
+' Purpose       : Rule changes for Apr 03
+' Author        : csch
+' Date          : Apr 07
+' Purpose       : CCA10050 - On or after 6/04/2007, or if the born early flag is set, the MPP period is 39 weeks.
+                        ' and weeklyrate can be split into two to align payments to weekly pay periods
+
+            
+Dim myDB As Database, mySet As DAO.Recordset
+
+Dim nNumberOfDues
+Dim bEntitledToHightRate As Integer, bLELReached As Integer
+Dim curLowerRate As Currency, curLEL
+
+Dim rsSTDRate As DAO.Recordset  'pmor Jan03
+Dim strSQL As String 'pmor Jan03
+Dim StdRateDate
+
+Const Apr03Rate As Currency = 75 'pmor Jan03
+
+Dim Apr03Transition As Boolean 'pmor Jan03
+Dim MPPStartDate As Date 'pmor Jan03
+Dim MPPEndDate As Date 'pmor Jan03
+
+Dim StartOfWeek As Currency
+Dim EndOfWeek As Currency
+Dim StartingDay As Integer
+Dim StartingMonth As Integer
+Dim DaysInMonth As Integer
+Dim AWE
+Dim dtmMPPWeek
+Dim StartingWeekday
+Dim DaysToEndOfMonth
+Dim NoOfWeeksToEndOfMonth
+Dim ThisMonth As Integer
+
+
+Dim DaysAtEndOfMonth As Integer
+Dim PreviousWeekWasLastOfMonth As Boolean
+Dim DaysInFirstWeek As Integer
+Dim STDRate
+Dim LastWorkingDay
+Dim StartingDate As String
+Dim LastDate As String
+Dim LastSpecifiedDay As String
+On Error GoTo Err_SetMPPRates
+
+
+' Set entitlement rates, and whether LEL reached
+bEntitledToHightRate = IIf(Forms![frmSMPPayable].grpHigherRate = gcHIGHER_RATE_YES, True, False)
+curLEL = curGetLEL(Forms!frmSMPPayable!txtQW)
+AWE = Forms!frmSMPPayable!txtAverageWeeklyEarnings
+bLELReached = IIf(curLEL > AWE, False, True)
+
+If bLELReached = False Then
+    bEntitledToHightRate = False
+End If
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+Set mySet = myDB.OpenRecordset("tblSMPMPP")
+
+nNumberOfDues = 0
+DaysInFirstWeek = 0
+mySet.MoveFirst
+'pmor Jan03 - If the MPP spans 06/04/2003 then the minimum payment is £75.00
+'check here if this is the case and apply the rate if required later on
+Apr03Transition = False
+MPPStartDate = mySet!Date
+mySet.MoveLast
+MPPEndDate = mySet!Date
+
+If MPPStartDate < #4/6/2003# And MPPEndDate >= #4/6/2003# Then
+    Apr03Transition = True
+End If
+
+'MsgBox Apr03Transition
+
+dtmMPPWeek = Forms!frmSMPPayable.txtMPPStarts
+
+PreviousWeekWasLastOfMonth = False
+
+mySet.MoveFirst
+Do Until mySet.EOF
+
+    mySet.Edit
+    Select Case mySet![Entitlement]
+        Case gcENTITLEMENT_EXCLUDED
+            mySet![Amount] = 0
+            mySet.Update
+            mySet.MoveNext
+            If Not mySet.EOF Then
+                Do Until mySet.EOF
+                    mySet.Edit
+                    mySet![Amount] = 0
+                    mySet![Entitlement] = gcENTITLEMENT_EXCLUDED
+                    mySet.Update
+                    mySet.MoveNext
+                Loop
+            End If
+            ' Back to previous so that outer loop terminated correctly
+            mySet.MovePrevious
+            mySet.Edit
+
+        Case gcENTITLEMENT_WEEK_WORKED
+            mySet![Amount] = 0
+        
+        Case gcENTITLEMENT_SMP_DUE
+            
+           If bEntitledToHightRate = True Then
+                ' Entitled to higher rate
+                nNumberOfDues = nNumberOfDues + 1
+                
+                ' Rates
+                If StartPayPeriod Then  'CCA10050
+                    
+                    If Forms![frmSMPPayable]!grpPayPeriod = 1 Then
+                                    
+                                    'weekly
+                                    If nNumberOfDues = 1 Then
+                                        
+                                        mySet![Amount] = curRoundUp(StartPayPeriodDays / 7 * AWE * 0.9)
+                                                    
+                                    ElseIf nNumberOfDues > 1 And nNumberOfDues < 7 Then
+                                            
+                                        StartOfWeek = curRoundUp((StartPayPeriodDays / 7) * AWE * 0.9)
+                                                
+                                        EndOfWeek = curRoundUp((7 - StartPayPeriodDays) / 7 * AWE * 0.9)
+                
+                                        mySet![Amount] = StartOfWeek + EndOfWeek
+                                                
+                                    ElseIf nNumberOfDues = 7 Then
+                                            
+                                        StartOfWeek = curRoundUp((StartPayPeriodDays / 7) * AWE * 0.9)
+                                                
+                                        StdRateDate = "#" & Month(mySet!Date) & "/" & Day(mySet!Date) & "/" & Year(mySet!Date) & "#"
+                                        
+                                        strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                 "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                 StdRateDate & " <= MPPStartsTo"
+                                        
+                                        Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                                        
+                                        EndOfWeek = curRoundUp((7 - StartPayPeriodDays) / 7 * rsSTDRate!StandardRate)
+                
+                                        mySet![Amount] = StartOfWeek + EndOfWeek
+                                            
+                                    ElseIf nNumberOfDues > 7 And nNumberOfDues < 40 Then
+                                            
+                                        StdRateDate = "#" & Month(mySet!Date) & "/" & Day(mySet!Date) & "/" & Year(mySet!Date) & "#"
+                                        
+                                        strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                 "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                 StdRateDate & " <= MPPStartsTo"
+                                            
+                                        StartOfWeek = curRoundUp((7 - StartPayPeriodDays) / 7 * rsSTDRate!StandardRate)
+                                                
+                                        StdRateDate = "#" & Month(mySet!Date + StartPayPeriodDays) & "/" & Day(mySet!Date + StartPayPeriodDays) & "/" & Year(mySet!Date + StartPayPeriodDays) & "#"
+                                        
+                                        strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                 "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                 StdRateDate & " <= MPPStartsTo"
+                                        
+                                        Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                                        
+                                        EndOfWeek = curRoundUp(StartPayPeriodDays / 7 * rsSTDRate!StandardRate)
+                
+                                        mySet![Amount] = StartOfWeek + EndOfWeek
+                                                
+                                    ElseIf nNumberOfDues = 40 Then
+                                                
+                                        StdRateDate = "#" & Month(mySet!Date) & "/" & Day(mySet!Date) & "/" & Year(mySet!Date) & "#"
+                                        
+                                        strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                 "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                 StdRateDate & " <= MPPStartsTo"
+                                        
+                                        Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                                        
+                                        mySet![Amount] = curRoundUp((7 - StartPayPeriodDays) / 7 * rsSTDRate!StandardRate)
+                                        
+                                    End If
+                                    
+                        Else
+                                    'monthly
+                              
+                                Select Case PaymentType
+                               
+                                    Case 1 'last calendar day
+                                        StartingDay = DatePart("d", dtmMPPWeek)
+                                        StartingWeekday = Weekday(dtmMPPWeek)
+                                        StartingMonth = Month(dtmMPPWeek)
+                                        ThisMonth = StartingMonth
+                                        DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                            
+                                        DaysToEndOfMonth = DaysInMonth - StartingDay + 1
+                                            
+                                        NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                        DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                        
+                                        If nNumberOfDues > 6 Then
+                                                    
+                                            StdRateDate = "#" & Month(mySet!Date) & "/" & Day(mySet!Date) & "/" & Year(mySet!Date) & "#"
+                                            
+                                            strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                     "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                     StdRateDate & " <= MPPStartsTo"
+                                            
+                                            Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                                            
+                                            STDRate = rsSTDRate!StandardRate
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Then
+                                                        mySet![Amount] = STDRate
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * STDRate)
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                
+                                                         
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = STDRate + curRoundUp(DaysInFirstWeek / 7 * STDRate)
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        Else
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Then
+                                                        mySet![Amount] = curRoundUp(AWE * 0.9)
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * AWE * 0.9)
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                              
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = curRoundUp(AWE * 0.9) + curRoundUp(DaysInFirstWeek / 7 * AWE * 0.9)
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        End If
+                                        If nNumberOfDues = 39 Then
+                                            mySet![Amount] = STDRate
+                                        End If
+                                            dtmMPPWeek = dtmMPPWeek + 7
+                                    
+                                    Case 2 'last working day
+                                        
+                                        StartingDay = DatePart("d", dtmMPPWeek)
+                                        StartingWeekday = Weekday(dtmMPPWeek)
+                                        StartingMonth = Month(dtmMPPWeek)
+                                        ThisMonth = StartingMonth
+                                        DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                        StartingDate = CStr(dtmMPPWeek)
+                                        LastWorkingDay = LastWorkDayOfMonth(StartingDate)
+                                        LastDate = DatePart("d", CDate(LastWorkingDay))
+                                        DaysToEndOfMonth = LastDate - StartingDay + 1
+                                            
+                                        NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                        DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                        
+                                        If nNumberOfDues > 6 Then
+                                                    
+                                            StdRateDate = "#" & Month(mySet!Date) & "/" & Day(mySet!Date) & "/" & Year(mySet!Date) & "#"
+                                            
+                                            strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                     "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                     StdRateDate & " <= MPPStartsTo"
+                                            
+                                            Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                                            
+                                            STDRate = rsSTDRate!StandardRate
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Then
+                                                        mySet![Amount] = STDRate
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * STDRate)
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                
+                                                         
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = STDRate + curRoundUp(DaysInFirstWeek / 7 * STDRate)
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        Else
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Then
+                                                        mySet![Amount] = curRoundUp(AWE * 0.9)
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * AWE * 0.9)
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                              
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = curRoundUp(AWE * 0.9) + curRoundUp(DaysInFirstWeek / 7 * AWE * 0.9)
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        End If
+                                        If nNumberOfDues = 39 Then
+                                            mySet![Amount] = STDRate
+                                        End If
+                                            dtmMPPWeek = dtmMPPWeek + 7
+
+                                    Case 3 'last specified day
+                                    
+                                        StartingDay = DatePart("d", dtmMPPWeek)
+                                        StartingWeekday = Weekday(dtmMPPWeek)
+                                        StartingMonth = Month(dtmMPPWeek)
+                                        ThisMonth = StartingMonth
+                                        DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                        StartingDate = CStr(dtmMPPWeek)
+                                        LastSpecifiedDay = LastDayOfMonth(PaymentDay, StartingDate)
+                                        
+                                        LastDate = DatePart("d", CDate(LastSpecifiedDay))
+                                        DaysToEndOfMonth = LastDate - StartingDay + 1
+                                            
+                                        NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                        DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                        
+                                        If nNumberOfDues > 6 Then
+                                                    
+                                            StdRateDate = "#" & Month(mySet!Date) & "/" & Day(mySet!Date) & "/" & Year(mySet!Date) & "#"
+                                            
+                                            strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                     "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                     StdRateDate & " <= MPPStartsTo"
+                                            
+                                            Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                                            
+                                            STDRate = rsSTDRate!StandardRate
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Then
+                                                        mySet![Amount] = STDRate
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * STDRate)
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                
+                                                         
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = STDRate + curRoundUp(DaysInFirstWeek / 7 * STDRate)
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        Else
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Then
+                                                        mySet![Amount] = curRoundUp(AWE * 0.9)
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * AWE * 0.9)
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                              
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = curRoundUp(AWE * 0.9) + curRoundUp(DaysInFirstWeek / 7 * AWE * 0.9)
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        End If
+                                        If nNumberOfDues = 39 Then
+                                            mySet![Amount] = curRoundUp(DaysInFirstWeek / 7 * STDRate) + curRoundUp((7 - DaysInFirstWeek) / 7 * STDRate)
+                                        End If
+                                            dtmMPPWeek = dtmMPPWeek + 7
+
+
+                                    Case 4 'last specified date
+                                    
+                                        StartingDay = DatePart("d", dtmMPPWeek)
+                                        StartingWeekday = Weekday(dtmMPPWeek)
+                                        StartingMonth = Month(dtmMPPWeek)
+                                        ThisMonth = StartingMonth
+                                        DaysInMonth = DLookup("Days", "tblDaysInMonths", "Month = " & StartingMonth)
+                                        'StartingDate = CStr(dtmMPPWeek)
+                                        
+                                        
+                                        LastDate = PaymentDate
+                                        DaysToEndOfMonth = LastDate - StartingDay + 1
+                                            
+                                        If DaysToEndOfMonth <= 0 Then
+                                            DaysToEndOfMonth = DaysInMonth - StartingDay + LastDate + 1
+                                        End If
+                                        
+                                        NoOfWeeksToEndOfMonth = Int(DaysToEndOfMonth / 7)
+                                        DaysAtEndOfMonth = DaysToEndOfMonth Mod 7
+                                        
+                                        If nNumberOfDues > 6 Then
+                                                    
+                                            StdRateDate = "#" & Month(mySet!Date) & "/" & Day(mySet!Date) & "/" & Year(mySet!Date) & "#"
+                                            
+                                            strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                     "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                     StdRateDate & " <= MPPStartsTo"
+                                            
+                                            Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                                            
+                                            STDRate = rsSTDRate!StandardRate
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Then
+                                                        mySet![Amount] = STDRate
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * STDRate)
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                                
+                                                         
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                                If nNumberOfDues = 7 Then
+                                                
+                                                    mySet![Amount] = STDRate + curRoundUp(DaysInFirstWeek / 7 * (AWE * 0.9))
+                  
+                                                Else
+                                                
+                                                    mySet![Amount] = STDRate + curRoundUp(DaysInFirstWeek / 7 * STDRate)
+                                                
+                                                End If
+                                                
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        Else
+                                            If Not PreviousWeekWasLastOfMonth Then
+                                                If NoOfWeeksToEndOfMonth > 0 Then
+                                                        mySet![Amount] = curRoundUp(AWE * 0.9)
+                                                        
+                                                Else
+                                                
+                                                
+                                                        'last week of month
+                                                        mySet![Amount] = curRoundUp(DaysAtEndOfMonth / 7 * AWE * 0.9)
+                                                        
+                                                        StartingMonth = IIf((StartingMonth + 1) > 12, 1, StartingMonth + 1)
+                                                              
+                                                        PreviousWeekWasLastOfMonth = True
+                                                        DaysInFirstWeek = 7 - DaysAtEndOfMonth
+                                                End If
+                                            Else
+                                            
+                                                mySet![Amount] = curRoundUp(AWE * 0.9) + curRoundUp(DaysInFirstWeek / 7 * AWE * 0.9)
+                                                PreviousWeekWasLastOfMonth = False
+                                            End If
+                                        End If
+                                        If nNumberOfDues = 39 Then
+                                            mySet![Amount] = STDRate
+                                        End If
+                                            dtmMPPWeek = dtmMPPWeek + 7
+                                    
+                                End Select
+                            End If
+                Else
+                                    If nNumberOfDues <= 6 Then
+                                        If mySet!Date >= #4/6/2003# Then
+                                            'pmor Jan03 - from Apr 03 higher rate is called earnings related rate and is the same %
+                                            'There is no lower limit now though
+                                            mySet![Amount] = curRoundUp(AWE * 0.9)
+                                        Else
+                                            If (AWE * 0.9) >= curSMPLowerRateOf(mySet![Date]) Then
+                                                ' First 6 Dues at higher rate of 90% of average
+                                                mySet![Amount] = curRoundUp(AWE * 0.9)
+                                            Else
+                                                mySet!Amount = curSMPLowerRateOf(mySet![Date])
+                                            End If
+                                        End If 'Apr03 check
+                                        
+                                    Else
+                                        'pmor Jan03 - check if Apr03 rules apply:
+                                        'MPP >= 6/4/03 - The lower rate is not used here. Instead 90% of Ave Weekly
+                                        'Earnings is paid. If 90% of Ave Weekly Earnings > 100 then payment is capped
+                                        'at 100.  This 100 amount has been added to tblSMPLowerWeeklyRates as
+                                        'StandardRate.
+                                        If mySet!Date >= #4/6/2003# Then
+                                            'check if 90% of Ave Earnings > StandardRate
+                                            'MsgBox mySet!Date
+                                            'StdRateDate = Format$(mySet!Date, "\#mm\/dd\/yyyy#\")
+                                            StdRateDate = "#" & Month(mySet!Date) & "/" & Day(mySet!Date) & "/" & Year(mySet!Date) & "#"
+                                            'MsgBox StdRateDate
+                                            strSQL = "SELECT StandardRate from tblSMPLowerWeeklyRates " & _
+                                                     "WHERE " & StdRateDate & " >= MPPStartsFrom AND " & _
+                                                     StdRateDate & " <= MPPStartsTo"
+                                            'MsgBox strSQL
+                                            Set rsSTDRate = CurrentDb.OpenRecordset(strSQL)
+                                            'MsgBox rsSTDRate!StandardRate
+                                            
+                                            If AWE * 0.9 > rsSTDRate!StandardRate Then
+                                                mySet!Amount = rsSTDRate!StandardRate
+                                            Else
+                                                'check if 06/04/03 in MPP
+                                                mySet!Amount = curRoundUp(AWE * 0.9)
+                                            End If
+                                        
+                                        Else ' pmor Jan03 - as before
+                                             ' Lower rates
+                                              mySet![Amount] = curSMPLowerRateOf(mySet![Date])
+                                        
+                                        End If
+                                        
+                                    End If
+                                    'Additionally, during the transition period, if the MPP spans 06/04/03 then
+                                    'a minimum rate of 75 is paid.
+                                    If Apr03Transition = True Then
+                                        If mySet![Amount] < Apr03Rate Then
+                                            mySet![Amount] = Apr03Rate
+                                        End If
+                                    End If
+                      End If
+            Else
+                ' Not entitled to higher rate, must be lower rate, or LEL not reached
+                mySet![Amount] = IIf(bLELReached = True, curSMPLowerRateOf(mySet![Date]), 0)
+
+            End If
+
+End Select
+    mySet.Update
+
+    mySet.MoveNext
+Loop
+
+mySet.Close
+myDB.Close
+
+
+' Update Details section, to reflect database
+Forms![frmSMPPayable]![subMPP].Form.Requery
+
+
+Exit_SetMPPRates:
+    Exit Sub
+    
+Err_SetMPPRates:
+    MsgBox Error$
+    Resume Exit_SetMPPRates
+
+
+End Sub
+
+Sub SetSMPDueAndUnderOverPayment()
+' Author        : Mustaq Hussain
+' Date          : 3 November 1995
+' Fuction Name  : SetSMPPayments
+' Purpose       : Sets SMP total due and under/overpayment
+            
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim vReturnedValue As Variant
+    
+    On Error GoTo Err_SetSMPPayments
+
+    ' Query to get total earnings
+    SQLQuery = "SELECT SUM([Amount]) AS vReturnedValue  FROM [tblSMPMPP] ;"
+    
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    vReturnedValue = mySet.Fields(0).value
+    Forms!frmSMPPayable.txtTotalSMPDue = IIf(IsNull(vReturnedValue), 0, vReturnedValue)
+    
+    mySet.Close
+    myDB.Close
+
+    SetUnderOverpayment Forms!frmSMPPayable!txtTotalSMPDue, Forms!frmSMPPayable!txtSMPPaidByEmployer, Forms!frmSMPPayable!txtUnderpaymentOfSMP, Forms!frmSMPPayable!txtOverpaymentOfSMP, 0
+    
+
+Exit_SetSMPPayments:
+    Exit Sub
+    
+Err_SetSMPPayments:
+    MsgBox Error$
+    Resume Exit_SetSMPPayments
+
+End Sub
+

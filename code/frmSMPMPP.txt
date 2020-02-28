@@ -1,0 +1,68 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Entitlement_AfterUpdate()
+If Entitlement = gcENTITLEMENT_WEEK_WORKED Then
+    MsgBox "Please note that weeks worked must only be selected once the employee has used up all of their KIT days (a total of 10 days maximum)", vbOKOnly, "KIT days"
+End If
+End Sub
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+
+    ' Do not allow new records to be inserted
+    Cancel = True
+
+End Sub
+
+Private Sub Form_Delete(Cancel As Integer)
+
+    ' Do not allow records to be deleted
+    Cancel = True
+
+End Sub
+
+Private Function SetEntitlementCombo(fld As Control, ID As Long, row As Long, col As Long, code As Integer)
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : SetPeriodList
+' Purpose       : Sets Entilement comb box
+            
+    On Error GoTo Err_SetEntitlementCombo
+
+    Select Case code
+        Case LB_INITIALIZE          'Initialize.
+            SetEntitlementCombo = True
+        Case LB_OPEN                'Open.
+            SetEntitlementCombo = Timer   'Unique ID for control
+        Case LB_GETROWCOUNT         'Number of rows.
+            SetEntitlementCombo = 3
+        Case LB_GETCOLUMNCOUNT      'Number of columns.
+            SetEntitlementCombo = 1
+        Case LB_GETCOLUMNWIDTH      'Column width.
+            SetEntitlementCombo = -1      'Set the default width.
+        Case LB_GETVALUE            'Get the data.
+            ' Value depends on year
+            Select Case row
+                Case 0
+                    SetEntitlementCombo = gcENTITLEMENT_SMP_DUE
+                Case 1
+                    SetEntitlementCombo = gcENTITLEMENT_WEEK_WORKED
+                Case Else
+                    SetEntitlementCombo = gcENTITLEMENT_EXCLUDED
+            End Select
+    End Select
+
+
+
+Exit_SetEntitlementCombo:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_SetEntitlementCombo:
+    MsgBox Error$
+    Resume Exit_SetEntitlementCombo
+
+End Function

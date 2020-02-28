@@ -1,0 +1,118 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear data
+
+    On Error GoTo Err_cmdClear_Click
+    
+    ClearSMPRecoverable
+
+Exit_cmdClear_Click:
+    Exit Sub
+
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the Directors form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPayable_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 December 1995
+' Fuction Name  : cmdPayable_Click
+' Purpose       : Close Recoverable and open Payable
+
+    On Error GoTo Err_cmdPayable_Click
+
+    DoCmd.OpenForm "frmSMPPayable"
+    DoCmd.Close acForm, "frmSMPRecoverable"
+
+Exit_cmdPayable_Click:
+    Exit Sub
+
+Err_cmdPayable_Click:
+    MsgBox Error$
+    Resume Exit_cmdPayable_Click
+    
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 3 December 1995
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+
+    On Error GoTo Err_cmdPrint_Click
+
+    If bValidSMPRecoverableCalculation() = True Then
+        DoCmd.OpenReport "rptSMPRecoverable", A_NORMAL
+    End If
+
+Exit_cmdPrint_Click:
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+
+    On Error GoTo err_Form_Load
+    
+    
+    Dim Sname As String
+    Dim Fname As String
+    
+    DoCmd.Hourglass False 'testing
+    DoCmd.Maximize
+    
+    ' Set the prepared by field
+    Forms![frmSMPRecoverable]!txtPreparedBy.Enabled = True
+    
+    Forms![frmSMPRecoverable]![txtPreparedBy] = getinitials() & " " & getsurname()
+    Forms![frmSMPRecoverable]!txtPreparedBy.Enabled = False
+    
+    ClearSMPRecoverable
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub

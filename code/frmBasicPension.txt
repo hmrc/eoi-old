@@ -1,0 +1,147 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+
+Private Sub cmdClose_Click()
+
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cmdClose_Click
+
+
+    DoCmd.Close
+
+Exit_cmdClose_Click:
+    Exit Sub
+
+Err_cmdClose_Click:
+    MsgBox Error$
+    Resume Exit_cmdClose_Click
+    
+End Sub
+
+Private Sub Form_Load()
+
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_Form_Load
+
+DoCmd.SetWarnings False
+
+Dim Sname As String
+Dim Fname As String
+
+DoCmd.Maximize
+
+Sname = getsurname()
+Fname = getinitials()
+Forms![frmBasicPension]!PreparedBy.Enabled = True
+
+Forms![frmBasicPension]![PreparedBy] = Fname & " " & Sname
+Forms![frmBasicPension]!PreparedBy.Enabled = False
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub Qualifying_Years_GotFocus()
+            
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+On Error GoTo Err_Qualifying_Years_GotFocus
+
+If IsNull(Forms!frmBasicPension![Working Life]) Or Forms!frmBasicPension![Working Life] = "" Then
+    Forms!frmBasicPension![Working Life].SetFocus
+Else
+    Recalc
+    Forms!frmBasicPension!txtPercentage = Forms!frmBasicPension!subform.Form.[Percentage Rate]
+
+End If
+
+Exit_Qualifying_Years_GotFocus:
+    Exit Sub
+
+Err_Qualifying_Years_GotFocus:
+    MsgBox Error$
+    Resume Exit_Qualifying_Years_GotFocus
+End Sub
+
+Private Sub Qualifying_Years_LostFocus()
+
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Qualifying_Years_LostFocus
+Dim work As Integer
+Dim qual As Integer
+
+work = Val(Forms!frmBasicPension![Working Life])
+qual = Val(Forms!frmBasicPension![Qualifying Years])
+
+If work < qual Then
+    Exit Sub
+End If
+
+If Forms!frmBasicPension![Qualifying Years] > 44 Then
+    Forms!frmBasicPension!txtPercentage = 1
+Else
+    Recalc
+    Forms!frmBasicPension!txtPercentage = Forms!frmBasicPension!subform.Form.[Percentage Rate]
+    
+End If
+
+Exit_Qualifying_Years_LostFocus:
+    Exit Sub
+
+Err_Qualifying_Years_LostFocus:
+    MsgBox Error$
+    Resume Exit_Qualifying_Years_LostFocus
+End Sub
+
+Private Sub Working_Life_GotFocus()
+
+            ''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A 1994 '
+            ''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Working_Life_GotFocus
+
+Dim work As Integer
+Dim qual As Integer
+
+If IsNull(Forms!frmBasicPension![Working Life]) Or IsNull(Forms!frmBasicPension![Qualifying Years]) Then
+    Exit Sub
+End If
+
+work = Val(Forms!frmBasicPension![Working Life])
+qual = Val(Forms!frmBasicPension![Qualifying Years])
+
+If work < qual Then
+    MsgBox "Number of Qualifying Years cannot be greater than Number of Years in Working Life.", 0 + 48, "Information"
+    Forms!frmBasicPension![Qualifying Years].SetFocus
+    Exit Sub
+End If
+
+Exit_Working_Life_GotFocus:
+    Exit Sub
+
+Err_Working_Life_GotFocus:
+    MsgBox Error$
+    Resume Exit_Working_Life_GotFocus
+End Sub

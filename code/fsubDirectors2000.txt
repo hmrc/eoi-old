@@ -1,0 +1,39 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cboCategory_GotFocus()
+
+' Modified History  :
+' Author            : Mustaq Hussain
+' Date              : 9 January 1996
+' Reason            : RFC 269 : 4 Weekly period
+' Author            : Mustaq Hussain
+' Date              : 13 February 1996
+' Reason            : RFC 269 : Check 4W to 13
+' Author            : Mustaq Hussain
+' Date              : 28 June 1996
+' Reason            : LER 93 : Weekly max should be 53
+'                   : Jane Mullen
+' Date              : 16 May 1997
+' Purpose           : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+'Author     Chris Schuler
+'Date       6 October 2004
+'Purpose    CCA8292 - Make year 2000 form the smae as 2001 and 2002
+
+On Error GoTo Err_cboCategory_GotFocus
+
+
+        Forms!frmDirectorsMain2001!DirectorsContributions.Form!cboCategory.RowSource = "A;B;C;D;E;F;G;S"
+    
+Exit_cboCategory_GotFocus:
+    Exit Sub
+
+Err_cboCategory_GotFocus:
+    MsgBox Error$
+    Resume Exit_cboCategory_GotFocus
+
+
+End Sub

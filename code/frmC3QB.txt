@@ -1,0 +1,140 @@
+' Author    : Ben Stephenson
+' Date      : 23/06/2011
+' Project   : CCA10512
+' Desc      : New layout for misaligned C2 and C3 billing post 2010
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Dim Class3RecordSet As DAO.Recordset
+Dim Class2RecordSet As DAO.Recordset
+
+Private Sub PopulateFields()
+
+   With Forms!frmC3QB
+       ![txtBill1QCovered] = Class3RecordSet![Quarter Covered]
+       ![txtBill1C3Rate] = Class3RecordSet![Class 3 Rate]
+       ![txtBill1C3Amount] = Class3RecordSet![Class 3 Amount]
+       
+       Class3RecordSet.MoveNext
+       
+       ![txtBill2QCovered] = Class3RecordSet![Quarter Covered]
+       ![txtBill2C3Rate] = Class3RecordSet![Class 3 Rate]
+       ![txtBill2C3Amount] = Class3RecordSet![Class 3 Amount]
+       
+       Class3RecordSet.MoveNext
+       
+       ![txtBill3QCovered] = Class3RecordSet![Quarter Covered]
+       ![txtBill3C3Rate] = Class3RecordSet![Class 3 Rate]
+       ![txtBill3C3Amount] = Class3RecordSet![Class 3 Amount]
+       
+       Class3RecordSet.MoveNext
+       
+       ![txtBill4QCovered] = Class3RecordSet![Quarter Covered]
+       ![txtBill4C3Rate] = Class3RecordSet![Class 3 Rate]
+       ![txtBill4C3Amount] = Class3RecordSet![Class 3 Amount]
+       
+       ![txtNoWksFinalQ] = strNumWeeksFinalQuarter(Class3RecordSet![Quarter Covered])
+    End With
+    Class3RecordSet.Close
+
+End Sub
+    
+    
+Private Sub cboTaxYear_Click()
+    
+    On Error GoTo Err_cboTaxYear_Click
+    
+    'cboTaxYear = Forms!frmC2Payments_C3QB!cboTaxYear
+    
+    If cboTaxYear < 2011 Then
+        DoCmd.OpenForm "frmQuarterlyBilling", , , , , , cboTaxYear
+
+        DoCmd.Close acForm, "frmC2Payments_C3QB"
+        
+    ElseIf cboTaxYear > 2011 And cboTaxYear < 2015 Then
+        DoCmd.OpenForm "frmC2Payments_C3QB", , , , , , cboTaxYear
+
+        DoCmd.Close acForm, "frmC3QB"
+        
+    ElseIf cboTaxYear > 2014 Then
+        DoCmd.OpenForm "frmC3QB", , , , , , cboTaxYear
+
+        DoCmd.Close acForm, "frmC3QBC2Payments_"
+    
+    Else
+        Set myDB = CurrentDb()
+        Set Class3RecordSet = myDB.OpenRecordset("SELECT * FROM [Quarterly Billing Table] WHERE [Tax Year] = """ & _
+                                                  Forms!frmC2Payments_C3QB!cboTaxYear & """;")
+        
+        'Set Class3RecordSet = myDB.OpenRecordset("SELECT * FROM [Quarterly Billing Table] WHERE [Tax Year] = """ & _
+                                                  Forms!frmC3QB!cboTaxYear & """;")
+        PopulateFields
+    End If
+    
+Exit_cboTaxYear_Click:
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+
+    On Error GoTo Err_cmdClose_Click
+    DoCmd.Close
+
+Exit_cmdClose_Click:
+    Exit Sub
+
+Err_cmdClose_Click:
+    MsgBox Error$
+    Resume Exit_cmdClose_Click
+    
+End Sub
+
+Private Sub Form_Load()
+
+    On Error GoTo err_Form_Load
+    
+    DoCmd.SetWarnings False
+
+    Dim Sname As String
+    Dim Fname As String
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim strReturnedValue As Integer
+
+    If OpenArgs <> "" Then
+        Forms!frmC2Payments_C3QB!cboTaxYear = OpenArgs
+    Else
+        ' Query to get max tax year
+        SQLQuery = "SELECT Max([Tax Year]) FROM [Quarterly Billing Table] WHERE [Tax Year] >= '2013' ; "
+        
+        Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset(SQLQuery)
+    
+        mySet.MoveFirst
+            
+        ' Ensure NULL treated as 0
+        strReturnedValue = mySet.Fields(0).value
+        'Forms!frmC2Payments_C3QB!cboTaxYear = IIf(IsNull(strReturnedValue), 0, strReturnedValue)
+        Forms!frmC3QB!cboTaxYear = IIf(IsNull(strReturnedValue), 0, strReturnedValue)
+        mySet.Close
+    End If
+
+    DoCmd.Maximize
+
+    cboTaxYear_Click
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub

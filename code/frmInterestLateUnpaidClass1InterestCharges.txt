@@ -1,0 +1,94 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+' Author    : Mustaq Hussain
+' Date      : 13 February 1997
+
+Option Explicit
+
+Private Function bCancelUpdate()
+' Author   : Mustaq Hussain
+' Date     : 13 February 1997
+' Function : bCancelUpdate
+' Purpose  : RFC 506 : Delete only if not reserved set
+    
+    On Error GoTo Err_bCancelUpdate
+
+    ' Assume can delete
+    bCancelUpdate = False
+
+    ' Allow to delete if not reserved
+    If [Reserved] = True Then
+        Beep
+        MsgBox ("This entry cannot be altered, it is reserved")
+        SendKeys "{ESC}"
+        bCancelUpdate = True
+    End If
+
+Exit_bCancelUpdate:
+    Exit Function
+    
+Err_bCancelUpdate:
+    MsgBox Error$
+    Resume Exit_bCancelUpdate
+
+End Function
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+' Author   : Mustaq Hussain
+' Date     : 13 February 1997
+' Function : Form_BeforeUpdate
+' Purpose  : RFC 506 : Delete only if not reserved set
+    
+    On Error GoTo Err_Form_BeforeUpdate
+
+    Cancel = bCancelUpdate()
+
+Exit_Form_BeforeUpdate:
+    Exit Sub
+    
+Err_Form_BeforeUpdate:
+    MsgBox Error$
+    Resume Exit_Form_BeforeUpdate
+
+End Sub
+
+Private Sub Form_Delete(Cancel As Integer)
+' Author   : Mustaq Hussain
+' Date     : 13 February 1997
+' Function : Form_Form_Delete
+' Purpose  : RFC 506 : Delete only if not reserved set
+    
+    On Error GoTo Err_Form_Delete
+
+    Cancel = bCancelUpdate()
+
+Exit_Form_Delete:
+    Exit Sub
+    
+Err_Form_Delete:
+    MsgBox Error$
+    Resume Exit_Form_Delete
+
+End Sub
+
+Private Sub Rate_AfterUpdate()
+' Author   : Mustaq Hussain
+' Date     : 25 February 1997
+' Function : Rate_AfterUpdate
+' Purpose  : RFC 506 : Convert to percentage
+    
+    On Error GoTo Err_Rate_AfterUpdate
+
+    Rate = Rate / 100
+
+Exit_Rate_AfterUpdate:
+    Exit Sub
+    
+Err_Rate_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Rate_AfterUpdate
+
+End Sub

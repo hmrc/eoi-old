@@ -1,0 +1,130 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub cmdCalculate_Click()
+
+    Dim valid
+    valid = bValidSSPRecoverableCalculation()
+    'CarryOutSSPRecoverableCalculation
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 2 December 1995
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear the SSP
+
+
+    ClearSSPRecoverable
+
+
+Exit_cmdClear_Click:
+    Exit Sub
+
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the Directors form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPayable_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 December 1995
+' Fuction Name  : cmdRecoverable_Click
+' Purpose       : Close Payable and open Recoverable
+
+    On Error GoTo Err_cmdRecoverable_Click
+
+    DoCmd.OpenForm "frmSSPPayable"
+    DoCmd.Close acForm, "frmSSPRecoverable"
+
+
+Exit_cmdRecoverable_Click:
+    Exit Sub
+
+Err_cmdRecoverable_Click:
+    MsgBox Error$
+    Resume Exit_cmdRecoverable_Click
+    
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 15 December 1995
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+
+    On Error GoTo Err_cmdPrint_Click
+
+    If bValidSSPRecoverableCalculation() = True Then
+        If bSSPRecoveryYear94 = True Then
+            DoCmd.OpenReport "rptSSPRecoverableWithTaxYear94", A_NORMAL
+        Else
+            DoCmd.OpenReport "rptSSPRecoverable", A_NORMAL
+        End If
+    End If
+
+Exit_cmdPrint_Click:
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+
+    On Error GoTo err_Form_Load
+    
+    
+    Dim Sname As String
+    Dim Fname As String
+    
+    DoCmd.SetWarnings False
+    DoCmd.Maximize
+    
+    ' Set the prepared by field
+    Forms![frmSSPRecoverable]!txtPreparedBy.Enabled = True
+    
+    Forms![frmSSPRecoverable]![txtPreparedBy] = getinitials() & " " & getsurname()
+    Forms![frmSSPRecoverable]!txtPreparedBy.Enabled = False
+    
+    ClearSSPRecoverable
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub

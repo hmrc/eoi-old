@@ -1,0 +1,37 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+ Const gcPAY_PERIOD_WEEKLY = 1
+ Const gcPAY_PERIOD_MONTHLY = 2
+ Const gcPAY_PERIOD_IRREGULAR = 3
+
+
+Const cLIABILITY_INITIALISE = "Initalise"
+Const cLIABILITY_UPDATE = "Updated"
+
+
+Private Sub Year_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Year_AfterUpdate
+' Purpose       : Set Period and Liability defaults
+            
+    On Error GoTo Err_Year_AfterUpdate
+
+    ' Set Period
+    
+    Period = gcPERIOD_YEAR 'could prob be set in combo as test was for 1994 in module copied
+   
+Exit_Year_AfterUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Year_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Year_AfterUpdate
+
+End Sub

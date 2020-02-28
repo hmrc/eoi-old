@@ -1,0 +1,94 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+
+Private Sub Date_BeforeUpdate(Cancel As Integer)
+
+Dim LastDaySetPeriod As Date ' period dates to check against
+Dim StartDaySetPeriod As Date
+
+
+
+'Check that dates are within the relevant pay period.
+'As this is a common form use the caption of the parent form label,
+'named SMPPayable, to determine if it is an adoption or birth period.
+
+'MsgBox Parent!SMPPayable.Caption
+
+If Parent!SMPPayable.Caption = "SAP DUE" Or _
+    Parent!SMPPayable.Caption = "SPP (Adoption) DUE" Then
+    'MsgBox "Adoption"
+    LastDaySetPeriod = Parent!txtMatchingWeek + 6
+    StartDaySetPeriod = LastDaySetPeriod - 55 ' -8 weeks + 1 day
+
+
+ElseIf Parent!SMPPayable.Caption = "SPP (Birth) DUE" Then
+    'MsgBox "Birth"
+    LastDaySetPeriod = Parent!txtDueBorn - 105 ' - 15 weeks
+    'needs to be a Sat
+    LastDaySetPeriod = LastDaySetPeriod + (7 - Weekday(LastDaySetPeriod))  ' if already a Sat the 7-7=0
+ 
+    StartDaySetPeriod = LastDaySetPeriod - 55
+    
+Else 'who's been changing form labels???
+    MsgBox "Unable to determine if Birth or Adoption Period applies"
+    Exit Sub
+End If
+
+
+If [Date] < StartDaySetPeriod Then
+    Cancel = True
+    MsgBox "Date must be after the first day of the pay period"
+    Exit Sub
+End If
+
+If [Date] > LastDaySetPeriod Then
+    Cancel = True
+    MsgBox "Date must be before the last day of the pay period"
+    Exit Sub
+End If
+
+ 
+
+
+
+
+
+End Sub
+
+Private Sub Form_AfterUpdate()
+
+Dim EntryCount As Integer
+Dim strSQL As String
+Dim rs As DAO.Recordset
+
+'set counter on parent form to no of weeks / months
+strSQL = "SELECT COUNT (*) AS CountOfRecords FROM tblSAPSPPEarnings"
+Set rs = CurrentDb.OpenRecordset(strSQL)
+
+EntryCount = rs!countofrecords
+
+Select Case Parent!grpPayPeriod
+
+Case 1 'weekly
+    Parent!txtNoOfWeeks = EntryCount
+Case 2 'monthly
+    Parent!txtNoOfMonths = EntryCount
+End Select
+
+
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+    
+    If Earnings < 0 And Class1B < 0 Then
+        Beep
+        MsgBox ("Earnings or Class 1B not set")
+        Cancel = True
+    End If
+
+
+End Sub

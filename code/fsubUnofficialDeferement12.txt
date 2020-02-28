@@ -1,0 +1,14 @@
+
+Option Compare Database
+
+Private Sub Name_of_Employer_GotFocus()
+'[Name of Employer].Width = 3000
+
+'[Name of Employer].Height = 510
+End Sub
+
+Private Sub Name_of_Employer_LostFocus()
+'[Name of Employer].Width = 1000
+'[Name of Employer].Height = 255
+'Detail.Height = 255
+End Sub

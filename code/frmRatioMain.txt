@@ -1,0 +1,590 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+' Author        : Mustaq Hussain
+' Date          : 29 May 1996
+
+Option Explicit
+
+Private Sub cboTaxYear_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 3 September 1996
+' Fuction Name  : cboTaxYear_AfterUpdate
+' Purpose       : Ensure COEarnings and COElement set correctly
+' History       : Christopher Schuler
+' Date          : 20 January 2000
+' Purpose       : New subform from 1999/00
+'Author         : Peter Morton
+'Date           : 16 Nov 2000
+'Purpose        : Changes for tax year 2000
+'Author         : Christopher Schuler
+'Date           : 31 Jan 2002
+'Purpose        : Changes for tax year 2001
+
+
+
+    On Error GoTo err_cboTaxYear_AfterUpdate
+
+Forms!frmRatioMain.txtOverallTest = Null
+
+Select Case cboTaxYear    'pmor 16/11/00
+
+Case Is < 1999
+
+    subRatioContributions.SourceObject = "frmRatioContributions"
+
+    Dim strcat As String
+
+    Dim nYear As Integer
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions")
+    
+    nYear = cboTaxYear
+
+
+
+    ' Calculate only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+            mySet.Edit
+                
+                strcat = mySet![Category]
+                If strcat = "A" Or strcat = "B" Then
+                    mySet![COEarnings] = Null
+                    mySet![COElement] = Null
+                Else
+                    If (nYear >= 1987 And strcat = "D") Or nYear >= 1991 Then
+                        mySet![COEarnings] = 0
+                    Else
+                        mySet![COEarnings] = Null
+                    End If
+                    If (nYear >= 1975 And strcat = "D") Or nYear >= 1991 Then
+                        mySet![COElement] = 0
+                    Else
+                        mySet![COElement] = Null
+                    End If
+                End If
+
+                ' User should press Calculate to validate
+                mySet![Comment] = "Press Calculate"
+                mySet![Pass] = False
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    
+    End If
+    
+    ' Update Details section, to reflect database
+    Forms![frmRatioMain]![subRatioContributions].Form.Recalc
+
+    mySet.Close
+
+Case 1999 'pmor 16/11/00
+    
+    subRatioContributions.SourceObject = "frmRatioContributions1999"
+    Forms![frmRatioMain]![subRatioContributions].Form![R].ColumnHidden = 1
+
+Case 2000 'pmor 16/11/00
+    
+    subRatioContributions.SourceObject = "frmRatioContributions2000"
+Case Is > 2015
+
+    subRatioContributions.SourceObject = "frmRatioContributions2016"
+    
+Case Is > 2010 'CSNE 14/10/2011
+
+    subRatioContributions.SourceObject = "frmRatioContributions2012"
+
+
+Case Is > 2008 'csne 16/02/2009
+
+    subRatioContributions.SourceObject = "frmRatioContributions2009"
+    
+Case Is > 2000
+    
+    subRatioContributions.SourceObject = "frmRatioContributions1999"
+    If cboTaxYear < 2003 Then
+    
+        Forms![frmRatioMain]![subRatioContributions].Form![R].ColumnHidden = 1
+
+    Else
+
+        Forms![frmRatioMain]![subRatioContributions].Form![R].ColumnHidden = 0
+
+    End If
+
+
+End Select
+
+
+'Forms![frmRatioMain]![subRatioContributions].Form.Repaint
+
+ 'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions]"
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions1999]"
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions2009]"
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions2016]"
+
+
+    ' Update Details section, no records
+    Forms![frmRatioMain]![subRatioContributions].Form.Requery
+    
+NIsuffix_AfterUpdate
+
+exit_cboTaxYear_AfterUpdate:
+    Exit Sub
+
+err_cboTaxYear_AfterUpdate:
+    MsgBox Error$
+    Resume exit_cboTaxYear_AfterUpdate
+
+End Sub
+
+Private Sub cmdCalculate_Click()
+' Author        : Mustaq Hussain
+' Date          : 25 November 1995
+' Fuction Name  : cmdCalculate_Click
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' Author        : Peter Morton
+' Date          : 20/11/2000
+' Purpose       : Changes for tax year 2000
+'Author         : Christopher Schuler
+'Date           : 31 Jan 2002
+'Purpose        : Changes for tax year 2001
+'Author         : Christopher Schuler
+'Date           : 03 April 2003
+'Purpose        : v346838 - no current record error
+
+
+
+            
+    On Error GoTo Err_cmdCalculate_Click
+    
+    If IsNull(Forms!frmRatioMain!cboTaxYear) Then
+ 
+        MsgBox ("Enter a Tax Year")
+        GoTo Exit_cmdCalculate_Click
+    End If
+    
+     
+    
+    Dim bValid As Integer
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    
+Forms![frmRatioMain]![subRatioContributions].Requery 'v346838 this updates the record and
+                                                     'stops no current record error
+
+Select Case cboTaxYear 'pmor 20/11/00
+ 
+Case Is < 1999
+    
+    
+    Set mySet = myDB.OpenRecordset("tblRatioContributions")
+    
+    Forms!frmRatioMain!txtOverallTest = ""
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+        mySet.Edit
+        
+        mySet![Taxyear] = Forms!frmRatioMain!cboTaxYear
+        
+        mySet.Update
+        mySet.MoveNext
+    Loop
+
+    
+    bValid = bValidRatioCalculation()
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+
+        Forms!frmRatioMain!txtOverallTest = IIf(Forms!frmRatioMain!txtOverallTest = "" And mySet![Comment] = "", Forms!frmRatioMain!txtOverallTest, "Checks Failed")
+        
+        mySet.MoveNext
+    Loop
+
+Case 1999
+
+    Set mySet = myDB.OpenRecordset("tblRatioContributions1999")
+    
+    Forms!frmRatioMain!txtOverallTest = ""
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+        mySet.Edit
+        
+        mySet![Taxyear] = Forms!frmRatioMain!cboTaxYear
+        
+        mySet.Update
+        mySet.MoveNext
+    Loop
+
+    
+    bValid = bValidRatioCalculation1999()
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+
+        Forms!frmRatioMain!txtOverallTest = IIf(Forms!frmRatioMain!txtOverallTest = "" And mySet![Comment] = "", Forms!frmRatioMain!txtOverallTest, "Checks Failed")
+        
+        mySet.MoveNext
+    Loop
+
+
+    
+
+Case 2000
+    
+    
+    Set mySet = myDB.OpenRecordset("tblRatioContributions1999")
+    
+    Forms!frmRatioMain!txtOverallTest = ""
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+        mySet.Edit
+        
+        mySet![Taxyear] = Forms!frmRatioMain!cboTaxYear
+        
+        mySet.Update
+        mySet.MoveNext
+    Loop
+
+    
+    bValid = bValidRatioCalculation2000()
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+
+        Forms!frmRatioMain!txtOverallTest = IIf(Forms!frmRatioMain!txtOverallTest = "" And mySet![Comment] = "", Forms!frmRatioMain!txtOverallTest, "Checks Failed")
+        
+        mySet.MoveNext
+    Loop
+    
+Case Is > 2015 'csne
+
+    Set mySet = myDB.OpenRecordset("tblRatioContributions2016")
+    
+    Forms!frmRatioMain!txtOverallTest = ""
+    
+    mySet.MoveFirst
+    Do Until mySet.EOF
+        mySet.Edit
+        
+        mySet![Taxyear] = Forms!frmRatioMain!cboTaxYear
+        
+        mySet.Update
+        mySet.MoveNext
+    Loop
+
+    bValid = bValidRatioCalculation2016()
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+
+        Forms!frmRatioMain!txtOverallTest = IIf(Forms!frmRatioMain!txtOverallTest = "" And mySet![Comment] = "", Forms!frmRatioMain!txtOverallTest, "Checks Failed")
+        
+        mySet.MoveNext
+    Loop
+        
+Case Is > 2008 'csne
+
+    Set mySet = myDB.OpenRecordset("tblRatioContributions2009")
+    
+    Forms!frmRatioMain!txtOverallTest = ""
+    
+    mySet.MoveFirst
+    Do Until mySet.EOF
+        mySet.Edit
+        
+        mySet![Taxyear] = Forms!frmRatioMain!cboTaxYear
+        
+        mySet.Update
+        mySet.MoveNext
+    Loop
+
+    bValid = bValidRatioCalculation2009()
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+
+        Forms!frmRatioMain!txtOverallTest = IIf(Forms!frmRatioMain!txtOverallTest = "" And mySet![Comment] = "", Forms!frmRatioMain!txtOverallTest, "Checks Failed")
+        
+        mySet.MoveNext
+    Loop
+    
+Case Is > 2000
+    
+    
+    Set mySet = myDB.OpenRecordset("tblRatioContributions1999")
+    
+    Forms!frmRatioMain!txtOverallTest = ""
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+        mySet.Edit
+        
+        mySet![Taxyear] = Forms!frmRatioMain!cboTaxYear
+        
+        mySet.Update
+        mySet.MoveNext
+    Loop
+
+    
+    bValid = bValidRatioCalculation2001()
+
+    mySet.MoveFirst
+    Do Until mySet.EOF
+
+        Forms!frmRatioMain!txtOverallTest = IIf(Forms!frmRatioMain!txtOverallTest = "" And mySet![Comment] = "", Forms!frmRatioMain!txtOverallTest, "Checks Failed")
+        
+        mySet.MoveNext
+    Loop
+
+
+End Select
+
+    Forms!frmRatioMain!txtOverallTest = IIf(Forms!frmRatioMain!txtOverallTest = "", "All Checks Passed", Forms!frmRatioMain!txtOverallTest)
+
+    'Update Details section, to reflect databases
+    Forms!frmRatioMain!subRatioContributions.Form.Recalc
+
+Exit_cmdCalculate_Click:
+    Exit Sub
+    
+Err_cmdCalculate_Click:
+    MsgBox Error$
+    Resume Exit_cmdCalculate_Click
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear the Director's entry form, ready for new data
+' History Date  : 08 June 1995
+'               : Call to a function used to do the clearing
+            
+
+    On Error GoTo Err_NewButton_Click
+    
+    ' Call to clear the form
+    ClearFrm
+    
+Exit_NewButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NewButton_Click:
+    MsgBox Error$
+    Resume Exit_NewButton_Click
+
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 2 July 1996
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+' Author        : Peter Morton
+' Date          : 23/11/2000
+' Purpose       : New report for 2000
+
+    'Dim bValid As Integer
+    
+    On Error GoTo Err_cmdPrint_Enter
+
+ Select Case cboTaxYear
+    Case Is < 1999
+        If bValidRatioCalculation() = True Then
+
+            DoCmd.OpenReport "rptRatio", A_NORMAL
+
+        End If
+
+    Case 1999
+    
+        If bValidRatioCalculation1999() = True Then
+
+            DoCmd.OpenReport "rptRatio1999", A_NORMAL
+
+        End If
+
+    Case 2000
+        If bValidRatioCalculation2000() = True Then
+
+            DoCmd.OpenReport "rptRatio2000", A_NORMAL
+            
+        End If
+        
+        
+    Case Is > 2015
+    
+        If bValidRatioCalculation2016() = True Then
+
+        DoCmd.OpenReport "rptRatio2016", A_NORMAL
+        
+    End If
+        
+     ' CSNE 2012
+    Case Is > 2010
+    
+        If bValidRatioCalculation2009() = True Then
+
+        DoCmd.OpenReport "rptRatio2011", A_NORMAL
+        
+    End If
+    
+    Case Is > 2008
+    
+        If bValidRatioCalculation2009() = True Then
+
+        DoCmd.OpenReport "rptRatio2009", A_NORMAL
+        
+        End If
+        
+    Case Is > 2000
+    
+        If bValidRatioCalculation2001() = True Then
+
+            DoCmd.OpenReport "rptRatio1999", A_NORMAL
+
+        End If
+
+
+End Select
+
+Exit_cmdPrint_Enter:
+    Exit Sub
+
+Err_cmdPrint_Enter:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Enter
+    
+End Sub
+
+
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+' History Date  : 08 June 1995
+'               : Call to clear the form of previous data
+' History Date  : 19 October 1995
+'               : Sets the default dates
+'Author         : Peter Morton
+'Date           : 16 Nov 2000
+'Purpose        : Changes for tax year 2000
+'Author         : Christopher Schuler
+'Date           : 31 Jan 2002
+'Purpose        : Changes for tax year 2001
+
+
+    On Error GoTo err_Form_Load
+    
+    DoCmd.SetWarnings False
+    
+    Dim Sname As String
+    Dim Fname As String
+    
+    DoCmd.Maximize
+                                 
+    ' Set the prepared by field
+    Forms![frmRatioMain]!txtPreparedBy.Enabled = True
+    
+    Forms![frmRatioMain]!txtPreparedBy = getinitials() & " " & getsurname()
+    Forms![frmRatioMain]!txtPreparedBy.Enabled = False
+    
+    ' Clear the entry form
+    ClearFrm
+
+    Forms!frmRatioMain!subRatioContributions.SourceObject = "frmRatioContributions1999"
+    Forms![frmRatioMain]![subRatioContributions].Form![R].ColumnHidden = 0
+    Recalc
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub

@@ -1,0 +1,400 @@
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+' Author        : EOI team
+' Date          :
+' Fuction Name  : Calcmain's module
+' Purpose       :
+' History
+' Author        : Mustaq Hussain
+' Date          : 9 December
+' Reason        : Add constants used in the list boxes
+' History
+' Author        : Lisa Scothern
+' Date          : 20 May 1997
+' Reason        : Add constant for new PAYE Calendar option on Main Switchboard
+' History
+' Author        : Lisa Scothern
+' Date          : 18 June 1997
+' Reason        : Incremented number of rows so that last menu option is visible/selectable.
+'               : (This was done on previous change but Source Safe seems to have lost it).
+
+' History
+' Author        : Jane Mullen
+' Date          : 3 September 1997
+'Reason         : Add constant for new Earnings Calculator option on Main Switchboard
+
+' Author        : Peter Morton
+' Date          : 17 Jan 2001
+' Reason        : Use registry in place of ini file
+
+' Author        : Chris Schuler
+' Date          : 20 October 2005
+' Reason        : Password added to admin db
+
+Private Declare Function apiGetUserName Lib "advapi32.dll" Alias _
+    "GetUserNameA" (ByVal lpBuffer As String, nSize As Long) As Long
+
+Function fOSUserName() As String
+' Returns the network login name
+Dim lngLen As Long, lngX As Long
+Dim strUsername As String
+    strUsername = String$(254, 0)
+    lngLen = 255
+    lngX = apiGetUserName(strUsername, lngLen)
+    If lngX <> 0 Then
+        fOSUserName = Left$(strUsername, lngLen - 1)
+    Else
+        fOSUserName = ""
+    End If
+End Function
+
+
+Public Sub SetRegistry()
+Dim mySpace As Workspace
+Dim myDB As Database
+Dim mySet As DAO.Recordset
+Dim strSQL As String
+Dim dbLocation As String 'set this to where backend data is held
+Dim strNwkUser As String 'users id
+Dim strTemp As String 'for storing data from db and inserting into registry
+
+On Error GoTo SetRegistryError
+
+'get path from C:\Program Files\Accenture\EOI\eoi.ini
+
+'MyApp.ini is the name of the ini file
+'(you'll have to include the fully qualified path or the function will
+'search only in the Windows directory)
+'UserName is the name of the "section" (the part that looks like this: [UserName])
+'Name is the value you're looking for in the above section
+'None is the value you'll return if the entry isn't found
+
+dbLocation = sGetINI("C:\Program Files\Accenture\EOI\eoi.ini", "Paths", "Database", "None")
+If dbLocation = "None" Then
+    MsgBox "Ini file error - Unable to retrieve user details - please inform your system admin"
+    Application.Quit
+End If
+
+'find current user which will be staff number from login
+strNwkUser = fOSUserName
+
+'line below causes error when Class1 form Repeat button is used -
+'assume it's something to do with CreateWorkspace?
+'Set mySpace = CreateWorkspace("", "admin", "", dbUseJet)
+
+'this seems ok
+Set mySpace = DBEngine.Workspaces(0)
+'Set myDB = mySpace.OpenDatabase(dbLocation)
+Set myDB = mySpace.OpenDatabase(dbLocation, False, False, "MS Access;PWD=301d4t4")
+
+
+
+strSQL = "SELECT * FROM qryUsersOffices " & _
+    "WHERE StaffNo = '" & strNwkUser & " '"
+Set mySet = myDB.OpenRecordset(strSQL, dbOpenDynaset)
+If mySet.Recordcount = 0 Then
+    MsgBox "Your user details have not been found - please contact your system admin", vbCritical
+    Application.Quit
+    Exit Sub
+End If
+
+'retrieve and store data
+
+strTemp = mySet!Surname
+
+'data to be stored in HKEY_CURRENT_USER\SOFTWARE\VB and VBA Program Settings\NIRS\EOI\LandF
+'SaveSetting directory defaults to"HKEY_CURRENT_USER\SOFTWARE\VB and VBA Program Settings"
+'NIRS\EOI\LandF form the appname and section
+SaveSetting appname:="NIRS", Section:="EOI\LandF", _
+            Key:="Surname", setting:=strTemp
+
+
+strTemp = mySet!Initials
+SaveSetting appname:="NIRS", Section:="EOI\LandF", _
+            Key:="Initials", setting:=strTemp
+
+
+
+mySet.Close
+myDB.Close
+mySpace.Close
+
+Exit Sub
+
+SetRegistryError:
+'inform user and quit
+MsgBox "Error in SetRegistry - please inform your system admin"
+
+Application.Quit
+End Sub
+
+Private Function CalculationSelected()
+' Author        : Mustaq Hussain
+' Date          : 9 December 1995
+' Fuction Name  : CalculationSelected
+' Purpose       : Open the selected form
+' History       :
+' Author        : Lisa Scothern
+' Date          : 20 May 1997
+' Purpose       : Added option for PAYE Calendar, RFC 651
+' Author        : Christopher Schuler
+' Date          : 11 may 2000
+' Purpose       : All macros removed from calcmain and replaced with "frmname" code
+
+On Error GoTo Err_CalculationSelected
+Application.Echo False
+Dim frmName As String
+
+    
+    Select Case Forms![Calcmain]![listbApplications]
+    
+        ' Calculations
+        Case 2
+            frmName = "frmClass1_16"
+        Case 3
+            frmName = "frmEnhance"
+        Case 4
+            frmName = "frmClass2MakeUp"
+        Case 5
+            frmName = "frmClass2LiabMain"
+        Case 6
+            frmName = "frmClass3MakeUp"
+        Case 7
+            frmName = "frmClass1A"
+        Case 8
+            frmName = "frmOSCWeeks"
+        Case 9
+            frmName = "frmDirectorsMain2016"
+        Case 10
+            frmName = "frmEarningsCalculatorMain2000"
+        Case 11
+            frmName = "frmInterestLateUnpaidClass1Main"
+        Case 12
+            frmName = "frmInterestLatePaidRefundsMain"
+        Case 13
+            frmName = "frmIAmain"
+        Case 14
+            frmName = "frmBasicPension"
+        Case 15
+            frmName = "frmSAPPayable"
+        Case 16
+            frmName = "frmSMPPayable"
+        Case 17
+            frmName = "frmSSPPayable"
+        Case 18
+            frmName = "frmSPPAdoptionPayable"
+        Case 19
+            frmName = "frmSPPBirthPayable"
+        Case 20
+            frmName = "frmProRataWaiver"
+        Case 21
+            frmName = "frmRatioMain"
+        Case 22
+            frmName = "frmConversionMain"
+            
+        Case 23
+            frmName = "frmUnofficialDeferment"
+
+        ' Tables
+        Case 26
+            frmName = "maxform"
+        Case 27
+            frmName = "Calendars/Reckoners"
+        Case 28
+            frmName = "rateform_2016"
+        Case 29
+            frmName = "Form2"
+        Case 30
+            frmName = "frmWeeklyCalendar"
+        Case 31
+            frmName = "frmQuarterlyBilling"
+        Case 32
+            frmName = "frmC2Payments_C3QB"
+        Case 33
+            frmName = "Coloursform"
+        Case 34
+            frmName = "frmAppendix2"
+        Case 35
+            frmName = "frmSPAWomen"
+        Case Else:
+            'Exit Function
+            GoTo Exit_CalculationSelected
+    End Select
+                           
+    DoCmd.OpenForm frmName, acNormal, "", "", acEdit, acNormal
+    DoCmd.Maximize
+
+
+Exit_CalculationSelected:
+    Application.Echo True
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_CalculationSelected:
+    MsgBox Error$
+    Resume Exit_CalculationSelected
+
+End Function
+
+Private Sub cmdExit_Click()
+Application.Quit
+End Sub
+
+Private Sub Form_Load()
+' Author        : EOI team
+' Date          :
+' Fuction Name  : Form_Load
+' Purpose       : Load main Calculation Support menu
+' History
+' Author        : Mustaq Hussain
+' Date          : 9 December
+' Reason        : Replace buttons with a listbox, to allow for the addition of more calculations
+' Author        : Chris Sneddon
+' Date          : 14 Feb 2012
+' Reason        : additions for version control
+    
+    
+    On Error GoTo err_Form_Load
+    
+    Forms!Calcmain!liveVersion.Caption = strliveVersion("tblChangeLog")
+    Forms!Calcmain!devVersion.Caption = strCurrentVersion("tblChangeLog")
+    
+    SetRegistry
+
+    DoCmd.Maximize
+
+    ' Hightlight first in list
+    listbApplications = 2
+    
+exit_Form_Load:
+    'Form_Load_DB.close
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Function strliveVersion(strChangeLog As String) As String
+
+
+' Author        : Christopher Sneddon
+' Date          : 14 feb 2012
+' Fuction Name  : strCurrentVersion
+' Purpose       : Keep a Change log, lazy style....
+
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim strReturnedValue As String
+
+    On Error GoTo Err_strliveVersion
+
+    ' Query to get max tax year
+    SQLQuery = "SELECT Max([Live Version]) FROM [" + strChangeLog + "] ; "
+    
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    strReturnedValue = mySet.Fields(0).value
+    strliveVersion = IIf(IsNull(strReturnedValue), 0, strReturnedValue)
+    
+    mySet.Close
+
+Exit_strliveVersion:
+    Exit Function
+    
+Err_strliveVersion:
+    MsgBox Error$
+    Resume Exit_strliveVersion
+End Function
+
+Function strCurrentVersion(strChangeLog As String) As String
+' Author        : Christopher Sneddon
+' Date          : 14 feb 2012
+' Fuction Name  : strCurrentVersion
+' Purpose       : Keep a Change log
+
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim strReturnedValue As String
+
+    On Error GoTo Err_strCurrentVersion
+
+    ' Query to get max tax year
+    SQLQuery = "SELECT Max([Dev Version]) FROM [" + strChangeLog + "] ; "
+    
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    strReturnedValue = mySet.Fields(0).value
+    strCurrentVersion = IIf(IsNull(strReturnedValue), 0, strReturnedValue)
+    
+    mySet.Close
+
+Exit_strCurrentVersion:
+    Exit Function
+    
+Err_strCurrentVersion:
+    MsgBox Error$
+    Resume Exit_strCurrentVersion
+
+End Function
+
+Private Sub Form_Unload(Cancel As Integer)
+Dim myDB As Database
+Application.Echo False
+Set myDB = CurrentDb()
+If IsItMDE(myDB) = True Then
+    'set disable shift key
+    DisableShiftKeyBypass
+   
+End If
+
+myDB.Close
+
+DoCmd.Quit
+Application.Echo True
+End Sub
+
+
+Private Sub Label45_Click()
+
+End Sub
+
+Private Sub listbApplications_KeyDown(KeyCode As Integer, Shift As Integer)
+' Author        : Mustaq Hussain
+' Date          : 9 December
+' Fuction Name  : listbApplications_KeyDown
+' Purpose       : Launch application when enter pressed
+    
+    On Error GoTo Err_listbApplications_KeyDown
+    
+    Dim Temp
+
+    ' If enter pressed
+    If KeyCode = 13 Then
+        Temp = CalculationSelected()
+    End If
+
+
+Exit_listbApplications_KeyDown:
+    Exit Sub
+
+Err_listbApplications_KeyDown:
+    MsgBox Error$
+    Resume Exit_listbApplications_KeyDown
+
+End Sub
+

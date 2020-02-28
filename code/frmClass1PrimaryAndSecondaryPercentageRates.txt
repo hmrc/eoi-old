@@ -1,0 +1,350 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+'''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+Private Sub cboTaxYear_AfterUpdate()
+
+'Author     Christopher Schuler
+'Date       8 March 2000
+'Purpose    Change to new subform if taxyear is 2000 or later
+
+On Error GoTo err_cboTaxYear_AfterUpdate
+
+Dim test As String
+
+If Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Form.cboTaxYear > 1999 And Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Form.cboTaxYear < 2016 Then
+
+   Forms!frmAppendix2.subAppendix2.Visible = True
+    Forms!frmAppendix2.subAppendix2.SetFocus
+    Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Visible = False
+    test = Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Form.cboTaxYear
+    Forms!frmAppendix2.subAppendix2.SourceObject = "frmClass1Prim&Sec%Rates2000"
+    Forms!frmAppendix2.subAppendix2.Form.cboTaxYear = test
+    Forms!frmAppendix2.subAppendix2.Requery
+    
+ElseIf Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Form.cboTaxYear > 2015 Then
+
+    Forms!frmAppendix2.subAppendix2.Visible = True
+    Forms!frmAppendix2.subAppendix2.SetFocus
+    Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Visible = False
+    test = Forms!frmAppendix2.subClass1PrimaryAndSecondaryPercentageRates.Form.cboTaxYear
+    Forms!frmAppendix2.subAppendix2.SourceObject = "frmClass1Prim&Sec%Rates2016"
+    Forms!frmAppendix2.subAppendix2.Form.cboTaxYear = test
+    Forms!frmAppendix2.subAppendix2.Requery
+
+End If
+
+exit_cboTaxYear_AfterUpdate:
+    Exit Sub
+err_cboTaxYear_AfterUpdate:
+    MsgBox Error$
+    Resume exit_cboTaxYear_AfterUpdate
+
+
+
+End Sub
+
+
+
+Private Sub cboTaxYear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History
+' Author    : Christopher Schuler
+' Date      : 20 May 1999
+' Reason    : Screen amendments to allow for new fields for 1998/99 details.
+' Author    : Christopher Schuler
+' Date      : 8 March 2000
+' Reason    : Code moved to module to ease use when changing subforms
+
+
+TaxYearUpdatePre2000
+
+End Sub
+
+Sub TaxYearUpdatePre2000()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History
+' Author    : Christopher Schuler
+' Date      : 20 May 1999
+' Reason    : Screen amendments to allow for new fields for 1998/99 details.
+' Author    : Christopher Schuler
+' Date      : 26 September 2003
+' Reason    : Code moved to form module - basYearlyLimits deleted
+
+On Error GoTo Err_TaxYearUpdatePre2000
+With Forms![frmAppendix2]![subClass1PrimaryAndSecondaryPercentageRates].Form
+    If .cboTaxYear < 2000 Then
+
+        Dim myDB As Database
+        Dim MyRecordSet As DAO.Recordset
+        Dim RecordTotal As Integer
+
+        DoCmd.SetWarnings False
+
+        Set myDB = CurrentDb()
+    
+        .[EE Standard].Height = 255
+        .[EE Reduced].Height = 255
+        .[EE Contracted Out].Height = 255
+        .[ER Standard].Height = 255
+        .[ER Reduced].Height = 255
+        .[ER C/O Standard].Height = 255
+        .[ER C/O Reduced].Height = 255
+        
+        .[EE Standard2].Height = 255
+        .[EE Reduced2].Height = 255
+        .[EE Contracted Out2].Height = 255
+        .[ER Standard2].Height = 255
+        .[ER Reduced2].Height = 255
+        .[ER C/O Standard2].Height = 255
+        .[ER C/O Reduced2].Height = 255
+    
+        .[Text22].Width = 1425
+        .[Text24].Width = 1425
+        .[ER C/O Standard].Width = 1425
+        .[ER C/O Reduced].Width = 1425
+        .[Text24].Left = 6390
+        .[ER C/O Reduced].Left = 6390
+        
+        .[Text32].Caption = "Contracted Out"
+    
+    
+        If .cboTaxYear > "1977" Then
+            .[EE Contracted Out].Height = 800
+            .[ER C/O Standard].Height = 800
+            .[ER C/O Reduced].Height = 800
+        
+            .[EE Contracted Out2].Height = 800
+            .[ER C/O Standard2].Height = 800
+            .[ER C/O Reduced2].Height = 800
+        End If
+        
+        If .cboTaxYear > "1988" Then
+            .[EE Standard2].Height = 765
+        End If
+        
+        If .cboTaxYear > "1989" Then
+            .[EE Standard].Height = 765
+        
+            .[EE Standard2].Height = 765
+        End If
+    
+        If .cboTaxYear > "1984" Then
+            .[ER Standard].Height = 510
+            .[ER Reduced].Height = 510
+            .[ER C/O Standard].Height = 1400
+            .[ER C/O Reduced].Height = 1400
+        
+            .[ER Standard2].Height = 510
+            .[ER Reduced2].Height = 510
+            .[ER C/O Standard2].Height = 1400
+            .[ER C/O Reduced2].Height = 1400
+        End If
+    
+        If .cboTaxYear > "1990" Then
+            .[ER Standard].Height = 800
+            .[ER Reduced].Height = 800
+            .[ER Standard2].Height = 800
+            .[ER Reduced2].Height = 800
+        End If
+    
+    
+        If .cboTaxYear > "1984" And .cboTaxYear < "1990" Then
+            .[EE Contracted Out].Height = 1350
+            .[EE Contracted Out2].Height = 1350
+        End If
+    
+        Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Class 1 Contribution Primary And Secondary Percentage Rates] WHERE [Tax Year] = """ & .cboTaxYear & """;")
+    
+        MyRecordSet.MoveFirst
+    
+            .[EE Standard2].Visible = False
+            .[EE Reduced2].Visible = False
+            .[EE Contracted Out2].Visible = False
+            .[ER Standard2].Visible = False
+            .[ER Reduced2].Visible = False
+            .[ER C/O Standard2].Visible = False
+            .[ER C/O Reduced2].Visible = False
+            .[53 Element Maximum2].Visible = False
+            .[52 Element Maximum2].Visible = False
+            .[12 Element Maximum2].Visible = False
+            .[lbl53].Visible = False
+            .[lbl52].Visible = False
+            .[lbl12].Visible = False
+            .[lblToDate].Visible = False
+            .[lblFromDate].Visible = False
+            .[lblMessage1].Visible = False
+            .[lblMessage2].Visible = False
+            .[Text61].Visible = False
+            .[Text59].Visible = False
+            .[Text60].Visible = False
+            .[Text64].Visible = False
+            .[Text65].Visible = False
+            .[ER C/O Standard MP].Visible = False
+            .[ER C/O Reduced MP].Visible = False
+            .[ER Rebate].Visible = False
+            .[ER Rebate MP].Visible = False
+            
+            If (.cboTaxYear = "1978") Then
+                .[lblMessage1].Caption = "The secondary surcharge exempt rate for Employer Contributions is 2% lower up to 01/10/78 and 3.5% lower from 02/10/78."
+                .[lblMessage1].Visible = True
+            End If
+            
+            If (.cboTaxYear = "1982") Then
+                .[lblMessage1].Caption = "Contributions were reduced during the year and an average rate of 12.7% should be used."
+                .[lblMessage1].Visible = True
+            End If
+            
+            If (.cboTaxYear = "1983") Then
+                .[lblMessage1].Caption = "Contributions were reduced during the year and an average rate of 11.62% should be used."
+                .[lblMessage1].Visible = True
+            End If
+            
+            If (.cboTaxYear = "1982") Or (.cboTaxYear = "1983") Or (.cboTaxYear = "1984") Then
+                .[lblMessage2].Visible = True
+            Else
+                .[lblMessage2].Visible = False
+            End If
+            
+            If (.cboTaxYear > "1998") Then
+    
+                .[Text32].Caption = "Contracted Out SR"
+                .[Text61].Visible = True
+                .[Text59].Visible = True
+                .[Text60].Visible = True
+                .[Text64].Visible = True
+                .[Text65].Visible = True
+                .[ER C/O Standard MP].Visible = True
+                .[ER C/O Reduced MP].Visible = True
+                .[ER Rebate].Visible = True
+                .[ER Rebate MP].Visible = True
+    
+            
+            
+                .[Text59].Width = 950
+                .[Text60].Width = 950
+                .[Text64].Width = 950
+                .[Text65].Width = 950
+                .[ER C/O Standard MP].Width = 950
+                .[ER C/O Reduced MP].Width = 950
+                .[ER Rebate].Width = 950
+                .[ER Rebate MP].Width = 950
+                .[ER C/O Standard].Width = 950
+                .[ER C/O Reduced].Width = 950
+                .[Text22].Width = 950
+                .[Text24].Width = 950
+            
+                .[Text59].Top = 2500
+                .[Text60].Top = 2500
+                .[Text64].Top = 570
+                .[Text65].Top = 2500
+            .[Text61].Top = 2270
+            .[ER Rebate].Top = 844
+            .[ER Rebate MP].Top = 2720
+            .[ER C/O Standard MP].Top = 2720
+            .[ER C/O Reduced MP].Top = 2720
+            
+            
+            .[Text24].Left = 5920
+            .[ER C/O Reduced].Left = 5920
+            .[Text60].Left = 5920
+            .[ER C/O Reduced MP].Left = 5920
+            .[Text64].Left = 6917
+            .[ER Rebate].Left = 6917
+            .[Text65].Left = 6917
+            .[ER Rebate MP].Left = 6917
+    
+            .[ER Rebate].Height = 1400
+            .[ER Rebate MP].Height = 1400
+            .[ER C/O Standard MP].Height = 1400
+            .[ER C/O Reduced MP].Height = 1400
+            
+            End If
+    
+            .[EE Standard] = MyRecordSet![EE Standard]
+            .[EE Reduced] = MyRecordSet![EE Reduced]
+            .[EE Contracted Out] = MyRecordSet![EE Contracted Out]
+            .[ER Standard] = MyRecordSet![ER Standard]
+            .[ER Reduced] = MyRecordSet![ER Reduced]
+            .[ER C/O Standard] = MyRecordSet![ER C/O Standard]
+            .[ER C/O Reduced] = MyRecordSet![ER C/O Reduced]
+            .[ER Rebate] = MyRecordSet![ER Rebate]
+            .[ER C/O Standard MP] = MyRecordSet![ER C/O Standard MP]
+            .[ER C/O Reduced MP] = MyRecordSet![ER C/O Reduced MP]
+            .[ER Rebate MP] = MyRecordSet![ER Rebate MP]
+            .[53 Element Maximum] = MyRecordSet![53 Element Maximum]
+            .[52 Element Maximum] = MyRecordSet![52 Element Maximum]
+            .[12 Element Maximum] = MyRecordSet![12 Element Maximum]
+            .[lblToDate] = MyRecordSet![From Date]
+    
+    
+        MyRecordSet.MoveLast
+        
+        RecordTotal = MyRecordSet.Recordcount
+    
+        If RecordTotal > 1 Then
+        
+            .[EE Standard2].Visible = True
+            .[EE Reduced2].Visible = True
+            .[EE Contracted Out2].Visible = True
+            .[ER Standard2].Visible = True
+            .[ER Reduced2].Visible = True
+            .[ER C/O Standard2].Visible = True
+            .[ER C/O Reduced2].Visible = True
+            .[53 Element Maximum2].Visible = True
+            .[52 Element Maximum2].Visible = True
+            .[12 Element Maximum2].Visible = True
+            .[lbl53].Visible = True
+            .[lbl52].Visible = True
+            .[lbl12].Visible = True
+            .[lblToDate].Visible = True
+            .[lblFromDate].Visible = True
+            
+    
+            .[EE Standard2] = MyRecordSet![EE Standard]
+            .[EE Reduced2] = MyRecordSet![EE Reduced]
+            .[EE Contracted Out2] = MyRecordSet![EE Contracted Out]
+            .[ER Standard2] = MyRecordSet![ER Standard]
+            .[ER Reduced2] = MyRecordSet![ER Reduced]
+            .[ER C/O Standard2] = MyRecordSet![ER C/O Standard]
+            .[ER C/O Reduced2] = MyRecordSet![ER C/O Reduced]
+            .[53 Element Maximum2] = MyRecordSet![53 Element Maximum]
+            .[52 Element Maximum2] = MyRecordSet![52 Element Maximum]
+            .[12 Element Maximum2] = MyRecordSet![12 Element Maximum]
+            .[lblFromDate] = MyRecordSet![From Date]
+    
+        End If
+    End If
+End With
+
+Exit_TaxYearUpdatePre2000:
+    Exit Sub
+
+Err_TaxYearUpdatePre2000:
+    MsgBox Error$
+    Resume Exit_TaxYearUpdatePre2000
+
+End Sub
+
+Private Sub cboTaxYear_GotFocus()
+
+TaxYearUpdatePre2000
+
+End Sub
+
+Private Sub Form_Activate()
+TaxYearUpdatePre2000
+End Sub
+
+

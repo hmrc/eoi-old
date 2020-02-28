@@ -1,0 +1,457 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cboTaxYear_AfterUpdate()
+'Author     Christopher Schuler
+'Date       12 August 1999
+'Purpose    Selects the subform and hides/unhides fields depending upon the tax year
+'Author     Christopher Schuler
+'Date       16 November 2000
+'Purpose    Option added for 2001
+'Author     Peter Morton
+'Date       03 Jan 2001
+'Purpose    Switch form if year 2001
+'Author     Chris Schuler
+'Date       6 October 2004
+'Purpose    CCA8292 - Make year 2000 form the same as 2001 and 2002
+
+On Error GoTo err_cboTaxYear_AfterUpdate
+Application.Echo False
+SetDefaultDates
+FirstLine = True
+
+
+If cboTaxYear > 2015 Then
+    
+    DoCmd.OpenForm "frmDirectorsMain2016", , , , , , cboTaxYear
+    With Forms!frmDirectorsMain2016
+        !Surname = Me!Surname
+        !Initial = Me!Initial
+        !NIPrefix = Me!NIPrefix
+        !NInumber = Me!NInumber
+        !NIsuffix = Me!NIsuffix
+        !Ref = Me!Ref
+        !optAPP.SetFocus
+    End With
+    DoCmd.Close acForm, "frmDirectorsMain"
+    
+    Exit Sub
+    GoTo exit_cboTaxYear_AfterUpdate
+
+ElseIf cboTaxYear > 2008 Then
+    
+    DoCmd.OpenForm "frmDirectorsMain2009", , , , , , cboTaxYear
+    With Forms!frmDirectorsMain2009
+        !Surname = Me!Surname
+        !Initial = Me!Initial
+        !NIPrefix = Me!NIPrefix
+        !NInumber = Me!NInumber
+        !NIsuffix = Me!NIsuffix
+        !Ref = Me!Ref
+        !optAPP.SetFocus
+    End With
+    DoCmd.Close acForm, "frmDirectorsMain"
+    
+    Exit Sub
+    GoTo exit_cboTaxYear_AfterUpdate
+    
+ElseIf cboTaxYear > 2002 Then
+    
+    DoCmd.OpenForm "frmDirectorsMain2003", , , , , , cboTaxYear
+    With Forms!frmDirectorsMain2003
+    !Surname = Me!Surname
+    !Initial = Me!Initial
+    !NIPrefix = Me!NIPrefix
+    !NInumber = Me!NInumber
+    !NIsuffix = Me!NIsuffix
+    !Ref = Me!Ref
+    !optAPP.SetFocus
+    End With
+    DoCmd.Close acForm, "frmDirectorsMain"
+    
+    Exit Sub
+    GoTo exit_cboTaxYear_AfterUpdate
+
+
+ElseIf cboTaxYear > 1999 Then
+    
+    DoCmd.OpenForm "frmDirectorsMain2001", , , , , , cboTaxYear
+    With Forms!frmDirectorsMain2001
+        !Surname = Me!Surname
+        !Initial = Me!Initial
+        !NIPrefix = Me!NIPrefix
+        !NInumber = Me!NInumber
+        !NIsuffix = Me!NIsuffix
+        !Ref = Me!Ref
+        !optAPP.SetFocus
+    End With
+    DoCmd.Close acForm, "frmDirectorsMain"
+    
+    Exit Sub
+    GoTo exit_cboTaxYear_AfterUpdate
+    
+End If
+
+
+
+Me!Box132.Visible = True
+
+'Select subform depending on taxyear selected
+Select Case Me!cboTaxYear
+
+    
+    
+    Case 1999
+        With Me
+            !DirectorsContributions.SourceObject = "fsubDirectors"
+            DoCmd.RunSQL "DELETE * FROM [tblDIRECTORSCONTRIBUTIONS]"
+            !Text123.Visible = True
+            !Text123.Width = 2390
+            !Text123.Left = 2220
+            !Text49.Visible = True
+            !Text49.Width = 2390
+            !Text49.Left = 2220
+            !Text49.Caption = "|  LEL - |    ET -    "
+            !Text47.Visible = True
+            !Text47.Caption = "NIC"
+            !Text47.Left = 7680
+            !Text47.Width = 700
+            !Text122.Visible = True
+            !Text122.Left = 4620
+            !Text122.Width = 3040
+            !Box119.Visible = False
+            !Text105.Visible = False
+            !txtLELorEE_ET.Visible = True
+            !Text121.Visible = True
+            !Text121.Caption = "LEL"
+            !Text125.Caption = "ET"
+            !txtLEL.Visible = False
+            !DirectorsContributions.Width = 8500
+            !Text46.Visible = False
+            !Text127.Caption = "  NIC Rebate"
+            !txtRebate2Paid.TabStop = False
+        End With
+    Case Else
+        With Me
+            !DirectorsContributions.SourceObject = "frmDirectorsContributions"
+            DoCmd.RunSQL "DELETE * FROM [DIRECTORS CONTRIBUTIONS TABLE]"
+            !DirectorsContributions.Width = 8900
+            !Text123.Visible = False
+            !Text49.Visible = False
+            !Text47.Visible = False
+            !Text122.Visible = False
+            !Box119.Visible = True
+            !Text105.Visible = False
+            !Text121.Visible = False
+            !txtLEL.Visible = False
+            !txtLELorEE_ET.Visible = False
+            !Text125.Caption = "LEL"
+            !txtRebate1Paid.TabStop = False
+            !txtRebate2Paid.TabStop = False
+        End With
+End Select
+
+    ' Update Details section, no records
+    Me![DirectorsContributions].Form.Requery
+    
+    ' Clear LEL/UEL
+    Me![txtLEL] = Null
+    Me![txtLELorEE_ET] = Null
+    Me![txtLELorETorER_ET] = Null
+    Me![txtUEL] = Null
+
+    ' Clear contributions summary details
+    ClearContributionsSummary
+    ClearPayments
+    
+    ' Set focus ("optapp" will not accept focus directly, quirky)
+    Me!Surname.SetFocus
+    Me!optAPP.SetFocus
+    
+    NIsuffix_AfterUpdate
+    
+exit_cboTaxYear_AfterUpdate:
+    Application.Echo True
+    Exit Sub
+
+err_cboTaxYear_AfterUpdate:
+    MsgBox Error$
+    Resume exit_cboTaxYear_AfterUpdate
+    
+End Sub
+
+Private Sub cboTaxYear_Change()
+
+ Forms![frmDirectorsMain]!optAPP.SetFocus
+ 
+End Sub
+
+
+Private Sub cboTaxYear_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+ Forms![frmDirectorsMain]!optAPP.SetFocus
+End Sub
+
+Private Sub cmdCalculate_Click()
+
+'ClearPayments csch_040714
+With Forms![frmDirectorsMain]
+
+        !nNITotalUnderpayment = Null
+        !nNITotalOverpayment = Null
+        !nEENIUnderpayment = Null
+        !nEENIOverpayment = Null
+        !nERNIUnderpayment = Null
+        !nERNIOverpayment = Null
+        !txtRebate1UnderPaid = Null
+        !txtRebate1OverPaid = Null
+        !txtRebate2UnderPaid = Null
+        !txtRebate2OverPaid = Null
+        
+End With
+
+ClearContributionsSummary
+
+Select Case cboTaxYear
+
+    Case Is < 1999
+        OpenReferenceTables
+        CalculatePre1999
+    
+    Case 1999
+        OpenReferenceTables1999
+        directorCalc1999
+    
+End Select
+
+CloseReferenceTables
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear the Director's entry form, ready for new data
+' History Date  : 08 June 1995
+'               : Call to a function used to do the clearing
+            
+
+    On Error GoTo Err_NewButton_Click
+    
+    ' Call to clear the form
+    ClearForm
+
+    FirstLine = True
+    
+Exit_NewButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NewButton_Click:
+    MsgBox Error$
+    Resume Exit_NewButton_Click
+
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the Directors form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+' Author        : Christopher Schuler
+' Date          : 16 November 2000
+' Reason        : Add option for 2001
+
+
+    On Error GoTo Err_cmdPrint_Enter
+
+    Recalc
+    
+    cmdCalculate_Click
+
+    Select Case Forms!frmDirectorsMain.cboTaxYear
+    
+        Case Is < 1999
+    
+            DoCmd.OpenReport "rptDirectorsContributions", A_NORMAL
+    
+        Case 1999
+    
+            DoCmd.OpenReport "rptDirectorsContributions1999", A_NORMAL
+        
+        Case 2000
+    
+            DoCmd.OpenReport "rptDirectorsContributions2000", A_NORMAL
+        Case Is > 2008
+            
+            DoCmd.OpenReport "rptDirectorsContributions2009", A_NORMAL
+            
+        Case Else
+    
+            DoCmd.OpenReport "rptDirectorsContributions01", A_NORMAL
+    
+    End Select
+
+Exit_cmdPrint_Enter:
+    Exit Sub
+
+Err_cmdPrint_Enter:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Enter
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+' History Date  : 08 June 1995
+'               : Call to clear the form of previous data
+' History Date  : 19 October 1995
+'               : Sets the default dates
+' Author        : Peter Morton
+' Date          : 03 Jan 2001
+' Purpose       : If this form is opened from another then the year is passed in and acted upon
+
+    On Error GoTo err_Form_Load
+    
+    DoCmd.SetWarnings False
+    
+    DoCmd.Maximize
+    
+    ' Set the prepared by field
+    Forms![frmDirectorsMain]!PreparedBy.Enabled = True
+    
+    Forms![frmDirectorsMain]![PreparedBy] = getinitials() & " " & getsurname()
+    Forms![frmDirectorsMain]!PreparedBy.Enabled = False
+    
+    
+    'check if year passed in
+    If Me.OpenArgs <> "" Then
+        cboTaxYear = OpenArgs
+    Else
+        cboTaxYear = 2000
+    End If
+    
+    
+    cboTaxYear_AfterUpdate
+    
+    ' Clear the entry form
+    ClearForm
+
+    Recalc
+
+    SetDefaultDates
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+    Select Case NIsuffix
+    
+    
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+                
+    
+    
+    End Select
+End If
+End Sub
+
+Private Sub optEarningsPeriod_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : optEarningsPeriod_AfterUpdate
+' Purpose       : Ensure txtStartOfDirectorship field is correctly set if leaving Earnings period
+' History
+' Date          : 9 Oct 1995
+' Reason        : 'From' & 'To' pro-rata date fields
+'                   txtStartOfDirectorship changed to reflect 'From'
+' Date          : 19 Oct 1995
+' Reason        : 'To' must be enabled, default to 5/4/Tax+1
+'               : 'From' defaultst to 6/4/Tax or Null
+
+
+    On Error GoTo Err_optEarningsPeriod_AfterUpdate
+
+SetDefaultDates
+    
+'    If optEarningsPeriod = cAnnualEarnings Then
+'        dtDirectorshipFrom.Value = "6/4/" + Format$(forms![frmDirectorsMain]![cboTaxYear])
+'        dtDirectorshipFrom.Enabled = False
+'    Else
+'        dtDirectorshipFrom.Enabled = True
+'        dtDirectorshipFrom.Value = Null
+'    End If
+    
+'    dtDirectorshipTo.Enabled = True
+'    dtDirectorshipTo.Value = "5/4/" + Format$(forms![frmDirectorsMain]![cboTaxYear] + 1)
+
+Exit_optEarningsPeriod_AfterUpdate:
+    Exit Sub
+
+Err_optEarningsPeriod_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_optEarningsPeriod_AfterUpdate
+
+End Sub
+

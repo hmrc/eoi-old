@@ -1,0 +1,290 @@
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub bandenq_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_bandenq_Click
+DoCmd.Echo False
+
+If TAXYEAR2015 > 2010 Then
+    DoCmd.OpenForm "frmBand2011", A_NORMAL, , , , , TAXYEAR2015
+    Forms!frmBand2011!Taxyear.SetFocus
+Else
+    DoCmd.OpenForm "bandform", A_NORMAL, , , , , TAXYEAR2015
+    Forms!bandform!Taxyear.SetFocus
+End If
+
+DoCmd.Close acForm, "rateform_2009"
+
+DoCmd.Echo True
+
+exit_bandenq_Click:
+    Exit Sub
+err_bandenq_Click:
+    MsgBox Error$
+    Resume exit_bandenq_Click
+End Sub
+
+Private Sub category_AfterUpdate()
+
+' When user selected MIKZ U21 categories extra columns are visible.
+
+End Sub
+
+Private Sub category_Click()
+ 
+' Author        : Christopher Schuler
+' Date          : 16/12/2002
+' Purpose       : New form for 2003
+
+On Error GoTo err_category_Click
+DoCmd.Hourglass True
+DoCmd.Echo False
+
+Dim fieldtest As Variant
+'Validation of input fields
+fieldtest = Forms!rateform_2015!TAXYEAR2015
+'taxyear
+If IsNull(fieldtest) Or fieldtest = 0 Then
+MsgBox "You have not input a taxyear", 48, "Warning"
+Forms!rateform_2015!Taxyear.SetFocus
+End If
+
+If Forms!rateform_2015!TAXYEAR2015 > 1995 Then
+    If Forms!rateform_2015!Category = "A HMF" Or Forms!rateform_2015!Category = "B HMF" Or Forms!rateform_2015!Category = "D HMF" Or Forms!rateform_2015!Category = "E HMF" Then
+        MsgBox "Categories 'A HMF, B HMF, D HMF, E HMF' are not available after 1995/96 - please reinput", 48, "Warning"
+        Forms!rateform_2015!Category = "A"
+       
+    End If
+End If
+
+Me.Requery
+
+
+If Forms!rateform_2015!Category = "C" Then
+    Forms!rateform_2015!Text151.Visible = True
+Else
+    Forms!rateform_2015!Text151.Visible = False
+End If
+
+exit_category_Click:
+    DoCmd.Hourglass False
+    DoCmd.Echo True
+    Exit Sub
+err_category_Click:
+    MsgBox Error$
+    Resume exit_category_Click
+
+End Sub
+
+' History
+' Author        : Christopher Sneddon
+' Date          : 09 January 2012
+' Purpose       : Dealing with 2012 tax years caetgory change CCA10605
+
+Private Sub Category_GotFocus()
+
+    If TAXYEAR2015 > 2014 Then
+            Form_rateform_2015!Category.RowSource = "A;B;C;D;E;J;L;M;I;K;Z"
+    ElseIf TAXYEAR2015 > 2011 And TAXYEAR2015 < 2015 Then
+            Form_rateform_2015!Category.RowSource = "A;B;C;D;E;J;L"
+    ElseIf TAXYEAR2015 = 2011 Then
+            Form_rateform_2015!Category.RowSource = "A;B;C;D;E;F;G;J;L;S"
+    End If
+
+
+'If TAXYEAR2009 > 2001 Then
+'    Me!Category.RowSource = "A;B;C;D;E;F;G;S"
+'Else
+'    Me!Category.RowSource = "A;B;C;D;E;F;G;S;A HMF;B HMF;D HMF;E HMF;R;T;W;N;O"
+'End If
+End Sub
+
+Private Sub close_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_close_Click
+
+    DoCmd.Close
+ 
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+    
+End Sub
+
+Private Sub Detail0_Click()
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+DoCmd.OpenForm "bandform"
+End Sub
+
+Private Sub Form_Load()
+
+' History
+' Author        : Christopher Sneddon
+' Date          : 24th March 2009
+' Purpose       : Changes for 2009 Tax year and UAP changes.
+
+On Error GoTo err_Form_Load
+
+
+   'check if year passed in
+    If Me.OpenArgs <> "" Then
+        Forms![rateform_2015]!TAXYEAR2015 = OpenArgs
+    Else
+        Forms![rateform_2015]!TAXYEAR2015 = strCurrentTaxYear("CLASS 1 RATE TABLE")
+    End If
+    
+    Forms![rateform_2015]!Category = "A"
+    Forms![rateform_2015]!startweek = 1
+    Forms!rateform_2015.RecordSource = "qryClass1Rates2015"
+    
+    Forms!rateform_2015.Refresh
+    
+    DoCmd.Maximize
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+Private Sub startweek_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Christopher Schuler
+' Date          : 01/07/1999
+' Purpose       : Move shared code to 'SetFieldsFor_Year_Cat_Week'
+
+On Error GoTo err_startweek_Click
+DoCmd.Echo False
+DoCmd.Hourglass True
+
+Forms!rateform_2009.Requery
+
+'Show/hide fields - code moved to sub
+SetFieldsFor_Year_Cat_Week
+
+
+exit_startweek_Click:
+    DoCmd.Hourglass False
+    DoCmd.Echo True
+    Exit Sub
+err_startweek_Click:
+    MsgBox Error$
+    Resume exit_startweek_Click
+End Sub
+
+Private Sub startweek_GotFocus()
+Refresh
+End Sub
+
+Private Sub TAXYEAR2015_AfterUpdate()
+
+' Author        : Christopher Sneddon (csne)
+' Date          : 18 february 2009
+' Purpose       : Added for 2011 ST-PT changes
+
+On Error GoTo err_TAXYEAR2015_AfterUpdate
+DoCmd.Echo False
+DoCmd.Hourglass True
+
+Select Case TAXYEAR2015
+
+    
+    Case Is > 2014
+        DoCmd.OpenForm "rateform_2016", , , , , , TAXYEAR2015
+        Forms!rateform_2016!Category = "A"
+        Forms!rateform_2016!startweek.value = 1
+        Forms!rateform_2016!TAXYEAR2016.value = TAXYEAR2015
+        Forms!rateform_2016.Requery
+        DoCmd.Close A_FORM, "rateform_2015"
+        Forms!rateform_2016!TAXYEAR2016.SetFocus
+    
+    Case Is > 2014
+        DoCmd.OpenForm "rateform_2015", , , , , , TAXYEAR2015
+        With Forms!rateform_2015
+            !startweek.value = 1
+            !Category = "A"
+            Me.Requery
+            If TAXYEAR2015 > 2014 Then
+                Form_rateform_2015!Category.RowSource = "A;B;C;D;E;J;L;M;I;K;Z"
+            Else
+                Form_rateform_2015!Category.RowSource = "A;B;C;D;E;F;G;J;L;S"
+            End If
+        End With
+    
+    
+    Case Is > 2010
+        DoCmd.OpenForm "rateform_2011", , , , , , TAXYEAR2015
+        Forms!rateform_2011!Category = "A"
+        Forms!rateform_2011!startweek.value = 1
+        Forms!rateform_2011.Requery
+        DoCmd.Close A_FORM, "rateform_2015"
+        Forms!rateform_2011!TAXYEAR2011.SetFocus
+
+    Case Is > 2008
+        DoCmd.OpenForm "rateform_2009", , , , , , TAXYEAR2015
+        'With Forms!rateform_2009
+        Forms!rateform_2009!Category = "A"
+        Forms!rateform_2009!startweek.value = 1
+        Forms!rateform_2009.Requery
+        DoCmd.Close A_FORM, "rateform_2011"
+        Forms!rateform_2009!TAXYEAR2009.SetFocus
+        'End With
+
+    Case Is < 2003
+        DoCmd.OpenForm "rateform", , , , , , TAXYEAR2015
+        'With Forms!rateform
+        Forms![rateform]!Category = "A"
+        Forms![rateform]!startweek = 1
+        Forms![rateform].Refresh
+        'End With
+    'Show/hide fields - code moved to sub
+        SetFieldsFor_Year_Cat_Week
+    
+        DoCmd.Close A_FORM, "rateform_2011"
+        Forms!rateform!Taxyear.SetFocus
+        
+    Case Is > 2002
+    'Set default value on start year
+        DoCmd.OpenForm "rateform_2003", , , , , , TAXYEAR2015
+        'With Forms!rateform_2003
+        Forms!rateform_2003!Category = "A"
+        Forms!rateform_2003!startweek.value = 1
+        Forms!rateform_2003.Requery
+        'End With
+        DoCmd.Close A_FORM, "rateform_2011"
+        Forms!rateform_2003!TAXYEAR2003.SetFocus
+
+End Select
+
+
+exit_TAXYEAR2015_AfterUpdate:
+    DoCmd.Echo True
+
+    DoCmd.Hourglass False
+    Exit Sub
+err_TAXYEAR2015_AfterUpdate:
+    MsgBox Error$
+    Resume exit_TAXYEAR2015_AfterUpdate
+End Sub
+

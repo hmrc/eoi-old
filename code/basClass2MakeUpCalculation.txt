@@ -1,0 +1,289 @@
+Option Compare Database   'Use database order for string comparisons
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+Option Explicit
+'Declare Function getprivateprofilestring Lib "Kernel" (ByVal lpApplicationName As String, lpKeyName As Any, ByVal lpDefault As String, ByVal lpReturnedString As String, ByVal nSize As Integer, ByVal lpFileName As String) As Integer
+
+
+Function class2_mu_calc()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Christopher Schuler
+' Date          : 3 June 1999
+' Purpose       : Change Request Problem No P990600039 Correction to rounding in 'hrp' subroutine
+
+'This application has been written in this manner to have the same look
+'and feel as the previously written class 3 make up application
+
+On Error GoTo err_class2_mu_calc
+DoCmd.Hourglass True
+Dim class2muDB As Database
+Dim class2enq As DAO.Recordset
+Dim class2HRPenq As DAO.Recordset
+Dim class2LEL As DAO.Recordset
+
+Dim TopHrpRate As Currency
+Dim enqyear As Integer
+Dim enqmonth As Integer
+Dim enqday As Integer
+Dim enqtaxyear As Variant
+
+Dim RecordCounter As Integer
+Dim EarningsFactor As Currency
+Dim rate1 As Currency
+Dim Rate2 As Currency
+Dim NumberWeeks1 As Integer
+Dim NumberWeeks2 As Integer
+
+Dim NumberConts As Currency
+Dim NumberConts1 As Currency
+Dim NumberConts2 As Currency
+
+'validate input before attempting calculation
+
+If Forms!frmClass2MakeUp![cboTax Year] < 1978 Or IsNull(Forms!frmClass2MakeUp![cboTax Year]) Then
+    MsgBox "The tax year entered must be after 1977/78 - Please reinput", 0 + 16, "Warning"
+    Forms!frmClass2MakeUp![cboTax Year].SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+If Forms!frmClass2MakeUp![txtDate of Enquiry] < #4/6/1979# Then
+    MsgBox "The enquiry/payment date must be after 05/04/1979 - Please reinput", 0 + 16, "Warning"
+    Forms!frmClass2MakeUp![txtDate of Enquiry].SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+If Forms!frmClass2MakeUp![txtDate of Enquiry] > Date Or IsNull(Forms!frmClass2MakeUp![txtDate of Enquiry]) Then
+    MsgBox "A payment date (not later than today) must be entered.", 0 + 16, "Warning"
+    Forms!frmClass2MakeUp![txtDate of Enquiry].SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+If Forms!frmClass2MakeUp![txtTotal Conts Paid] = 0 Or IsNull(Forms!frmClass2MakeUp![txtTotal Conts Paid]) Then
+    MsgBox "You must enter an element of Class 1 contributions paid - Please reinput", 0 + 16, "Warning"
+    Forms!frmClass2MakeUp![txtTotal Conts Paid].SetFocus
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+With Forms!frmClass2MakeUp
+    ![txtNo Conts2].Visible = False
+    !txtRate2.Visible = False
+    ![txtTotal2].Visible = False
+    ![txtGrandTotal].Visible = False
+    ![AT].Visible = False
+    ![Equals].Visible = False
+    ![Flash].Visible = False
+    ![txtNo Conts2] = Null
+    ![txtRate2] = Null
+    ![txtTotal2] = Null
+    ![txtGrandTotal] = Null
+End With
+
+Set class2muDB = CurrentDb()
+
+'obtain details for tax year
+Set class2enq = class2muDB.OpenRecordset("SELECT DISTINCTROW [CLASS 2 RATE TABLE].[Tax Yr],[CLASS 2 RATE TABLE].[Start Wk], [CLASS 2 RATE TABLE].[Men Wk Rte], [CLASS 2 RATE TABLE].[Fnl Dte For Pen], [CLASS 2 RATE TABLE].[EF Qual Year], [CLASS 2 RATE TABLE].[No of Wks], [CLASS 2 RATE TABLE].[HRP Date] FROM [CLASS 2 RATE TABLE] WHERE (([CLASS 2 RATE TABLE].[Tax Yr]=""" & [Forms]![frmClass2MakeUp]![cboTax Year] & """));")
+Forms!frmClass2MakeUp![txtdate hrp applies] = class2enq![HRP Date]
+Forms!frmClass2MakeUp![txtfinal payment] = class2enq![Fnl Dte For Pen]
+
+If Forms!frmClass2MakeUp![txtDate of Enquiry] > Forms!frmClass2MakeUp![txtfinal payment] Then
+    MsgBox "Payment/Enquiry Date is greater than final payment date", 0 + 48, "Information"
+Else
+    'obtain LEL for tax year from band rate table or tblBandLimits1999
+    If [Forms]![frmClass2MakeUp]![cboTax Year] < 1999 Then
+        Set class2LEL = class2muDB.OpenRecordset("SELECT DISTINCTROW [BAND TABLE].[Tax Yr], [BAND TABLE].[Wk Band 1] FROM [BAND TABLE]WHERE (([BAND TABLE].[Tax Yr]=""" & [Forms]![frmClass2MakeUp]![cboTax Year] & """));")
+    Else
+        Set class2LEL = class2muDB.OpenRecordset("SELECT DISTINCTROW [Maxima For Class 2/4 Review Of Liability].[Tax Year], [Maxima For Class 2/4 Review Of Liability].[Weekly Lower Earnings Limit] FROM [Maxima For Class 2/4 Review Of Liability]WHERE (([Maxima For Class 2/4 Review Of Liability].[Tax Year]=""" & [Forms]![frmClass2MakeUp]![cboTax Year] & """));")
+    End If
+
+    If Forms!frmClass2MakeUp![txtTotal Conts Paid] > class2enq![EF Qual Year] Then
+        MsgBox "The year already qualifies", 0 + 48, "Information"
+    Else
+        'obtain correct rate
+        If Forms!frmClass2MakeUp![txtDate of Enquiry] >= Forms!frmClass2MakeUp![txtdate hrp applies] Then
+            'hrp rules
+            
+            'obtain tax year of enquiry date
+            
+            enqyear = DatePart("yyyy", Forms!frmClass2MakeUp![txtDate of Enquiry])
+            enqmonth = DatePart("m", Forms!frmClass2MakeUp![txtDate of Enquiry])
+            enqday = DatePart("d", Forms!frmClass2MakeUp![txtDate of Enquiry])
+            
+            Select Case enqmonth
+
+                Case Is < 4
+                    enqtaxyear = enqyear - 1
+                Case Is = 4
+                    If enqday < 6 Then
+                        enqtaxyear = enqyear - 1
+                    Else
+                        enqtaxyear = enqyear
+                    End If
+                Case Is > 4
+                    enqtaxyear = enqyear
+
+            End Select
+
+            'enqtaxyear = enqtaxyear
+
+            Set class2HRPenq = class2muDB.OpenRecordset("SELECT DISTINCTROW [Tax Yr], [Men Wk Rte], [Fnl Dte For Pen], [EF Qual Year], [No of Wks], [HRP Date] FROM [CLASS 2 RATE TABLE] WHERE (([Tax Yr]>=""" & [Forms]![frmClass2MakeUp]![cboTax Year] & """ AND [Tax Yr]<= """ & enqtaxyear & """));")
+            
+            class2HRPenq.MoveLast
+            
+            RecordCounter = class2HRPenq.Recordcount
+            
+            class2HRPenq.MoveFirst
+            
+            While RecordCounter > 0
+                If class2HRPenq![Men Wk Rte] > TopHrpRate Then
+                TopHrpRate = class2HRPenq![Men Wk Rte]
+                End If
+            class2HRPenq.MoveNext
+            RecordCounter = RecordCounter - 1
+            Wend
+            Forms!frmClass2MakeUp!txtRate = TopHrpRate
+            EarningsFactor = class2enq![EF Qual Year] - Forms!frmClass2MakeUp![txtTotal Conts Paid]
+            
+            '''NumberConts = Int(EarningsFactor / class2LEL.[Wk Band 1]) + 1  'This line replaced by rounding routine below
+            If (EarningsFactor / class2LEL.Fields(1)) = Int(EarningsFactor / class2LEL.Fields(1)) Then
+                NumberConts = Int(EarningsFactor / class2LEL.Fields(1))
+            Else
+                NumberConts = Int(EarningsFactor / class2LEL.Fields(1)) + 1
+            End If
+            
+
+
+            Forms!frmClass2MakeUp![txtNO Conts] = NumberConts
+            Forms!frmClass2MakeUp![txtTotal] = NumberConts * TopHrpRate
+            Forms!frmClass2MakeUp![txtGrandTotal] = Forms!frmClass2MakeUp![txtTotal]
+            Forms!frmClass2MakeUp![txtdate hrp applies] = class2enq![HRP Date]
+            Forms!frmClass2MakeUp![txtfinal payment] = class2enq![Fnl Dte For Pen]
+            class2HRPenq.Close
+        Else
+            class2enq.MoveLast
+            
+            'normal rules
+            class2enq.MoveLast
+            
+            RecordCounter = class2enq.Recordcount
+            
+            class2enq.MoveFirst
+             
+            If RecordCounter > 1 Then
+                'split year; only caters for one split
+                If RecordCounter > 2 Then
+                    MsgBox "There are more than two rates for the tax year entered", 0 + 16, "Warning"
+                    DoCmd.Hourglass False
+                    Exit Function
+                End If
+                EarningsFactor = class2enq![EF Qual Year] - Forms!frmClass2MakeUp![txtTotal Conts Paid]
+                '''NumberConts = Int(EarningsFactor / class2LEL.[Wk Band 1]) + 1    'This line replaced by rounding routine below
+            If (EarningsFactor / class2LEL.Fields(1)) = Int(EarningsFactor / class2LEL.Fields(1)) Then
+                NumberConts = Int(EarningsFactor / class2LEL.Fields(1))
+            Else
+                NumberConts = Int(EarningsFactor / class2LEL.Fields(1)) + 1
+            End If
+            class2enq.MoveFirst
+                'obtain rates and number of conts at each rate
+                
+                rate1 = class2enq![Men Wk Rte]
+                NumberWeeks1 = class2enq![No of Wks]
+                class2enq.MoveNext
+                Rate2 = class2enq![Men Wk Rte]
+                NumberWeeks2 = class2enq![No of Wks]
+                
+                With Forms!frmClass2MakeUp
+                
+                    If Rate2 < rate1 Then
+                        
+                            If NumberConts > NumberWeeks2 Then
+                                NumberConts1 = NumberWeeks2
+                                NumberConts2 = NumberConts - NumberConts1
+                                
+                                    !txtRate = Rate2
+                                    ![txtNO Conts] = NumberConts1
+                                    ![txtTotal] = NumberConts1 * Rate2
+                                    !txtRate2 = rate1
+                                    ![txtNo Conts2].Visible = True
+                                    !txtRate2.Visible = True
+                                    ![txtTotal2].Visible = True
+                                    ![txtGrandTotal].Visible = True
+                                    ![AT].Visible = True
+                                    ![Equals].Visible = True
+                                    ![txtNo Conts2] = NumberConts2
+                                    ![txtTotal2] = NumberConts2 * rate1
+                                    ![txtGrandTotal] = ![txtTotal] + ![txtTotal2]
+                            Else
+                                !txtRate = Rate2
+                                ![txtNO Conts] = NumberConts
+                                ![txtTotal] = NumberConts * Rate2
+                            End If
+                        
+                        
+                    Else
+                        'rate 1 < rate2
+                        If NumberConts > NumberWeeks1 Then
+                            NumberConts1 = NumberWeeks1
+                            NumberConts2 = NumberConts - NumberConts1
+                            !txtRate = rate1
+                            ![txtNO Conts] = NumberConts1
+                            ![txtTotal] = NumberConts1 * rate1
+                            !txtRate2 = Rate2
+                            ![txtNo Conts2].Visible = True
+                            !txtRate2.Visible = True
+                            ![txtTotal2].Visible = True
+                            ![txtGrandTotal].Visible = True
+                            ![AT].Visible = True
+                            ![Equals].Visible = True
+                            ![txtNo Conts2] = NumberConts2
+                            ![txtTotal2] = NumberConts2 * Rate2
+                            ![txtGrandTotal] = ![txtTotal] + ![txtTotal2]
+                        Else
+                            !txtRate = rate1
+                            ![txtNO Conts] = NumberConts
+                            ![txtTotal] = NumberConts * rate1
+                        End If
+                    End If
+            End With
+            Else
+                'non split year
+                Forms!frmClass2MakeUp!txtRate = class2enq![Men Wk Rte]
+                EarningsFactor = class2enq![EF Qual Year] - Forms!frmClass2MakeUp![txtTotal Conts Paid]
+                
+                If (EarningsFactor / class2LEL.Fields(1)) = Int(EarningsFactor / class2LEL.Fields(1)) Then
+                    NumberConts = Int(EarningsFactor / class2LEL.Fields(1))
+                Else
+                    NumberConts = Int(EarningsFactor / class2LEL.Fields(1)) + 1
+                End If
+                With Forms!frmClass2MakeUp
+                    ![txtNO Conts] = NumberConts
+                    ![txtTotal] = NumberConts * class2enq![Men Wk Rte]
+                    ![txtGrandTotal] = Forms!frmClass2MakeUp![txtTotal]
+                    ![txtdate hrp applies] = class2enq![HRP Date]
+                    ![txtfinal payment] = class2enq![Fnl Dte For Pen]
+                End With
+            
+            End If
+        End If
+    End If
+    class2enq.Close
+    class2LEL.Close
+End If
+exit_class2_mu_calc:
+    DoCmd.Hourglass False
+    Exit Function
+err_class2_mu_calc:
+    MsgBox Error$
+    Resume exit_class2_mu_calc
+End Function

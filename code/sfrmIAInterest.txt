@@ -1,0 +1,86 @@
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub IA_Payment_Date_AfterUpdate()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_IA_Payment_Date_AfterUpdate
+Dim Today As Variant
+Today = Date
+
+Forms![frmIAmain]![InterestForm].Form.Refresh
+
+'Validate Date
+If Forms!frmIAmain![txtOPB_Date] <= Forms!frmIAmain!InterestForm.Form![IA Payment Date] Then
+    MsgBox "OPB date must be after the IA Payment Date", 0 + 48, "Information"
+
+End If
+If Forms!frmIAmain!InterestForm.Form![IA Payment Date] < #4/6/1988# Then
+    MsgBox "IA Payment date must be during the period 06/04/88" & " " & "to" & " " & Date & " - Please reinput", 0 + 48, "Information"
+
+End If
+If Forms!frmIAmain!InterestForm.Form![IA Payment Date] > Today Then
+   MsgBox "IA Payment date must be during the period 06/04/88" & " " & "to" & " " & Date & " - Please reinput", 0 + 48, "Information"
+
+End If
+
+
+Form_frmIAmain.IACalc
+
+
+'Forms![frmIAmain]![InterestForm].Form.Repaint
+'Forms![frmIAmain]![InterestForm].Form.Refresh
+'Forms![frmIAmain]![InterestForm].Form.Requery
+
+exit_IA_Payment_Date_AfterUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+
+err_IA_Payment_Date_AfterUpdate:
+    'Local error handling
+    If Error$ = "Unknown name" Then
+    Resume exit_IA_Payment_Date_AfterUpdate
+    End If
+    MsgBox Error$
+    Resume exit_IA_Payment_Date_AfterUpdate
+End Sub
+
+
+
+'Option Compare Database   'Use database order for string comparisons
+'
+'
+'' Modification History
+'' Name   : Mustaq Hussain
+'' Date   : 23 May 1996
+'' Reason : LER86 Pollution of global name space : Database and RecordSets
+'
+'
+'Option Explicit
+'
+
+'
+
+Private Sub Incentive_Addition_AfterUpdate()
+On Error GoTo err_Incentive_Addition_AfterUpdate
+If Forms!frmIAmain!InterestForm.Form.[Incentive Addition] > 9999 Then
+    MsgBox "The amount of Incentive entered must be less than £10,000 - Please reinput", 0 + 48, "Information"
+    'SendKeys "{LEFT}"
+End If
+exit_Incentive_Addition_AfterUpdate:
+    Exit Sub
+err_Incentive_Addition_AfterUpdate:
+    'Local error handling
+    If Error$ = "Unknown name" Then
+    Resume exit_Incentive_Addition_AfterUpdate
+    End If
+    MsgBox Error$
+    Resume exit_Incentive_Addition_AfterUpdate
+End Sub
+
+'

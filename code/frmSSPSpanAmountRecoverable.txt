@@ -1,0 +1,72 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Form_BeforeInsert(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 24 October 1996
+' Fuction Name  : Form_BeforeInsert
+' Purpose       : RFC 435 : Do not allow records to be inserted
+            
+    On Error GoTo Err_Form_BeforeInsert
+
+    Cancel = True
+
+Exit_Form_BeforeInsert:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Form_BeforeInsert:
+    MsgBox Error$
+    Resume Exit_Form_BeforeInsert
+
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 24 October 1996
+' Fuction Name  : Form_BeforeUpdate
+' Purpose       : RFC 435 : Ensure only Year 94 has values
+            
+    On Error GoTo Err_Form_BeforeUpdate
+    
+
+    If [Taxyear] <> 1994 Then
+        QDs = Null
+        Days = Null
+        LinkedPIW = Null
+    End If
+
+
+Exit_Form_BeforeUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Form_BeforeUpdate:
+    MsgBox Error$
+    Resume Exit_Form_BeforeUpdate
+
+End Sub
+
+Private Sub Form_Delete(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 23 October 1996
+' Fuction Name  : Form_Delete
+' Purpose       : RFC 435 : Do not allow records to be deleted
+            
+    On Error GoTo Err_Form_Delete
+    
+    ' Do not allow records to be deleted
+    Cancel = True
+
+Exit_Form_Delete:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Form_Delete:
+    MsgBox Error$
+    Resume Exit_Form_Delete
+
+End Sub

@@ -1,0 +1,669 @@
+Option Compare Database   'Use database order for string comparisons
+
+  ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  ' AUTHOR : BRIAN SHARRATT & JASON CORDEY - I.T.S.A. 1995 '
+  ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+Option Explicit
+Global curValue As Double
+
+'Declare API call
+'Declare Function getprivateprofilestring Lib "Kernel" (ByVal lpApplicationName As String, lpKeyName As Any, ByVal lpDefault As String, ByVal lpReturnedString As String, ByVal nSize As Integer, ByVal lpFileName As String) As Integer
+
+Function dataread()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            ''''''''''''''''''''''''''''''''''''''''''
+' History   : Jane Mullen
+' Date      : 20 May 1997
+' Purpose   : To add Category F and G to Method B and D
+' Author    : Lisa Scothern
+' Date      : 6 October 1997
+' Purpose   : RFC541F - use of curRound() and indented code to make it readable.
+' Author    : Christopher Schuler
+' Date      : 8 February 2000
+' Purpose   : From tax year 1999/00, rates and limits obtained from tblClass1_1999 & tblBandLimits1999
+
+On Error GoTo err_dataread
+Dim myDB As Database, ratedyna As DAO.Recordset, convratedyna As DAO.Recordset, maxdyna As DAO.Recordset
+
+' Calculation module
+
+' Variables used in the various calculations
+
+Dim Rate As Double
+Dim convrate As Double
+Dim cocont As Double
+Dim cocontearns As Double
+Dim standcont As Double
+Dim standearns As Double
+Dim amcont As Double
+Dim amearns As Double
+Dim maxcontweek As Double
+Dim maxearnsweek As Double
+Dim Total As Integer
+
+'Saves the record to the database to enable the SQL Query to interrogate all the data
+
+DoCmd.Hourglass True
+
+DoCmd.DoMenuItem acFormBar, A_FILE, A_SAVERECORD, , A_MENU_VER20
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+'Obtain appropriate rate for category entered
+
+If Forms!frmEnhance!Category = "a" Or Forms!frmEnhance!Category = "a hmf" Or Forms!frmEnhance!Category = "d" Or Forms!frmEnhance!Category = "d hmf" Or Forms!frmEnhance!Category = "f" Then
+    'Use highest rates for banded years ( Policy decision )
+    If Forms!frmEnhance!TaxYearText > 1985 And Forms!frmEnhance!TaxYearText < 1990 Then
+            If Forms!frmEnhance!TaxYearText = 1989 Then
+                'Special case for 89/90
+                Set ratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].category, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Employee Rte 1] FROM [CLASS 1 RATE TABLE] INNER JOIN [input data] ON ([input data].category = [CLASS 1 RATE TABLE].Cat) AND ([CLASS 1 RATE TABLE].[Tax Yr] = [input data].taxyear) WHERE (([CLASS 1 RATE TABLE].[Start Week]=27));")
+                Rate = ratedyna![Employee Rte 1]
+            Else
+                Set ratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Employee Rte 4] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].category = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+                Rate = ratedyna![Employee Rte 4]
+            End If
+    ElseIf Forms!frmEnhance!TaxYearText < 1999 Then
+            Set ratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].category, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Employee Rte 1] FROM [CLASS 1 RATE TABLE] INNER JOIN [input data] ON ([input data].category = [CLASS 1 RATE TABLE].Cat) AND ([CLASS 1 RATE TABLE].[Tax Yr] = [input data].taxyear) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+            Rate = ratedyna![Employee Rte 1]
+    Else
+            Set ratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].category,  [tblClass1_1999].[EE_Rate] FROM [tblClass1_1999] INNER JOIN [input data] ON ([input data].category = [tblClass1_1999].Cat) AND ([tblClass1_1999].[Tax Yr] = [input data].taxyear) ;")
+            Rate = ratedyna![EE_Rate]
+
+    End If
+ElseIf Forms!frmEnhance!TaxYearText < 1999 Then
+            Set ratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].category, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Employee Rte 1] FROM [CLASS 1 RATE TABLE] INNER JOIN [input data] ON ([input data].category = [CLASS 1 RATE TABLE].Cat) AND ([CLASS 1 RATE TABLE].[Tax Yr] = [input data].taxyear) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+            Rate = ratedyna![Employee Rte 1]
+Else
+            Set ratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].category,  [tblClass1_1999].[EE_Rate] FROM [tblClass1_1999] INNER JOIN [input data] ON ([input data].category = [tblClass1_1999].Cat) AND ([tblClass1_1999].[Tax Yr] = [input data].taxyear) ;")
+            Rate = ratedyna![EE_Rate]
+
+End If
+
+ratedyna.Close
+
+'Obtain rate for category to be converted to
+
+If Forms!frmEnhance!ConvcatText = "a" Or Forms!frmEnhance!ConvcatText = "a hmf" Or Forms!frmEnhance!ConvcatText = "d" Or Forms!frmEnhance!ConvcatText = "d hmf" Then
+    'Use highest rates foe banded years ( Policy decision )
+    If Forms!frmEnhance!TaxYearText > 1985 And Forms!frmEnhance!TaxYearText < 1990 Then
+        'Special case for 1989/90
+            If Forms!frmEnhance!TaxYearText = 1989 Then
+                Set convratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Employee Rte 1] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].convcat = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=27));")
+                convrate = convratedyna![Employee Rte 1]
+            Else
+                Set convratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Employee Rte 4] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].convcat = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+                convrate = convratedyna![Employee Rte 4]
+            End If
+    ElseIf Forms!frmEnhance!TaxYearText < 1999 Then
+            Set convratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Employee Rte 1] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].convcat = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+            convrate = convratedyna![Employee Rte 1]
+    Else
+            Set convratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat,  [tblClass1_1999].[EE_Rate] FROM [input data] INNER JOIN [tblClass1_1999] ON ([input data].convcat = [tblClass1_1999].Cat) AND ([input data].taxyear = [tblClass1_1999].[Tax Yr]);")
+            convrate = convratedyna![EE_Rate]
+    
+    End If
+ElseIf Forms!frmEnhance!TaxYearText < 1999 Then
+            Set convratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Employee Rte 1] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].convcat = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+            convrate = convratedyna![Employee Rte 1]
+Else
+            Set convratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat,  [tblClass1_1999].[EE_Rate] FROM [input data] INNER JOIN [tblClass1_1999] ON ([input data].convcat = [tblClass1_1999].Cat) AND ([input data].taxyear = [tblClass1_1999].[Tax Yr]);")
+            convrate = convratedyna![EE_Rate]
+    
+End If
+
+convratedyna.Close
+
+' set calculation variables from input forms
+
+standcont = Forms!frmEnhance!primcont
+standearns = Forms!frmEnhance!primcontearns
+cocont = Forms!frmEnhance!cocont
+cocontearns = Forms!frmEnhance!cocontearns
+
+'Defines the calculation method depending upon the variables supplied
+
+'Method A
+
+If Forms!frmEnhance!EnhanceButton.value = True Then
+    If (Forms!frmEnhance!Taxyear < 1987) Or (Forms!frmEnhance!Taxyear < 1989 And Forms!frmEnhance!Category = "b") Or (Forms!frmEnhance!Taxyear < 1989 And Forms!frmEnhance!Category = "b hmf") Or (Forms!frmEnhance!Taxyear < 1989 And Forms!frmEnhance!Category = "e") Or (Forms!frmEnhance!Taxyear < 1989 And Forms!frmEnhance!Category = "e hmf") Or (Forms!frmEnhance!Category = "b hmf" And Forms!frmEnhance!ConvcatText = "b") Then
+        MethodA1 Rate, convrate, standcont, standearns, cocont, cocontearns
+        GoTo closeaction
+    End If
+Else
+    If (Forms!frmEnhance!Taxyear < 1989 And Forms!frmEnhance!Category = "a" And Forms!frmEnhance!ConvcatText = "a hmf") Then
+        MethodA1 Rate, convrate, standcont, standearns, cocont, cocontearns
+        GoTo closeaction
+    End If
+End If
+
+'Method C
+
+If (Forms!frmEnhance!Taxyear = 1989) Then
+
+    'Obtain maxima for year
+
+    Set maxdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [BAND TABLE].[Wk Band 5], [BAND TABLE].[Ann Band 5] FROM [input data] INNER JOIN [BAND TABLE] ON [input data].taxyear = [BAND TABLE].[Tax Yr];")
+    maxearnsweek = maxdyna![Wk Band 5]
+    amearns = maxdyna![Ann Band 5]
+    maxdyna.Close
+    If (Forms!frmEnhance!EnhanceButton.value = True) Then
+        If (Forms!frmEnhance!Category = "b") Or (Forms!frmEnhance!Category = "e") Or (Forms!frmEnhance!Category = "e hmf") Then
+                maxcontweek = curRound(maxearnsweek * Rate)
+                'Annual maximum contribution is maximum weekly cont to 2 decimal places multiplied by 52
+                amcont = maxcontweek * 52
+                If Forms!frmEnhance!primcont > amcont / 2 Then
+                    MethodC1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns, amcont, amearns
+                    GoTo closeaction:
+                Else: MethodA1 Rate, convrate, standcont, standearns, cocont, cocontearns
+                    GoTo closeaction:
+                End If
+        ElseIf (Forms!frmEnhance!Category = "b hmf" And Forms!frmEnhance!ConvcatText = "a") Then
+                maxcontweek = curRound(maxearnsweek * Rate)
+                'Annual maximum contribution is maximum weekly cont to 2 decimal places multiplied by 52
+                amcont = maxcontweek * 52
+                If Forms!frmEnhance!primcont > amcont / 2 Then
+                    MethodC1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns, amcont, amearns
+                    GoTo closeaction:
+                Else: MethodA1 Rate, convrate, standcont, standearns, cocont, cocontearns
+                    GoTo closeaction:
+                End If
+        ElseIf (Forms!frmEnhance!Category = "a hmf") Then
+                If Forms!frmEnhance!primcontearns > amearns / 2 Then
+                    MethodC1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns, amcont, amearns
+                    GoTo closeaction:
+                Else: MethodB1 Rate, convrate, standcont, standearns, cocont, cocontearns
+                    GoTo closeaction:
+                End If
+        ElseIf (Forms!frmEnhance!Category = "d hmf") Then
+                If Forms!frmEnhance!cocontearns > amearns / 2 Then
+                    MethodC1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns, amcont, amearns
+                    GoTo closeaction:
+                Else: MethodB1 Rate, convrate, standcont, standearns, cocont, cocontearns
+                    GoTo closeaction:
+                End If
+        End If
+    Else
+        If (Forms!frmEnhance!Category = "a" And Forms!frmEnhance!ConvcatText = "a hmf") Then
+                amcont = 1442.74 'Arbitrary value assigned specifically to 89 for a hmf cases
+                If Forms!frmEnhance!primcont > amcont / 2 Then
+                    MethodC1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns, amcont, amearns
+                    GoTo closeaction:
+                Else: MethodA1 Rate, convrate, standcont, standearns, cocont, cocontearns
+                    GoTo closeaction:
+                End If
+        End If
+    End If
+End If
+
+'Method D
+
+If (Forms!frmEnhance!TaxYearText.value > 1989) Then
+
+    'Obtain maxima for year
+    If Forms!frmEnhance!TaxYearText < 1999 Then
+        Set maxdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [BAND TABLE].[Wk Band 5], [BAND TABLE].[Ann Band 5] FROM [input data] INNER JOIN [BAND TABLE] ON [input data].taxyear = [BAND TABLE].[Tax Yr];")
+        maxearnsweek = maxdyna![Wk Band 5]
+        amearns = maxdyna![Ann Band 5]
+    Else 'csne
+        Set maxdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [tblBandLimits1999].[WkUEL], [tblBandLimits1999].[AnnUEL] FROM [input data] INNER JOIN [tblBandLimits1999] ON [input data].taxyear = [tblBandLimits1999].[Tax Yr];")
+        maxearnsweek = maxdyna![WkUEL]
+        amearns = maxdyna![AnnUEL]
+    End If
+
+    maxdyna.Close
+    If (Forms!frmEnhance!EnhanceButton.value = True) Then
+        If (Forms!frmEnhance!TaxYearText.value > 1996) And (Forms!frmEnhance!CategoryText.value = "G") Then
+            MethodD1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns
+            GoTo closeaction:
+        ElseIf (Forms!frmEnhance!CategoryText.value = "b") Or (Forms!frmEnhance!CategoryText.value = "e") Or (Forms!frmEnhance!CategoryText.value = "e hmf") Then
+            MethodD1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns
+            GoTo closeaction:
+        ElseIf (Forms!frmEnhance!CategoryText.value = "b hmf" And Forms!frmEnhance!ConvcatText.value = "a") Then
+            MethodD1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns
+            GoTo closeaction
+        ElseIf (Forms!frmEnhance!CategoryText.value = "a hmf") Then
+            MethodD1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns
+            GoTo closeaction
+        End If
+    Else
+        If (Forms!frmEnhance!CategoryText.value = "a" And Forms!frmEnhance!ConvcatText.value = "a hmf") Then
+            MethodD1 Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns
+            GoTo closeaction
+        End If
+    End If
+End If
+
+'Method B - this method applies to all cases unless any of the above exceptions occur
+
+MethodB1 Rate, convrate, standcont, standearns, cocont, cocontearns
+
+'Display results and close database down
+
+closeaction:
+With Forms!frmEnhance
+    !Results.Visible = True
+    !result.Visible = True
+    !primcont.Locked = True
+    !primcontearns.Locked = True
+    !cocont.Locked = True
+    !cocontearns.Locked = True
+    !TaxYearText.Enabled = False
+    !CategoryText.Enabled = False
+    !EnhanceButton.Locked = True
+    !DeEnhanceButton.Locked = True
+    !ConvcatText.Enabled = False
+    !newcalc.Enabled = True
+End With
+'Save record with result to database ( for potential printing requirements )
+
+DoCmd.DoMenuItem acFormBar, A_FILE, A_SAVERECORD, , A_MENU_VER20
+
+exit_dataread:
+    DoCmd.Hourglass False
+    Exit Function
+err_dataread:
+    MsgBox Error$
+    Resume exit_dataread
+End Function
+
+
+
+Sub MethodA1(Rate, convrate, standcont, standearns, cocont, cocontearns)
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History   : Jane Mullen
+' Date      : 20 May 1997
+' Purpose   : To add Category F and G to Method B
+' Author    : Lisa Scothern
+' Date      : 6 October 1997
+' Purpose   : RFC541F - make calls to global curRound() instead of local round which didn't work right.
+'           : Also indented code to make it readable.
+
+On Error GoTo err_MethodA1
+Dim lelratedyna As DAO.Recordset
+Dim lelrate As Double
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+If Forms!frmEnhance!CategoryText = "D" Or Forms!frmEnhance!CategoryText = "F" Then
+    curValue = curRound(cocont * convrate / Rate)
+    Forms!frmEnhance!result = curValue + (standcont - cocont)
+
+ElseIf (Forms!frmEnhance!CategoryText = "D HMF") Then
+    If Forms!frmEnhance!TaxYearText < 1986 Then
+        Set lelratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].category, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Up to LEL1 (employee)] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].category = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+        lelrate = lelratedyna![Up to LEL1 (employee)]
+    Else
+        Set lelratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].category, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Up to LEL4 (employee)] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].category = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+        lelrate = lelratedyna![Up to LEL4 (employee)]
+    End If
+    lelratedyna.Close
+    
+    curValue = curRound(cocont * convrate / Rate) + curRound((standcont - cocont) * convrate / lelrate)
+    Forms!frmEnhance!result = curValue
+Else
+    curValue = (standcont * convrate / Rate)
+    Forms!frmEnhance!result = curRound(curValue)
+End If
+
+exit_MethodA1:
+    Exit Sub
+err_MethodA1:
+    MsgBox Error$
+    Resume exit_MethodA1
+End Sub
+
+Sub MethodB1(Rate, convrate, standcont, standearns, cocont, cocontearns)
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+' History    : Jane Mullen
+' Date       : 19 May 1997
+' Purpose    : To add Category F and G to Method B
+' Author    : Lisa Scothern
+' Date      : 6 October 1997
+' Purpose   : RFC541F - make calls to global curRound() instead of local round which didn't work right.
+'           : Also indented code to make it readable, and closed dynaset.
+
+
+On Error GoTo err_MethodB1
+Dim lelratedyna As DAO.Recordset
+Dim lelrate As Double
+Dim store As Double
+Dim store1 As Double
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+'This line has been changed to Support F, worked out the same as D
+If Forms!frmEnhance!CategoryText = "D" Or Forms!frmEnhance!CategoryText = "F" Then
+    curValue = curRound(cocontearns * (convrate - Rate))
+    Forms!frmEnhance!result = curValue + standcont
+ElseIf Forms!frmEnhance!CategoryText = "D HMF" Then
+    Set lelratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].category, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Up to LEL4 (employee)] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].category = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+    lelrate = lelratedyna![Up to LEL4 (employee)]
+    lelratedyna.Close
+    curValue = cocontearns * (convrate - Rate)
+    store = curRound(curValue)
+
+    store1 = 0
+    If Forms!frmEnhance!TaxYearText = 1987 Or Forms!frmEnhance!TaxYearText = 1988 Then
+        store1 = curRound((standearns - cocontearns) * (convrate - lelrate))
+    End If
+
+    curValue = store + store1 + standcont
+    Forms!frmEnhance!result = curRound(curValue)
+Else
+    curValue = curRound(standearns * (convrate - Rate))
+    Forms!frmEnhance!result = curValue + standcont
+End If
+
+exit_MethodB1:
+    Exit Sub
+err_MethodB1:
+    MsgBox Error$
+    Resume exit_MethodB1
+End Sub
+
+
+
+
+Sub MethodC1(Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns, amcont, amearns)
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History    : Jane Mullen
+' Date       : 20 May 1997
+' Purpose    : To add Category F and G to Method B
+' Author    : Lisa Scothern
+' Date      : 6 October 1997
+' Purpose   : RFC541F - make calls to global curRound() instead of local round which didn't work right.
+'           : Also indented code to make it readable, and closed dynaset.
+
+
+On Error GoTo err_MethodC1
+Dim mincontdyna As DAO.Recordset, lelratedyna As DAO.Recordset
+Dim numberweeks As Double
+Dim lelearns As Double
+Dim uellelearns As Double
+Dim lelcont As Double
+Dim uellelcont As Double
+Dim store As Double
+Dim store1 As Double
+Dim store2 As Double
+Dim postoct89cont As Double
+Dim postoct89earns As Double
+Dim standcontel As Double
+Dim stanearnel As Double
+Dim mincontweek As Double
+Dim minearnsweek As Double
+Dim lelrate As Double
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+If Forms!frmEnhance!EnhanceButton.value = True Then
+    If (Forms!frmEnhance!Category = "b") Or (Forms!frmEnhance!Category = "b hmf") Or (Forms!frmEnhance!Category = "e") Or (Forms!frmEnhance!Category = "e hmf") Then
+        'Enhancement of B and B hmf
+        
+        postoct89cont = CCur(standcont - amcont / 2)
+        numberweeks = postoct89cont / maxcontweek
+        nwround numberweeks
+        'Enquire on database for minimum weekly earnings threshold
+        Set mincontdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [BAND TABLE].[Wk Band 1] FROM [BAND TABLE] INNER JOIN [input data] ON [BAND TABLE].[Tax Yr] = [input data].taxyear;")
+        'Calculate minimum contributions payable
+        mincontweek = curRound(mincontdyna![Wk Band 1] * Rate)
+        mincontdyna.Close
+        lelcont = curRound(numberweeks * mincontweek)
+        
+        'Obtain rate payable on earnings below the weekly lower earnings level
+        Set lelratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Up to LEL1 (employee)] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].convcat = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=27));")
+        lelrate = lelratedyna![Up to LEL1 (employee)]
+        lelratedyna.Close
+        store = curRound(lelcont * lelrate / Rate)           'Enhanced lelcont to 2 decimal places
+
+        uellelcont = postoct89cont - lelcont
+        store1 = curRound(uellelcont * convrate / Rate)      'Enhanced uellelcont to 2 decimal places
+
+        store2 = curRound((amcont / 2) * convrate / Rate)  'Enhanced pre Oct 89 cont to 2 decimal places
+
+        Forms!frmEnhance!result = store + store1 + store2
+    ElseIf (Forms!frmEnhance!Category = "a hmf") Then
+        'Enhancement of A hmf
+        
+        postoct89earns = standearns - amearns / 2
+        numberweeks = postoct89earns / maxearnsweek
+        nwround numberweeks
+        'Enquire on database for minimum weekly earnings threshold
+        Set mincontdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [BAND TABLE].[Wk Band 1] FROM [BAND TABLE] INNER JOIN [input data] ON [BAND TABLE].[Tax Yr] = [input data].taxyear;")
+        'Calculate minimum contributions payable
+        minearnsweek = mincontdyna![Wk Band 1]
+        mincontdyna.Close
+        lelearns = curRound(numberweeks * minearnsweek)
+        store = curRound((postoct89earns - lelearns) * (convrate - Rate))   'Enhanced post Oct 89 uellelearns
+        
+        store1 = curRound((amearns / 2) * (convrate - Rate))                'Enhanced pre Oct 89 earns
+        
+        Forms!frmEnhance!result = (store + store1 + standcont)
+    ElseIf (Forms!frmEnhance!Category = "d hmf") Then
+        'Enhancement of D hmf
+        
+        standcontel = standcont - cocont
+        stanearnel = curRound((standearns - cocontearns) / 2)
+        'need to enquire on rate for A and and A hmf
+        store = curRound((stanearnel * 0.0065) + standcontel)
+        
+        store1 = curRound(cocontearns * (convrate - Rate) + cocont)
+        
+        Forms!frmEnhance!result = store + store1
+    End If
+Else
+        'Deenhancement of of cat A to cat A hmf
+
+        postoct89cont = CSng(standcont - amcont / 2)
+        
+        'Obtain rate payable on earnings below the weekly lower earnings level
+        Set lelratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Up to LEL1 (employee)] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].convcat = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=27));")
+        lelrate = lelratedyna![Up to LEL1 (employee)]
+        lelratedyna.Close
+        
+        'Enquire on database for minimum weekly earnings threshold
+        Set mincontdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [BAND TABLE].[Wk Band 1] FROM [BAND TABLE] INNER JOIN [input data] ON [BAND TABLE].[Tax Yr] = [input data].taxyear;")
+        minearnsweek = mincontdyna![Wk Band 1]
+        mincontweek = curRound(minearnsweek * lelrate)
+        mincontdyna.Close
+        maxcontweek = curRound(((maxearnsweek - minearnsweek) * Rate) + mincontweek)
+        numberweeks = postoct89cont / maxcontweek
+        nwround numberweeks
+
+        'Calculate minimum contributions payable
+        lelcont = curRound(numberweeks * mincontweek)
+        uellelcont = postoct89cont - lelcont
+        store = curRound(uellelcont * (convrate / Rate))
+        
+        store1 = curRound((amcont / 2) * convrate / Rate)
+        
+        Forms!frmEnhance!result = store + store1 + lelcont
+End If
+exit_MethodC1:
+    Exit Sub
+err_MethodC1:
+    MsgBox Error$
+    Resume exit_MethodC1
+End Sub
+        
+
+Sub MethodD1(Rate, convrate, maxcontweek, maxearnsweek, standcont, standearns, cocont, cocontearns)
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+' Author    : Lisa Scothern
+' Date      : 6 October 1997
+' Purpose   : RFC541F - make calls to global curRound() instead of local round which didn't work right.
+'           : Also indented code to make it readable.
+
+On Error GoTo err_MethodD1
+Dim mincontdyna As DAO.Recordset, lelratedyna As DAO.Recordset
+Dim numberweeks As Double
+Dim lelearns As Double
+Dim uellelearns As Double
+Dim lelcont As Double
+Dim uellelcont As Double
+Dim store As Double
+Dim store1 As Double
+Dim lelrate As Double
+Dim mincontweek As Double
+Dim minearnsweek As Double
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+
+If Forms!frmEnhance!EnhanceButton.value = True Then
+    If Forms!frmEnhance!Category = "a hmf" Then
+        'Enhancement of A hmf
+        numberweeks = standearns / maxearnsweek
+        nwround numberweeks
+        'Enquire on database for minimum weekly earnings threshold
+        Set mincontdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [BAND TABLE].[Wk Band 1] FROM [BAND TABLE] INNER JOIN [input data] ON [BAND TABLE].[Tax Yr] = [input data].taxyear;")
+        minearnsweek = mincontdyna![Wk Band 1]
+        mincontdyna.Close
+
+        lelearns = curRound(numberweeks * minearnsweek)
+        uellelearns = standearns - lelearns
+        store = curRound(uellelearns * (convrate - Rate))
+        Forms!frmEnhance!result = (store + standcont)
+    Else
+
+        'Enhancement of category B, B hmf,E and E hmf , and also G
+         maxcontweek = curRound(maxearnsweek * Rate)
+         numberweeks = standcont / maxcontweek
+         nwround numberweeks
+  
+         If Forms!frmEnhance!TaxYearText < 1999 Then
+             'Enquire on database for minimum weekly earnings threshold
+             Set mincontdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [BAND TABLE].[Wk Band 1] FROM [BAND TABLE] INNER JOIN [input data] ON [BAND TABLE].[Tax Yr] = [input data].taxyear;")
+             'Calculate minimum contributions payable
+             mincontweek = curRound(mincontdyna![Wk Band 1] * Rate)
+         Else
+             'Enquire on database for minimum weekly earnings threshold
+             Set mincontdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [tblBandLimits1999].[WkLEL] FROM [tblBandLimits1999] INNER JOIN [input data] ON [tblBandLimits1999].[Tax Yr] = [input data].taxyear;")
+             'Calculate minimum contributions payable
+             mincontweek = curRound(mincontdyna![WkLEL] * Rate)
+         End If
+
+         mincontdyna.Close
+         uellelcont = curRound((numberweeks * (maxcontweek - mincontweek)))
+
+         'lelcont = CCur(standcont - uellelcont) gives same answer, but agency calculate it as follows...
+         lelcont = curRound(numberweeks * mincontweek)
+
+         store = curRound((uellelcont * (convrate / Rate)))
+         
+          If Forms!frmEnhance!TaxYearText < 1999 Then
+             'Obtain rate payable on earnings below the weekly lower earnings level
+             Set lelratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Up to LEL1 (employee)] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].convcat = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+             lelrate = lelratedyna![Up to LEL1 (employee)]
+             lelratedyna.Close
+             store1 = curRound(lelcont * (lelrate / Rate))
+             Forms!frmEnhance!result = store + store1 'V1950855
+          Else
+             'store1 = 0 'V1950855
+              Forms!frmEnhance!result = curRound(standcont * (convrate / Rate)) 'V1950855
+          End If
+
+         'Forms!frmEnhance!result = store + store1 'V1950855
+    End If
+
+Else
+
+         'de-enhancement of A to A hmf
+         'Obtain rate payable on earnings below the weekly lower earnings level
+         Set lelratedyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [input data].convcat, [CLASS 1 RATE TABLE].[Start Week], [CLASS 1 RATE TABLE].[Up to LEL1 (employee)] FROM [input data] INNER JOIN [CLASS 1 RATE TABLE] ON ([input data].convcat = [CLASS 1 RATE TABLE].Cat) AND ([input data].taxyear = [CLASS 1 RATE TABLE].[Tax Yr]) WHERE (([CLASS 1 RATE TABLE].[Start Week]=1));")
+         lelrate = lelratedyna![Up to LEL1 (employee)]
+         lelratedyna.Close
+         'Enquire on database for minimum weekly earnings threshold
+         Set mincontdyna = myDB.OpenRecordset("SELECT DISTINCTROW [input data].taxyear, [BAND TABLE].[Wk Band 1] FROM [BAND TABLE] INNER JOIN [input data] ON [BAND TABLE].[Tax Yr] = [input data].taxyear;")
+         minearnsweek = mincontdyna![Wk Band 1]
+         mincontweek = curRound(minearnsweek * lelrate)
+         mincontdyna.Close
+         maxcontweek = curRound(((maxearnsweek - minearnsweek) * Rate) + mincontweek)
+         numberweeks = standcont / maxcontweek
+         nwround numberweeks
+         lelcont = curRound(numberweeks * mincontweek)
+         
+         uellelcont = CSng(standcont - lelcont)
+         store = curRound(uellelcont * (convrate / Rate))
+         
+         Forms!frmEnhance!result = store + lelcont
+End If
+exit_MethodD1:
+    Exit Sub
+err_MethodD1:
+    MsgBox Error$
+    Resume exit_MethodD1
+End Sub
+
+Sub nwround(numberweeks)
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author    :   Lisa Scothern
+' Date      :   6 October 1997
+' Purpose   :   RFC541F - Totally re-written and now rounds to 4dps (as documentation specifies)
+'           :   (Exactly 0.5 pence or less will be rounded down)
+'           :   It will also cater for negative values, although none are expected.
+
+On Error GoTo err_nwround
+
+
+    Dim shiftCurWeeks As Double, shiftRoundWeeks As Double
+
+    shiftCurWeeks = numberweeks * 10000
+    shiftRoundWeeks = Fix(shiftCurWeeks)
+
+    If (Abs(shiftCurWeeks - shiftRoundWeeks) > 0.5) Then
+        shiftRoundWeeks = IIf(numberweeks < 0, shiftRoundWeeks - 1, shiftRoundWeeks + 1)
+    End If
+
+    numberweeks = shiftRoundWeeks / 10000
+
+exit_nwround:
+    Exit Sub
+err_nwround:
+    MsgBox Error$
+    Resume exit_nwround
+End Sub
+
+Sub validateCategory()
+
+' Author        : Jane Mullen
+' Date          : 19 May 1997
+' Purpose       : To set Categories F and G only to tax year 1997/87 onwards
+
+On Error GoTo err_validateCategory
+
+If (Forms!frmEnhance!TaxYearText < 1997) And (Forms!frmEnhance!CategoryText = "F" Or Forms!frmEnhance!Category = "G") Then
+    MsgBox "Contracted Out categories for 'F' and 'G' are not available before 1997 - please reinput", 48, "Warning"
+    Forms!frmEnhance!CategoryText.SetFocus
+    ElseIf (Forms!frmEnhance!TaxYearText > 1995) And (Forms!frmEnhance!CategoryText = "A HMF" Or Forms!frmEnhance!Category = "B HMF" Or Forms!frmEnhance!CategoryText = "D HMF" Or Forms!frmEnhance!Category = "E HMF") Then
+    MsgBox "Categories 'A HMF', 'B HMF', 'D HMF' and 'E HMF' are not available after 1995 - please reinput", 48, "Warning"
+    Forms!frmEnhance!CategoryText.SetFocus
+End If
+
+exit_validateCategory:
+    Exit Sub
+err_validateCategory:
+    MsgBox Error$
+    Resume exit_validateCategory
+
+
+End Sub

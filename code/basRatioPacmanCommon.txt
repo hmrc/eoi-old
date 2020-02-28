@@ -1,0 +1,5172 @@
+Option Compare Database   'Use database order for string comparisons
+
+' Author        : Mustaq Hussain
+' Date          : 17 May 1996
+' Purpose       : Ratio Check modules
+
+Option Explicit
+
+
+Global Const cRatioLELEmployee = 1
+Global Const cRatioLELEmployer = 2
+Global Const cRatioUELEmployee = 3
+Global Const cRatioUELEmployer = 4
+Global Const cRatioAboveUEL = 5
+
+Sub AnnualBand(ByVal nYear As Integer, ByVal nTotal_Earnings As Currency, nBand As Integer, nLEL As Currency, nUEL As Currency)
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : AnnualBand
+' Purpose       : To get the Band, LEL and UEL for the specified year, in an auunal period
+' History
+' Author        : Mustaq Hussain
+' Date          : 17 July 1996
+' Purpose       : Default to band 1, if LEL not reached
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim sYear As String, SQLQuery As String
+
+    On Error GoTo Err_AnnualBand
+
+    ' Need to convert Tax Yr into a string, without a leading space
+    sYear = Mid(Str(nYear), 2, 5)
+
+    ' Query to get the Annual Bands for [Tax Yr]
+    SQLQuery = "SELECT * FROM [BAND TABLE] WHERE [Tax Yr] = '" + sYear + "';"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+    
+
+    ' Extract the Band and its Limit, for the earnings
+    nBand = 1
+    If nTotal_Earnings >= mySet![Ann Band 1] Then
+        nBand = 1
+        If nTotal_Earnings >= mySet![Ann Band 2] Then
+            nBand = 2
+            If nTotal_Earnings >= mySet![Ann Band 3] Then
+                nBand = 3
+                If nTotal_Earnings >= mySet![Ann Band 4] Then
+                    nBand = 4
+                End If
+            End If
+        End If
+    End If
+
+    ' Lower and Uppper Earnings Limits
+    nLEL = mySet![Ann Band 1]
+    nUEL = mySet![Ann Band 5]
+
+Exit_AnnualBand:
+    Exit Sub
+
+Err_AnnualBand:
+    MsgBox Error$
+    Resume Exit_AnnualBand
+
+End Sub
+
+Function bCode00(ByVal nYear As Integer, ByVal strcat As String, ByVal curTP As Currency, ByVal curTC As Currency, ByVal curNIEarnings As Currency, ByVal curCOElement As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 29 May 1996
+' Fuction Name  : bCode00
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks
+' Author        : Christopher Schuler
+' Date          : 20 May 1997
+' Purpose       : Amendments for 1997/98 rates
+' Author        : Christopher Schuler
+' Date          : 27 October 2000
+' Purpose       : Ref P200100210 Multiplier value for 1996 Cat A changed from 1.51 to 1.52 on request by business
+ 
+            
+    Dim curSub As Currency, curFinal As Currency
+    Dim curPB As Currency, curCOAdjust As Currency, curPBAdjust As Currency
+    Dim nBand As Integer
+    Dim nLEL As Currency, nUEL As Currency
+    Dim EENotCORate As Double, EECORate As Double, ERCORate As Double, ERNotCORate As Double
+
+    Dim step4, step7
+
+    On Error GoTo Err_bCode00
+    
+    ' Assume fails
+    bCode00 = False
+
+    curSub = 0
+    curFinal = 0
+    
+    Select Case nYear
+        Case 1998
+            curSub = 33
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.54
+                Case "B"
+                    curFinal = curTP * 1.75
+                Case "D"
+                    curFinal = curTP * 1.35
+                Case "E"
+                    curFinal = curTP * 1.43
+                Case "F"
+                    curFinal = curTP * 1.48
+                Case "G"
+                    curFinal = curTP * 1.59
+            End Select
+        Case 1997
+            curSub = 32
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.52
+                Case "B"
+                    curFinal = curTP * 1.75
+                Case "D"
+                    curFinal = curTP * 1.33
+                Case "E"
+                    curFinal = curTP * 1.42
+                Case "F"
+                    curFinal = curTP * 1.47
+                Case "G"
+                    curFinal = curTP * 1.58
+            End Select
+        Case 1996
+            curSub = 31
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.52
+                Case "B"
+                    curFinal = curTP * 1.75
+                Case "D"
+                    curFinal = curTP * 1.33
+                Case "E"
+                    curFinal = curTP * 1.41
+            End Select
+        Case 1995
+            curSub = 30.5
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.51
+                Case "B"
+                    curFinal = curTP * 1.77
+                Case "D"
+                    curFinal = curTP * 1.35
+                Case "E"
+                    curFinal = curTP * 1.41
+            End Select
+        Case 1994
+            curSub = 29#
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.64
+                Case "B"
+                    curFinal = curTP * 1.91
+                Case "D"
+                    curFinal = curTP * 1.47
+                Case "E"
+                    curFinal = curTP * 1.58
+            End Select
+        Case 1993
+            curSub = 28.5
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.92
+                Case "B"
+                    curFinal = curTP * 2.17
+                Case "D"
+                    curFinal = curTP * 1.79
+                Case "E"
+                    curFinal = curTP * 1.85
+            End Select
+        Case 1992
+            curSub = 28#
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.94
+                Case "B"
+                    curFinal = curTP * 2.194
+                Case "D"
+                    curFinal = curTP * 1.75
+                Case "E"
+                    curFinal = curTP * 1.78
+            End Select
+        Case 1991
+            curSub = 27#
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.95
+                Case "B"
+                    curFinal = curTP * 8.45 / 3.85
+                Case "D"
+                    curFinal = curTP * 1.77
+                Case "E"
+                    curFinal = curTP * 1.79
+            End Select
+        Case 1990
+            curSub = 26#
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 1.99
+                Case "B"
+                    curFinal = curTP * 8.85 / 3.85
+                Case "D"
+                    curFinal = curTP * 1.8
+                Case "E"
+                    curFinal = curTP * 1.86
+            End Select
+        Case 1989
+            curSub = 23#
+            Select Case strcat
+                Case "A"
+                    curFinal = curTP * 2
+                Case "B"
+                    ' Employee/Employer rates
+                    AnnualBand nYear, curNIEarnings, nBand, nLEL, nUEL
+                    UseClass1Rate nYear, strcat, cRatioUELEmployee, nBand, EECORate
+                    UseClass1Rate nYear, strcat, cRatioUELEmployer, 1, ERCORate
+
+                    curFinal = (curTP * ((EECORate + ERCORate) / EECORate))
+                Case "D"
+                    curFinal = curTP * 1.78
+                Case "E"
+                    curFinal = curTP * 1.85
+            End Select
+        Case 1988
+            curSub = 21.5
+            Select Case strcat
+                Case "A"
+                    Select Case curTP
+                        Case Is <= 809.1
+                            curFinal = curTP * 2
+                        Case Is <= 1592.1
+                            curFinal = ((curTP * 19.45) / 9 - (1592.1 - curTP) / 6.01)
+                    End Select
+                Case "B"
+                    Select Case curTP
+                        Case Is <= 156.29
+                            curFinal = curTP * 8.85 / 3.85
+                        Case Is <= 234.44
+                            curFinal = (curTP * 10.85) / 3.85 - (234.44 - curTP) / 0.96
+                        Case Is <= 346.26
+                            curFinal = (curTP * 12.85) / 3.85 - (346.26 - curTP) / 0.92
+                        Case Is <= 681.07
+                            curFinal = (curTP * 14.3) / 3.85 - (681.07 - curTP) / 2.57
+                    End Select
+                Case "D"
+                    curPB = curTP - curCOElement
+                    Select Case curCOElement
+                        Case Is <= 185.6
+                            curFinal = curCOElement * 8.26 / 5 + curPB * 2
+                        Case Is <= 462.84
+                            curFinal = curCOElement * 12.2 / 7 + curPB * 2
+                        Case Is <= 1071.84
+                            curCOAdjust = (1071.84 - curCOElement) / 6.35
+                            curPBAdjust = (curCOAdjust * 34.48) / 95.87
+                            curFinal = curCOElement * 13.65 / 7 + curPB * 19.45 / 9 - curCOAdjust - curPBAdjust
+                    End Select
+            End Select
+        Case 1987
+            curSub = 20.5
+            Select Case strcat
+                Case "A"
+                    Select Case curTP
+                        Case Is <= 823.5
+                            curFinal = curTP * 2
+                        Case Is <= 1619.55
+                            curFinal = ((curTP * 2.16) - (1619.55 - curTP) / 6#)
+                    End Select
+                Case "B"
+                    Select Case curTP
+                        Case Is <= 152.63
+                            curFinal = curTP * 2.29
+                        Case Is <= 234.85
+                            curFinal = (curTP * 2.81) - (234.85 - curTP) / 1.04
+                        Case Is <= 352.25
+                            curFinal = (curTP * 3.33) - (352.25 - curTP) / 0.96
+                        Case Is <= 692.96
+                            curFinal = (curTP * 3.71) - (692.96 - curTP) / 2.57
+                    End Select
+                Case "D"
+                    curPB = curTP - curCOElement
+                    Select Case curCOElement
+                        Case Is <= 180.56
+                            curFinal = curCOElement * 1.6 + curPB * 2
+                        Case Is <= 463.77
+                            curFinal = curCOElement * 1.72 + curPB * 2
+                        Case Is <= 1069.94
+                            curCOAdjust = (1069.94 - curCOElement) / 6.17
+                            curPBAdjust = (curCOAdjust * 34.5) / 98.17
+                            curFinal = curCOElement * 1.93 + curPB * 2.16 - curCOAdjust - curPBAdjust
+                    End Select
+            End Select
+        Case 1986
+            curSub = 19.5
+            Select Case strcat
+                Case "A"
+                    Select Case curTP
+                        Case Is <= 768.59
+                            curFinal = curTP * 2
+                        Case Is <= 1564.65
+                            curFinal = (curTP * 2.16) - (1564.65 - curTP) / 6.43
+                    End Select
+                Case "B"
+                    Select Case curTP
+                        Case Is <= 140.9
+                            curFinal = curTP * 2.29
+                        Case Is <= 223.25
+                            curFinal = (curTP * 2.81) - (222.26 - curTP) / 1.12
+                        Case Is <= 328.78
+                            curFinal = (curTP * 3.33) - (328.79 - curTP) / 0.91
+                        Case Is <= 669.32
+                            curFinal = (curTP * 3.71) - (669.32 - curTP) / 2.75
+                    End Select
+                Case "D"
+                    curPB = curTP - curCOElement
+                    Select Case curCOElement
+                        Case Is <= 168.6
+                            curFinal = curCOElement * 1.6 + curPB * 2
+                        Case Is <= 426.4
+                            curFinal = curCOElement * 1.72 + curPB * 2
+                        Case Is <= 1032.12
+                            curCOAdjust = (1032.12 - curCOElement) / 6.71
+                            curPBAdjust = (curCOAdjust * 33.61) / 90.26
+                            curFinal = curCOElement * 1.93 + curPB * 2.16 - curCOAdjust - curPBAdjust
+                    End Select
+            End Select
+        Case 1985
+            curSub = 19
+            Select Case strcat
+                Case "A"
+                    Select Case curTP
+                        Case Is <= 713.69
+                            curFinal = curTP * 2
+                        Case Is <= 1454.85
+                            curFinal = ((curTP * 2.16) - (1454.85 - curTP) / 6.44)
+                    End Select
+                Case "B"
+                    Select Case curTP
+                        Case Is <= 129.31
+                            curFinal = curTP * 2.29
+                        Case Is <= 211.33
+                            curFinal = (curTP * 2.81) - (211.34 - curTP) / 1.22
+                        Case Is <= 305.27
+                            curFinal = (curTP * 3.33) - (305.28 - curTP) / 0.85
+                        Case Is <= 622.35
+                            curFinal = (curTP * 3.71) - (622.35 - curTP) / 2.75
+                    End Select
+                Case "D"
+                    curPB = curTP - curCOElement
+                    Select Case curCOElement
+                        Case Is <= 161.21
+                            curFinal = curCOElement * 1.6 + curPB * 2
+                        Case Is <= 394.83
+                            curFinal = curCOElement * 1.72 + curPB * 2
+                        Case Is <= 958.96
+                            curCOAdjust = (958.96 - curCOElement) / 6.75
+                            curPBAdjust = (curCOAdjust * 31.4) / 83.58
+                            curFinal = curCOElement * 1.93 + curPB * 2.16 - curCOAdjust - curPBAdjust
+                    End Select
+            End Select
+        Case 1975 To 1984
+            curSub = 0
+            Select Case strcat
+                Case "A", "B"
+                    ' Employee/Employer rates
+                    AnnualBand nYear, curNIEarnings, nBand, nLEL, nUEL
+                    UseClass1Rate nYear, strcat, cRatioLELEmployee, nBand, EENotCORate
+                    UseClass1Rate nYear, strcat, cRatioLELEmployer, nBand, ERNotCORate
+                    
+                    curFinal = (curTP * ((EENotCORate + ERNotCORate) / EENotCORate))
+                Case "D"
+                    ' Employee/Employer rates
+                    AnnualBand nYear, curNIEarnings, nBand, nLEL, nUEL
+                    UseClass1Rate nYear, strcat, cRatioLELEmployee, nBand, EENotCORate
+                    UseClass1Rate nYear, strcat, cRatioUELEmployee, nBand, EECORate
+                    UseClass1Rate nYear, strcat, cRatioUELEmployer, nBand, ERCORate
+                    
+                    step4 = (curTP - curCOElement) * (EENotCORate + ERCORate) / EENotCORate
+                    step7 = curCOElement * (EECORate + ERCORate) / EECORate
+                    curFinal = step4 + step7
+            End Select
+
+        Case Else
+            ' Ensure failure
+            curFinal = curTC + 1000
+    End Select
+    curFinal = curTruncate(curFinal - curSub)
+
+    If nYear <= 1984 Then
+        bCode00 = IIf(curFinal < curTC, True, False)
+    Else
+        bCode00 = IIf(curTC >= curFinal, True, False)
+    End If
+    
+
+Exit_bCode00:
+    Exit Function
+    
+Err_bCode00:
+    MsgBox Error$
+    Resume Exit_bCode00
+
+End Function
+
+Function bCode01AND12(ByVal curTP As Currency, ByVal curTC As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 29 May 1996
+' Fuction Name  : bCode01AND12
+' Purpose       : Carry out Code
+            
+
+    On Error GoTo Err_bCode01AND12
+
+    bCode01AND12 = IIf(curTC >= curTP, True, False)
+
+
+Exit_bCode01AND12:
+    Exit Function
+    
+Err_bCode01AND12:
+    MsgBox Error$
+    Resume Exit_bCode01AND12
+
+End Function
+
+Function bCode02AND13(ByVal curTP As Currency, ByVal curCO As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 29 May 1996
+' Fuction Name  : bCode02AND13
+' Purpose       : Carry out Code
+            
+
+    On Error GoTo Err_bCode02AND13
+
+    bCode02AND13 = True
+
+    If curTP = 0 Then
+        bCode02AND13 = IIf(curCO = 0, True, False)
+    End If
+
+
+Exit_bCode02AND13:
+    Exit Function
+    
+Err_bCode02AND13:
+    MsgBox Error$
+    Resume Exit_bCode02AND13
+
+End Function
+
+Function bCode03AND14(ByVal strcat As String, ByVal curTP As Currency, ByVal curCOElement As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : bCode03AND14
+' Purpose       : Carry out Code
+            
+    On Error GoTo Err_bCode03AND14
+
+    bCode03AND14 = False
+
+    If strcat = "D" Or strcat = "F" Then
+        bCode03AND14 = IIf(curTP >= curCOElement, True, False)
+    End If
+
+Exit_bCode03AND14:
+    Exit Function
+    
+Err_bCode03AND14:
+    MsgBox Error$
+    Resume Exit_bCode03AND14
+
+End Function
+
+Function bCode04(nYear As Integer, strCategory As String, CurUpToLEL As Currency, CurLELtoEEET As Currency, CurEEETtoERET As Currency, CurERETtoUEL As Currency) As Integer
+' Author        : Peter Morton
+' Date          : 21/11/2000
+' Function Name : bCode04
+' Purpose       :
+' 1) if curUpToLEL = 0 then LELtoEEET <=0
+' 2) if LELtoEEET = 0 then EEETtoERET <=0
+' 3) if EEETtoERET = 0 then ERETtoUEL <=0
+' Applies to all cats
+
+    On Error GoTo Err_bCode04
+
+    bCode04 = True  'set default
+    Select Case nYear
+        Case 2000
+                   If CurUpToLEL = 0 Then
+                        If CurLELtoEEET > 0 Then
+                            bCode04 = False
+                            Exit Function
+                        End If
+                    End If
+                    If CurLELtoEEET = 0 Then
+                        If CurEEETtoERET > 0 Then
+                            bCode04 = False
+                            Exit Function
+                        End If
+                    End If
+                    If CurEEETtoERET = 0 Then
+                        If CurERETtoUEL > 0 Then
+                            bCode04 = False
+                            Exit Function
+                        End If
+                    End If
+
+    End Select 'year
+
+Exit_bCode04:
+    Exit Function
+    
+Err_bCode04:
+    MsgBox Error$
+    Resume Exit_bCode04
+
+End Function
+
+
+Function bCode07AND16(ByVal nYear As Integer, ByVal strcat As String, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 5 June 1996
+' Fuction Name  : bCode07AND16
+' Purpose       : Carry out Code
+            
+    On Error GoTo Err_bCode07AND16
+
+    ' Assume failure
+    bCode07AND16 = False
+
+    If strcat = "D" Or strcat = "F" Then
+        Dim nLEL As Currency, nUEL As Currency
+        Dim nBand As Integer
+        Dim Rate4 As Double
+
+        Dim nWeekMax As Integer
+
+        Dim curLTCont As Currency, curLTEarnings As Currency
+        Dim curMaxLTCont, curMaxLTEarnings
+
+        ' nLEL and nUEL, and standard rates 4
+        AnnualBand nYear, curNIEarnings, nBand, nLEL, nUEL
+        UseClass1Rate nYear, strcat, cRatioLELEmployee, 4, Rate4
+        
+
+        nLEL = curRoundUp(nLEL / 52)
+        Select Case nYear
+            Case Is <= 1987
+                nWeekMax = 61
+            Case Else
+                nWeekMax = 58
+        End Select
+
+        curLTCont = curTruncate(curPrimary - curCOElement)
+        curLTEarnings = curTruncate(curNIEarnings - curCOEarnings)
+
+        curMaxLTCont = curTruncate(nWeekMax * nLEL * Rate4)
+        curMaxLTEarnings = curTruncate(nWeekMax * nLEL)
+
+        bCode07AND16 = IIf(curLTCont <= curMaxLTCont And curLTEarnings <= curMaxLTEarnings, True, False)
+    End If
+
+Exit_bCode07AND16:
+    Exit Function
+    
+Err_bCode07AND16:
+    MsgBox Error$
+    Resume Exit_bCode07AND16
+
+End Function
+
+Function bCode08AND09AND17AND18(ByVal nYear As Integer, ByVal strcat As String, ByVal curTP As Currency, ByVal curCOElement As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : bCode08AND09AND17AND18
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks
+' Author        : Christopher Schuler
+' Date          : 20 May 1997
+' Purpose       : Amendments for 1997/98 rates
+            
+    Dim Ratio
+
+    On Error GoTo Err_bCode08AND09AND17AND18
+
+    bCode08AND09AND17AND18 = False
+
+    If strcat = "D" Or strcat = "F" Then
+        If curCOElement = 0 Then
+            Ratio = 0
+        Else
+            Ratio = curTruncate(curTP / curCOElement)
+        End If
+        Select Case nYear
+            Case 1994, 1995, 1996, 1997, 1998
+                bCode08AND09AND17AND18 = IIf(Ratio > 1.01, True, False)
+            Case 1990, 1991, 1992, 1993
+                bCode08AND09AND17AND18 = IIf(Ratio > 1.02, True, False)
+            Case 1989
+                bCode08AND09AND17AND18 = IIf(Ratio >= 1.02 And Ratio <= 3.32, True, False)
+            Case 1988
+                bCode08AND09AND17AND18 = IIf(Ratio >= 1.17 And Ratio <= 3.32, True, False)
+            Case 1985, 1986, 1987
+                bCode08AND09AND17AND18 = IIf(Ratio >= 1.2 And Ratio <= 3.32, True, False)
+            Case 1975 To 1984
+                bCode08AND09AND17AND18 = IIf(Ratio >= 1.2 And Ratio <= 3.32, True, False)
+            Case Else
+                bCode08AND09AND17AND18 = False
+        End Select
+    End If
+
+Exit_bCode08AND09AND17AND18:
+    Exit Function
+    
+Err_bCode08AND09AND17AND18:
+    MsgBox Error$
+    Resume Exit_bCode08AND09AND17AND18
+
+End Function
+
+Function bCode10AND11(ByVal nYear As Integer, ByVal strcat As String, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOElement As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : bCode10AND11
+' Purpose       : Carry out Code
+            
+    On Error GoTo Err_bCode10AND11
+
+    bCode10AND11 = False
+
+    If strcat = "D" Then
+        Select Case nYear
+            Case 1975 To 1984
+                Dim curRate As Currency, curLEL As Currency, nUEL As Currency, nBand As Integer, EECORate As Double, test, Lower, Upper
+                ' Employee/Employer rates
+                AnnualBand nYear, curNIEarnings, nBand, curLEL, nUEL
+                UseClass1Rate nYear, strcat, cRatioLELEmployee, 1, EECORate
+
+                ' Convert to weekly
+                curLEL = curRoundUp(curLEL / 52)
+                curRate = curTruncate(curLEL * EECORate)
+
+                test = curTruncate(curPrimary - (53 * curLEL * EECORate) - curCOElement)
+                Lower = curTruncate(-1 * (curRate + 0.7))
+                Upper = curTruncate(curRate * 8)
+
+                bCode10AND11 = IIf(test >= Lower And test <= Upper, True, False)
+
+            Case Else
+                bCode10AND11 = False
+        End Select
+    End If
+
+Exit_bCode10AND11:
+    Exit Function
+    
+Err_bCode10AND11:
+    MsgBox Error$
+    Resume Exit_bCode10AND11
+
+End Function
+
+Function bCode19(ByVal nYear As Integer, ByVal strcat As String, ByVal curTP As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 29 May 1996
+' Function Name : bCode19
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks, LER 122 : incorrect rates
+' Author        : Christopher Schuler
+' Date          : 20 May 1999
+' Purpose       : Amendments for 1998/99 rates
+' Author        : Christopher Schuler
+' Date          : 10 March 2000
+' Purpose       : Amendments for 1999/2000 rates
+' Author        : Peter Morton
+' Date          : 21/11/2000
+' Purpose       : Total primary conts must be <= annual max
+'               : Amendments for 2000/01
+' Author        : Christopher Schuler
+' Date          : 6 February 2002
+' Purpose       : Total primary conts must be <= annual max
+'               : Amendments for 2001/02 rates
+           
+
+    On Error GoTo Err_bCode19
+
+    Select Case nYear
+    
+        Case 2002 ' 58 x (UEL - ET) x  %EE
+            Select Case strcat
+                'work out weekly, round, then multiply by 58
+                Case "A"   ' 58 x ((585 - 89) x 10%)
+                    bCode19 = IIf(curTP <= 2876.8, True, False)
+                Case "B", "E", "G"  ' 58 x ((585 - 89) x 3.85%)
+                    bCode19 = IIf(curTP <= 1107.56, True, False)
+                Case "D", "F"  ' 58 x ((585 - 89) x 8.4%)
+                    bCode19 = IIf(curTP <= 2416.51, True, False)
+            End Select
+        
+        Case 2001 ' 58 x (UEL - ET) x  %EE
+            Select Case strcat
+                'work out weekly, round, then multiply by 58
+                Case "A"   ' 58 x ((575 - 87) x 10%)
+                    bCode19 = IIf(curTP <= 2830.4, True, False)
+                Case "B", "E", "G"  ' 58 x ((575 - 87) x 3.85%)
+                    bCode19 = IIf(curTP <= 1089.82, True, False)
+                Case "D", "F"  ' 58 x ((575 - 87) x 8.4%)
+                    bCode19 = IIf(curTP <= 2377.42, True, False)
+            End Select
+
+        Case 2000 ' 58 x (UEL - EEET) x  %EE
+            Select Case strcat
+                'work out weekly, round, then multiply by 58
+                Case "A"   ' 58 x ((535 - 76) x 10%)
+                    bCode19 = IIf(curTP <= 2662.2, True, False)
+                Case "B", "E", "G"  ' 58 x ((535 - 76) x 3.85%)
+                    bCode19 = IIf(curTP <= 1024.86, True, False)
+                Case "D", "F"  ' 58 x ((535 - 76) x 8.4%)
+                    bCode19 = IIf(curTP <= 2236.48, True, False)
+            End Select
+
+        Case 1999
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 2517.2, True, False)
+                Case "B", "E", "G"
+                    bCode19 = IIf(curTP <= 969.18, True, False)
+                Case "D", "F"
+                    bCode19 = IIf(curTP <= 2114.68, True, False)
+            End Select
+
+        Case 1998
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 2516.04, True, False)
+                Case "B", "E", "G"
+                    bCode19 = IIf(curTP <= 1082.86, True, False)
+                Case "D", "F"
+                    bCode19 = IIf(curTP <= 2125.12, True, False)
+            End Select
+        
+        Case 1997
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 2409.32, True, False)
+                Case "B", "E", "G"
+                    bCode19 = IIf(curTP <= 1038.78, True, False)
+                Case "D", "F"
+                    bCode19 = IIf(curTP <= 2035.34, True, False)
+            End Select
+        Case 1996
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 2355.96, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 1016.16, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1944.74, True, False)
+            End Select
+        Case 1995
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 2282.88, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 982.52, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1884.42, True, False)
+            End Select
+        Case 1994
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 2229.52, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 960.48, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1840.34, True, False)
+            End Select
+        Case 1993
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1965.04, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 937.86, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1585.14, True, False)
+            End Select
+        Case 1992
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1894.86, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 904.8, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1487.7, True, False)
+            End Select
+        Case 1991
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1824.68, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 871.16, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1432.6, True, False)
+            End Select
+        Case 1990
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1640.24, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 781.55, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1287.6, True, False)
+            End Select
+        Case 1989
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1609.21, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 725.73, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1282.09, True, False)
+            End Select
+        Case 1988
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1592.1, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 681.07, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1285.86, True, False)
+            End Select
+        Case 1987
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1619.55, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 692.96, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1284.05, True, False)
+            End Select
+        Case 1986
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1564.65, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 669.32, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1240.74, True, False)
+            End Select
+        Case 1985
+            Select Case strcat
+                Case "A"
+                    bCode19 = IIf(curTP <= 1454.85, True, False)
+                Case "B", "E"
+                    bCode19 = IIf(curTP <= 622.35, True, False)
+                Case "D"
+                    bCode19 = IIf(curTP <= 1153.87, True, False)
+            End Select
+
+
+        Case Else
+            bCode19 = False
+            
+    End Select
+
+Exit_bCode19:
+    Exit Function
+    
+Err_bCode19:
+    MsgBox Error$
+    Resume Exit_bCode19
+
+End Function
+
+Function bCode23(ByVal strcat As String, ByVal curCOEarnings As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 29 May 1996
+' Fuction Name  : bCode23
+' Purpose       : Carry out Code
+            
+    On Error GoTo Err_bCode23
+
+    bCode23 = False
+
+    If strcat = "A" Then
+        bCode23 = IIf(curCOEarnings = 0, True, False)
+    End If
+
+Exit_bCode23:
+    Exit Function
+    
+Err_bCode23:
+    MsgBox Error$
+    Resume Exit_bCode23
+
+End Function
+
+Function bCode24(ByVal strcat As String, ByVal curNIEarnings As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 4 June 1996
+' Fuction Name  : bCode24
+' Purpose       : Carry out Code
+            
+    On Error GoTo Err_bCode24
+
+    bCode24 = False
+
+    If strcat = "A" Then
+        bCode24 = IIf(curNIEarnings > 0, True, False)
+    End If
+
+Exit_bCode24:
+    Exit Function
+    
+Err_bCode24:
+    MsgBox Error$
+    Resume Exit_bCode24
+
+End Function
+
+Function bCode25(ByVal nYear As Integer, ByVal strcat As String, ByVal curNIEarnings As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 4 June 1996
+' Fuction Name  : bCode25
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks
+' Author        : Christopher Schuler
+' Date          : 20 May 1997
+' Purpose       : Amendments for 1997/98 rates
+           
+    On Error GoTo Err_bCode25
+    
+    bCode25 = False
+
+    If strcat = "A" Then
+        Select Case nYear
+            Case 1998
+                bCode25 = IIf(curNIEarnings <= 28130, True, False)
+            Case 1997
+                bCode25 = IIf(curNIEarnings <= 26970, True, False)
+            Case 1996
+                bCode25 = IIf(curNIEarnings <= 26390, True, False)
+            Case 1995
+                bCode25 = IIf(curNIEarnings <= 25520, True, False)
+            Case 1994
+                bCode25 = IIf(curNIEarnings <= 24940, True, False)
+            Case 1993
+                bCode25 = IIf(curNIEarnings <= 24360, True, False)
+            Case 1992
+                bCode25 = IIf(curNIEarnings <= 23490, True, False)
+            Case 1991
+                bCode25 = IIf(curNIEarnings <= 22620, True, False)
+            Case 1990
+                bCode25 = IIf(curNIEarnings <= 20300, True, False)
+            Case 1989
+                bCode25 = IIf(curNIEarnings <= 18850, True, False)
+            Case 1988
+                bCode25 = IIf(curNIEarnings <= 17690, True, False)
+            Case 1987
+                bCode25 = IIf(curNIEarnings <= 17995, True, False)
+    
+            Case Else
+                bCode25 = False
+        End Select
+
+    End If
+
+Exit_bCode25:
+    Exit Function
+    
+Err_bCode25:
+    MsgBox Error$
+    Resume Exit_bCode25
+
+End Function
+
+Function bCode26(ByVal nYear As Integer, ByVal strcat As String, ByVal curTP As Currency, ByVal curNIEarnings As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 4 June 1996
+' Fuction Name  : bCode26
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks
+' Author        : Christopher Schuler
+' Date          : 20 May 1997
+' Purpose       : Amendments for 1997/98 rates
+            
+    Dim curMinPrimary, curMaxPrimary
+    Dim A, B, step4, step8
+                        
+
+
+    On Error GoTo Err_bCode26
+
+    bCode26 = False
+
+    If strcat = "A" Then
+        Select Case nYear
+            Case 1998
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 3328
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 3328) * 0.1 + (3328 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 485)
+                    B = IIf(B > 52, 52, B) * 64
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.1 + B * 0.02
+                curMinPrimary = curMinPrimary - 33
+                curMaxPrimary = curMaxPrimary + 33
+            Case 1997
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 3224
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 3224) * 0.1 + (3224 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 465)
+                    B = IIf(B > 52, 52, B) * 62
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.1 + B * 0.02
+                curMinPrimary = curMinPrimary - 32
+                curMaxPrimary = curMaxPrimary + 32
+            Case 1996
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 3172
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 3172) * 0.1 + (3172 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 455)
+                    B = IIf(B > 52, 52, B) * 61
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.1 + B * 0.02
+                curMinPrimary = curMinPrimary - 31
+                curMaxPrimary = curMaxPrimary + 31
+            
+            Case 1995
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 3016
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 3016) * 0.1 + (3016 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 440)
+                    B = IIf(B > 52, 52, B) * 58
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.1 + B * 0.02
+                curMinPrimary = curMinPrimary - 30.5
+                curMaxPrimary = curMaxPrimary + 30.5
+            
+            Case 1994
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 2964
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 2964) * 0.1 + (2964 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 420)
+                    B = IIf(B > 52, 52, B) * 57
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.1 + B * 0.02
+                curMinPrimary = curMinPrimary - 29
+                curMaxPrimary = curMaxPrimary + 29
+            
+            Case 1993
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 2912
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 2912) * 0.09 + (2912 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 420)
+                    B = IIf(B > 52, 52, B) * 56
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.09 + B * 0.02
+                curMinPrimary = curMinPrimary - 28.5
+                curMaxPrimary = curMaxPrimary + 28.5
+            
+            Case 1992
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 2808
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 2808) * 0.09 + (2808 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 405)
+                    B = IIf(B > 52, 52, B) * 54
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.09 + B * 0.02
+                curMinPrimary = curMinPrimary - 28
+                curMaxPrimary = curMaxPrimary + 28
+            
+            Case 1991
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 2704
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 2704) * 0.09 + (2704 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 390)
+                    B = IIf(B > 52, 52, B) * 52
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.09 + B * 0.02
+                curMinPrimary = curMinPrimary - 27
+                curMaxPrimary = curMaxPrimary + 27
+
+            Case 1990
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 2392
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Else
+                        curMinPrimary = (curNIEarnings - 2392) * 0.09 + (2392 * 0.02)
+                End Select
+                ' Maximum primary
+                    B = Int(curNIEarnings / 350)
+                    B = IIf(B > 52, 52, B) * 46
+        
+                    curMaxPrimary = (curNIEarnings - B) * 0.09 + B * 0.02
+                curMinPrimary = curMinPrimary - 26
+                curMaxPrimary = curMaxPrimary + 26
+
+            Case 1989
+                ' Minimum primary
+                Select Case curNIEarnings
+                    Case Is <= 1118
+                        curMinPrimary = curNIEarnings * 0.02
+                    Case Is <= 3068
+                        curMinPrimary = 22.36 + (curNIEarnings - 1118) * 0.05
+                    Case Is <= 10400
+                        curMinPrimary = 119.86 + (curNIEarnings - 3068) * 0.09
+                    Case Else
+                        A = curNIEarnings - 10400
+                        A = Int(A / 250)
+                        A = IIf(A > 26, 26, A)
+
+                        step4 = (26 - A) * 3.75 + 22.36
+                        step8 = ((curNIEarnings - 1118) - ((26 - A) * 75)) * 0.09
+                        
+                        curMinPrimary = step4 + step8
+                End Select
+                ' Maximum primary
+                Select Case curNIEarnings
+                    Case Is <= 8450
+                        curMaxPrimary = curNIEarnings * 0.09
+                    Case Else
+                        A = curNIEarnings - 8450
+                        A = Int(A / 325)
+                        A = IIf(A > 26, 26, A)
+
+                        step4 = 26 * 0.86 + 760.5
+                        step8 = ((curNIEarnings - 8450) - (A * 43)) * 0.09
+                        
+                        curMaxPrimary = step4 + step8
+                End Select
+                curMinPrimary = curMinPrimary - 23
+                curMaxPrimary = curMaxPrimary + 23
+
+            Case 1988
+                curMinPrimary = curNIEarnings * 0.05 - 21.5
+                curMaxPrimary = curNIEarnings * 0.09 + 21.5
+            Case 1987
+                curMinPrimary = curNIEarnings * 0.05 - 20.5
+                curMaxPrimary = curNIEarnings * 0.09 + 20.5
+
+            Case Else
+                ' Enure failure
+                curMinPrimary = curTP + 1000
+                curMaxPrimary = curTP - 1000
+        End Select
+    End If
+    curMinPrimary = curTruncate(curMinPrimary)
+    curMaxPrimary = curTruncate(curMaxPrimary)
+    bCode26 = IIf(curTP >= curMinPrimary And curTP <= curMaxPrimary, True, False)
+
+Exit_bCode26:
+    Exit Function
+    
+Err_bCode26:
+    MsgBox Error$
+    Resume Exit_bCode26
+
+End Function
+
+Function bCode27(ByVal strcat As String, ByVal curCOEarnings As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : bCode27
+' Purpose       : Carry out Code
+            
+    On Error GoTo Err_bCode27
+
+    bCode27 = False
+
+    If strcat = "D" Or strcat = "F" Then
+        bCode27 = IIf(curCOEarnings > 0, True, False)
+    End If
+
+Exit_bCode27:
+    Exit Function
+    
+Err_bCode27:
+    MsgBox Error$
+    Resume Exit_bCode27
+
+End Function
+
+Function bCode28(ByVal strcat As String, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 5 June 1996
+' Fuction Name  : bCode28
+' Purpose       : Carry out Code
+            
+    On Error GoTo Err_bCode28
+
+    bCode28 = False
+
+    If strcat = "D" Or strcat = "F" Then
+        bCode28 = IIf(curNIEarnings > curCOEarnings, True, False)
+    End If
+
+Exit_bCode28:
+    Exit Function
+    
+Err_bCode28:
+    MsgBox Error$
+    Resume Exit_bCode28
+
+End Function
+
+Function bCode29(ByVal nYear As Integer, ByVal strcat As String, ByVal curCOEarnings As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : bCode29
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks
+' Author        : Christopher Schuler
+' Date          : 20 May 1997
+' Purpose       : Amendments for 1997/98 rates
+           
+    On Error GoTo Err_bCode29
+
+    bCode29 = False
+
+    If strcat = "D" Or strcat = "E" Or strcat = "F" Or strcat = "G" Then
+        Select Case nYear
+            Case 1998
+                bCode29 = IIf(curCOEarnings <= 24418, True, False)
+            Case 1997
+                bCode29 = IIf(curCOEarnings <= 23374, True, False)
+            Case 1996
+                bCode29 = IIf(curCOEarnings <= 22852, True, False)
+            Case 1995
+                bCode29 = IIf(curCOEarnings <= 22156, True, False)
+            Case 1994
+                bCode29 = IIf(curCOEarnings <= 21634, True, False)
+            Case 1993
+                bCode29 = IIf(curCOEarnings <= 21112, True, False)
+            Case 1992
+                bCode29 = IIf(curCOEarnings <= 20358, True, False)
+            Case 1991
+                bCode29 = IIf(curCOEarnings <= 19604, True, False)
+            Case 1990
+                bCode29 = IIf(curCOEarnings <= 17632 And strcat = "D", True, False)
+            Case 1989
+                bCode29 = IIf(curCOEarnings <= 16356 And strcat = "D", True, False)
+            Case 1988
+                bCode29 = IIf(curCOEarnings <= 15312 And strcat = "D", True, False)
+            Case 1987
+                bCode29 = IIf(curCOEarnings <= 15616 And strcat = "D", True, False)
+            Case Else
+                bCode29 = False
+        End Select
+    End If
+
+Exit_bCode29:
+    Exit Function
+    
+Err_bCode29:
+    MsgBox Error$
+    Resume Exit_bCode29
+
+End Function
+
+Function bCode30(ByVal nYear As Integer, ByVal strcat As String, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : bCode30
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks
+' Author        : Christopher Schuler
+' Date          : 20 May 1997
+' Purpose       : Amendments for 1997/98 rates
+            
+    Dim curTestGreater As Currency, curTestLess As Currency
+
+    On Error GoTo Err_bCode30
+
+    ' Assume failure
+    bCode30 = False
+
+    If strcat = "D" Or strcat = "E" Or strcat = "F" Or strcat = "G" Then
+        curTestGreater = curCOElement + 1000
+        curTestLess = curCOElement - 1000
+        Select Case nYear
+            Case 1998
+                If strcat = "E" Or strcat = "G" Then
+                    curTestGreater = curCOEarnings * 0.0385 - 33
+                    curTestLess = curCOEarnings * 0.0385 + 33
+                Else
+                    curTestGreater = curCOEarnings * 0.084 - 33
+                    curTestLess = curCOEarnings * 0.084 + 33
+                End If
+            Case 1997
+                If strcat = "E" Or strcat = "G" Then
+                    curTestGreater = curCOEarnings * 0.0385 - 32
+                    curTestLess = curCOEarnings * 0.0385 + 32
+                Else
+                    curTestGreater = curCOEarnings * 0.084 - 32
+                    curTestLess = curCOEarnings * 0.084 + 32
+                End If
+            Case 1996
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.082 - 31
+                    curTestLess = curCOEarnings * 0.082 + 31
+                Else
+                    curTestGreater = curCOEarnings * 0.0385 - 31
+                    curTestLess = curCOEarnings * 0.0385 + 31
+                End If
+            Case 1995
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.082 - 30.5
+                    curTestLess = curCOEarnings * 0.082 + 30.5
+                Else
+                    curTestGreater = curCOEarnings * 0.0385 - 30.5
+                    curTestLess = curCOEarnings * 0.0385 + 30.5
+                End If
+            Case 1994
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.082 - 29
+                    curTestLess = curCOEarnings * 0.082 + 29
+                Else
+                    curTestGreater = curCOEarnings * 0.0385 - 29
+                    curTestLess = curCOEarnings * 0.0385 + 29
+                End If
+            Case 1993
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.072 - 28.5
+                    curTestLess = curCOEarnings * 0.072 + 28.5
+                Else
+                    curTestGreater = curCOEarnings * 0.0385 - 28.5
+                    curTestLess = curCOEarnings * 0.0385 + 28.5
+                End If
+            Case 1992
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.07 - 28
+                    curTestLess = curCOEarnings * 0.07 + 28
+                Else
+                    curTestGreater = curCOEarnings * 0.0385 - 28
+                    curTestLess = curCOEarnings * 0.0385 + 28
+                End If
+            Case 1991
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.07 - 27
+                    curTestLess = curCOEarnings * 0.07 + 27
+                Else
+                    curTestGreater = curCOEarnings * 0.0385 - 27
+                    curTestLess = curCOEarnings * 0.0385 + 27
+                End If
+            Case 1990
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.07 - 26
+                    curTestLess = curCOEarnings * 0.07 + 26
+                End If
+            Case 1989
+                If strcat = "D" Then
+                    Dim curMin, curMax
+                    ' Min
+                    Select Case curCOEarnings
+                        Case Is <= 832
+                            curMin = curCOEarnings * 0.03
+                        Case Is <= 8164
+                            curMin = 24.96 + ((curCOEarnings - 832) * 0.07)
+                        Case Else
+                            Dim A, B, step3, step6
+                            A = curCOEarnings - 8164
+                            A = vRoundUp(A / 250)
+                            A = IIf(A > 26, 26, A)
+    
+                            step3 = (26 - A) * 0.96
+                            step6 = (curCOEarnings - ((26 - A) * 32)) * 0.07
+
+                            curMin = step3 + step6
+                    End Select
+                    ' Max
+                    curMax = curCOEarnings * 0.07
+                    curTestGreater = curMin - 23
+                    curTestLess = curMax + 23
+                End If
+            Case 1988
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.03 - 21.5
+                    curTestLess = curCOEarnings * 0.07 + 21.5
+                End If
+            Case 1987
+                If strcat = "D" Then
+                    curTestGreater = curCOEarnings * 0.0285 - 20.5
+                    curTestLess = curCOEarnings * 0.0685 + 20.5
+                End If
+
+            Case Else
+                ' Ensure test fails
+                curTestGreater = curCOElement + 1000
+                curTestLess = curCOElement - 1000
+        End Select
+    
+        curTestGreater = curTruncate(curTestGreater)
+        curTestLess = curTruncate(curTestLess)
+        bCode30 = IIf(curCOElement >= curTestGreater And curCOElement <= curTestLess, True, False)
+    
+    End If
+
+
+
+Exit_bCode30:
+    Exit Function
+    
+Err_bCode30:
+    MsgBox Error$
+    Resume Exit_bCode30
+
+End Function
+
+Function bCode31(ByVal nYear As Integer, ByVal strcat As String, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 5 June 1996
+' Fuction Name  : bCode31
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks
+' Author        : Christopher Schuler
+' Date          : 20 May 1997
+' Purpose       : Amendments for 1997/98 rates
+            
+    Dim curLTCont As Currency
+    Dim curMin As Currency, curMax As Currency
+
+    On Error GoTo Err_bCode31
+
+    ' Assume failure
+    bCode31 = False
+
+    If strcat = "D" Or strcat = "F" Then
+        curLTCont = curPrimary - curCOElement
+
+        Select Case nYear
+            Case 1998
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 33
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 33
+            Case 1997
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 32
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 32
+            Case 1996
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 31
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 31
+            Case 1995
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 30.5
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 30.5
+            Case 1994
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 29
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 29
+            Case 1993
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 28.5
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 28.5
+            Case 1992
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 28
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 28
+            Case 1991
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 27
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 27
+            Case 1990
+                curMin = (curNIEarnings - curCOEarnings) * 0.02 - 26
+                curMax = (curNIEarnings - curCOEarnings) * 0.02 + 26
+            Case 1989
+                    Select Case curNIEarnings - curCOEarnings
+                        Case Is <= 1118
+                            curMin = (curNIEarnings - curCOEarnings) * 0.02
+                            curMax = (curNIEarnings - curCOEarnings) * 0.09
+                        Case Else
+                            curMin = ((curNIEarnings - curCOEarnings - 1118) * 0.05) + 22.36
+                            curMax = 100.62 + ((curNIEarnings - curCOEarnings) * 0.02)
+                    End Select
+                    curMin = curTruncate(curMin - 23)
+                    curMax = curTruncate(curMax + 23)
+            Case 1988
+                curMin = (curNIEarnings - curCOEarnings) * 0.05 - 21.5
+                curMax = (curNIEarnings - curCOEarnings) * 0.09 + 21.5
+            Case 1987
+                curMin = (curNIEarnings - curCOEarnings) * 0.05 - 20.5
+                curMax = (curNIEarnings - curCOEarnings) * 0.09 + 20.5
+            Case Else
+                ' Ensure fails
+                curMin = curLTCont + 1000
+                curMax = curLTCont - 1000
+        End Select
+        curMin = curTruncate(curMin)
+        curMax = curTruncate(curMax)
+        bCode31 = IIf(curLTCont >= curMin And curLTCont <= curMax, True, False)
+
+    End If
+
+Exit_bCode31:
+    Exit Function
+    
+Err_bCode31:
+    MsgBox Error$
+    Resume Exit_bCode31
+
+End Function
+
+Function bCode32(ByVal nYear As Integer, ByVal strcat As String, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 5 June 1996
+' Fuction Name  : bCode32
+' Purpose       : Carry out Code
+' History
+' Author        : Mustaq Hussain
+' Date          : 3 March 1997
+' Purpose       : RFC 548 : 96/97 Ratio checks
+' Author        : Christopher Schuler
+' Date          : 20 May 1997
+' Purpose       : Amendments for 1997/98 rates
+            
+    Dim nLEL As Currency, nUEL As Currency
+    Dim nBand As Integer
+    Dim curLTEarnings As Currency
+    On Error GoTo Err_bCode32
+
+    ' Assume failure
+    bCode32 = False
+
+    If strcat = "D" Or strcat = "F" Then
+        ' nLEL and nUEL
+        AnnualBand nYear, curNIEarnings, nBand, nLEL, nUEL
+        
+        nLEL = curRoundUp(nLEL / 52)
+        nUEL = curRoundUp(nUEL / 52)
+
+        curLTEarnings = curNIEarnings - curCOEarnings
+
+        Select Case nYear
+            Case 1998
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 33), True, False)
+            Case 1997
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 32), True, False)
+            Case 1996
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 31), True, False)
+            Case 1995
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 30.5), True, False)
+            Case 1994
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 29), True, False)
+            Case 1993
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 28.5), True, False)
+            Case 1992
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 28), True, False)
+            Case 1991
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 27), True, False)
+            Case 1990
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 26), True, False)
+            Case 1989
+                bCode32 = IIf(curCOEarnings <= curTruncate((curLTEarnings / nLEL) * (nUEL - nLEL) + 23), True, False)
+            Case 1988, 1987
+                Dim curAverage As Currency
+
+                ' Round down to next pound
+                curAverage = Int(curNIEarnings / (curLTEarnings / nLEL))
+                bCode32 = IIf(curAverage >= nLEL And curAverage <= nUEL, True, False)
+            Case Else
+                bCode32 = False
+        End Select
+    End If
+
+Exit_bCode32:
+    Exit Function
+    
+Err_bCode32:
+    MsgBox Error$
+    Resume Exit_bCode32
+
+End Function
+
+Function bCode33(ByVal strcat As String, ByVal curTP As Currency) As Integer
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : bCode33
+' Purpose       : Carry out Code
+            
+    On Error GoTo Err_bCode33
+
+    bCode33 = False
+
+    If strcat = "A" Or strcat = "B" Then
+        bCode33 = IIf(curTP > 0, True, False)
+    End If
+
+Exit_bCode33:
+    Exit Function
+    
+Err_bCode33:
+    MsgBox Error$
+    Resume Exit_bCode33
+
+End Function
+
+Function bCode40(ByVal nYear As Integer, ByVal CurUpToLEL As Currency) As Integer
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Fuction Name  : bCode40
+' Purpose       : Earnings must not exceed the 58 week maximum (box 1a must be less than 58 * LEL)
+' Author        : Peter Morton
+' Date          : 21/11/2000
+' Purpose       : Changes for tax year 2000
+' Author        : Christopher Schuler
+' Date          : 31 Jan 2002
+' Purpose       : Amended for 2001
+' Author        : Christopher Schuler
+' Date          : 24 Dec 2003
+' Purpose       : Amended for 2003
+' Author        : Christopher Schuler
+' Date          : 16 January 2006
+' Purpose       : Amended for 2005
+' Author        : Christopher Schuler
+' Date          : 02 January 2007
+' Purpose       : Amended so that LEL is looked up and 58 week max is calculated instead of hardcoded
+
+    On Error GoTo Err_bCode40
+
+Dim CurrLEL As Currency
+
+CurrLEL = DLookup("[WkLEL]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+If IsNull(CurrLEL) Then
+    bCode40 = False
+Else
+    bCode40 = IIf(CurUpToLEL <= (CurrLEL * 58), True, False)
+End If
+
+Exit_bCode40:
+    Exit Function
+
+Err_bCode40:
+    MsgBox Error$
+    Resume Exit_bCode40
+
+End Function
+
+Function bCode41(ByVal nYear As Integer, ByVal CurLELtoET As Currency) As Integer
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Fuction Name  : bCode41
+' Purpose       : Earnings must not exceed the 58 week maximum
+'               : (box 1b must be less than 58 * (weeklyET - weeklyLEL))
+' Author        : Christopher Schuler
+' Date          : 31 Jan 2002
+' Purpose       : Amended for 2001
+' Author        : Christopher Schuler
+' Date          : 24 Dec 2003
+' Purpose       : Amended for 2003
+' Author        : Christopher Schuler
+' Date          : 16 January 2006
+' Purpose       : Amended for 2005
+' Author        : Christopher Schuler
+' Date          : 02 January 2007
+' Purpose       : Amended so that LEL and ET are looked up and 58 week max is calculated instead of hardcoded
+' Author        : Christopher Sneddon
+' Date          : 014 October 2011
+' Purpose       : Added new lines to deal with ST-PT
+
+    On Error GoTo Err_bCode41
+    
+
+Dim CurrLEL As Currency
+Dim CurrET_PT As Currency
+
+
+CurrLEL = DLookup("[WkLEL]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+If nYear > 2010 Then
+    CurrET_PT = DLookup("[WkPT]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+Else
+    CurrET_PT = DLookup("[WkER_ET]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+End If
+
+
+If IsNull(CurrLEL) Or IsNull(CurrET_PT) Then
+    bCode41 = False
+Else
+    bCode41 = IIf(CurLELtoET <= ((CurrET_PT - CurrLEL) * 58), True, False)
+End If
+
+Exit_bCode41:
+    Exit Function
+    
+Err_bCode41:
+    MsgBox Error$
+    Resume Exit_bCode41
+
+
+End Function
+
+Function bCode42(ByVal nYear As Integer, ByVal CurETtoUEL As Currency) As Integer
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Function Name  : bCode42
+' Purpose       : Earnings must not exceed the 58 week maximum
+'               : (box 1c must be less than 58 * (weeklyUEL - weeklyET))
+' Author        : Christopher Schuler
+' Date          : 31 Jan 2002
+' Purpose       : Amended for 2001
+' Author        : Christopher Schuler
+' Date          : 16 January 2006
+' Purpose       : Amended for 2005
+' Author        : Christopher Schuler
+' Date          : 02 January 2007
+' Purpose       : Amended so that UEL and ET are looked up and 58 week max is calculated instead of hardcoded
+
+    On Error GoTo Err_bCode42
+    
+Dim CurrUEL As Currency
+Dim CurrET As Currency
+
+
+CurrUEL = DLookup("[WkUEL]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+CurrET = DLookup("[WkER_ET]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+
+If IsNull(CurrUEL) Or IsNull(CurrET) Then
+    bCode42 = False
+Else
+    bCode42 = IIf(CurETtoUEL <= ((CurrUEL - CurrET) * 58), True, False)
+End If
+
+
+Exit_bCode42:
+    Exit Function
+    
+Err_bCode42:
+    MsgBox Error$
+    Resume Exit_bCode42
+
+
+End Function
+
+Function bCode42yr2016(ByVal nYear As Integer, ByVal CurETtoUEL As Currency) As Integer
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Function Name  : bCode42
+' Purpose       : Earnings must not exceed the 58 week maximum
+
+
+On Error GoTo Err_bCode42
+    
+Dim CurrUEL As Currency
+Dim CurrPT As Currency
+
+
+CurrUEL = DLookup("[WkUEL]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+CurrPT = DLookup("[WkPT]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+
+If IsNull(CurrUEL) Or IsNull(CurrPT) Then
+    bCode42yr2016 = False
+Else
+    bCode42yr2016 = IIf(CurETtoUEL <= ((CurrUEL - CurrPT) * 58), True, False)
+End If
+
+
+Exit_bCode42:
+    Exit Function
+    
+Err_bCode42:
+    MsgBox Error$
+    Resume Exit_bCode42
+
+
+End Function
+
+
+
+
+Function bCode43(ByVal nYear As Integer, ByVal CurTotal As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double, ByVal NHSRate As Double, ByVal ERRateAboveUEL As Double) As Integer
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Fuction Name  : bCode43
+' Purpose       : Contributions must be compatible with Earnings within a tolerance
+
+' Author        : Christopher Schuler
+' Date          : 31 Jan 2002
+' Purpose       : Amended for 2001
+
+' Author        : Christopher Schuler
+' Date          : 3 May 2002
+' Primary Contributions = ((ETtoUEL) x Primary Cont Rate) +/- tolerance
+' Purpose       : CCA6847 increase tolerance level from 2000/2001 onwards(see bCode43Yr2000 as well)
+'               : The current LEL on the date of calculation should be used for the tolerance,
+'               : and not the LEL for the year of contributions
+
+' Author        : Christopher Schuler
+' Date          : 23 May 2002
+' Purpose       : V644655 - curTruncate replaces curRound to make code follow tech. specification
+
+' Author        : Christopher Schuler
+' Date          : 24 Dec 2003
+' Purpose       : Amendment for 2003
+
+' Author        : Christopher Schuler
+' Date          : 15 Mar 2004
+' Purpose       : Amended for 2003 - CurTotal and ERRate now passed in although not used for pre 2003 years
+
+' Author        : Christopher Schuler
+' Date          : 03 Aug 2004
+' Purpose       : V1607352 - Second part of test corrected
+
+' Author        : Christopher Schuler
+' Date          : 08 Sep 2004
+' Purpose       : v1651548 - Test not using correct ER rate above UEL
+
+' Author        : Christopher Schuler
+' Date          : 16 January 2006
+' Purpose       : Amended for 2005
+
+' Author        : Christopher Schuler
+' Date          : 2 January 2007
+' Purpose       : Amended for 2006
+
+' Author        : Christopher Sneddon
+' Date          : 14 November 2007
+' Purpose       : Amended for 2007
+
+On Error GoTo Err_bCode43
+
+Dim Tolerance As Single
+
+bCode43 = True
+
+Select Case nYear
+
+    Case 1999
+        Tolerance = 33      'LEL/2
+    
+        bCode43 = IIf((EEConts <= (curTruncate((CurLELtoET + CurETtoUEL) * EERate) + Tolerance)), IIf((EEConts >= (curRound((CurLELtoET + CurETtoUEL) * EERate) - Tolerance)), True, False), False)
+    
+    
+    Case 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+        'CCA6847 Tolerance = 36      'LEL/2
+    
+        Dim code43db As Database
+        Dim code43rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        'added for 2003
+        Dim SecondaryContRecorded As Currency
+        Dim PrimaryContsBelowUEL As Currency
+        Dim SecondaryContsBelowUEL As Currency
+        Dim SecondaryContsAboveUEL As Currency
+        Dim EarningsOverUEL As Currency
+        Dim PrimaryContsOnEarningsAboveUEL As Currency
+        
+        Set code43db = CurrentDb
+        
+        Taxyear = nTaxYear(Date)
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set code43rst = code43db.OpenRecordset(strSQL)
+        
+        Tolerance = (code43rst!WkLEL) / 2
+        
+        code43db.Close
+        
+        If nYear < 2003 Then
+
+            bCode43 = IIf((EEConts <= (curTruncate(CurETtoUEL * EERate) + Tolerance)), IIf((EEConts >= (curTruncate(CurETtoUEL * EERate) - Tolerance)), True, False), False)
+            
+        Else
+        
+            SecondaryContRecorded = curTruncate(CurTotal - EEConts)
+
+            PrimaryContsBelowUEL = curTruncate(CurETtoUEL * EERate)
+
+            SecondaryContsBelowUEL = curTruncate(CurETtoUEL * ERRate)
+            
+
+            SecondaryContsAboveUEL = SecondaryContRecorded - SecondaryContsBelowUEL
+            
+            If SecondaryContsAboveUEL > 0 Then
+            
+                'v1651548 EarningsOverUEL = curTruncate(SecondaryContsAboveUEL / ERRate)
+                EarningsOverUEL = curTruncate(SecondaryContsAboveUEL / ERRateAboveUEL) 'v1651548
+                
+                PrimaryContsOnEarningsAboveUEL = curTruncate(EarningsOverUEL * NHSRate)
+
+                
+                bCode43 = IIf((EEConts <= ((PrimaryContsBelowUEL + PrimaryContsOnEarningsAboveUEL) + Tolerance)), IIf((EEConts >= ((PrimaryContsBelowUEL + PrimaryContsOnEarningsAboveUEL) - Tolerance)), True, False), False)
+
+            Else
+            
+                bCode43 = IIf((EEConts <= (PrimaryContsBelowUEL + Tolerance)), IIf((EEConts >= (PrimaryContsBelowUEL - Tolerance)), True, False), False)
+
+            End If
+            
+        End If
+        
+        'If EEConts = 0 Then
+            'If CurETtoUEL > 0 Then
+                'bCode43 = False
+            'End If
+        'End If
+        
+        If CurETtoUEL = 0 Then
+            If EEConts > 0 Then
+                bCode43 = False
+            End If
+        End If
+        
+    Case Else
+    
+        bCode43 = False
+         
+End Select
+    
+Exit_bCode43:
+    Exit Function
+    
+Err_bCode43:
+    MsgBox Error$
+    Resume Exit_bCode43
+
+
+End Function
+
+Function bCode43yr2009(ByVal nYear As Integer, ByVal CurTotal As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUAP As Currency, ByVal CurUAPtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double, ByVal NHSRate As Double, ByVal ERRateAboveUAP As Double, ByVal EERateAboveUAP As Double, ByVal ERRateAboveUEL As Double, ByVal EERateAboveUEL As Double) As Integer
+' Author        : Christopher Sneddon
+' Date          : 23 March 2009
+' Fuction Name  : bCode43yr2009
+' Purpose       : Contributions must be compatible with Earnings within a tolerance (created for 2009)
+
+
+    On Error GoTo Err_bCode43yr2009
+
+Dim Tolerance As Single
+
+bCode43yr2009 = True
+
+Select Case nYear
+
+
+    Case Is > 2008
+        
+        'phase 1
+        Dim code43db As Database
+        Dim code43rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        Dim SecondaryContRecorded As Currency
+        Dim PrimaryContsBelowUEL As Currency
+        Dim SecondaryContsBelowUEL As Currency
+        Dim SecondaryContsAboveUEL As Currency
+        Dim EarningsOverUEL As Currency
+        Dim PrimaryContsOnEarningsAboveUEL As Currency
+        Dim MinimumPrimaryConts As Currency
+        
+        
+        Set code43db = CurrentDb
+        
+        Taxyear = nTaxYear(Date)
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set code43rst = code43db.OpenRecordset(strSQL)
+        
+        Tolerance = (code43rst!WkLEL) / 2
+        
+        code43db.Close
+        
+        'step 1
+            PrimaryContsBelowUEL = curTruncate(CurETtoUAP * EERate) + curTruncate(CurUAPtoUEL * EERateAboveUAP)
+
+        'step 2
+            SecondaryContRecorded = curTruncate(CurTotal - EEConts)
+
+        'step 3
+            SecondaryContsBelowUEL = curTruncate(CurETtoUAP * ERRate) + curTruncate(CurUAPtoUEL * ERRateAboveUAP)
+            
+        'step 4
+            SecondaryContsAboveUEL = SecondaryContRecorded - SecondaryContsBelowUEL
+            
+            If SecondaryContsAboveUEL > 0 Then
+            
+                'step 6
+                EarningsOverUEL = curTruncate(SecondaryContsAboveUEL / ERRateAboveUEL)
+                
+                'step 7
+                PrimaryContsOnEarningsAboveUEL = curTruncate(EarningsOverUEL * NHSRate)
+
+                'step 8
+                MinimumPrimaryConts = PrimaryContsBelowUEL + PrimaryContsOnEarningsAboveUEL
+                
+                If EEConts >= (MinimumPrimaryConts + Tolerance) Or EEConts <= (MinimumPrimaryConts - Tolerance) Then
+                    
+                    bCode43yr2009 = False
+                
+                End If
+                                
+
+            Else
+                'step 5
+                bCode43yr2009 = IIf((EEConts <= (PrimaryContsBelowUEL + Tolerance)), IIf((EEConts >= (PrimaryContsBelowUEL - Tolerance)), True, False), False)
+
+            End If
+
+        'phase 2
+        If CurETtoUAP = 0 Then
+            If EEConts > 0 Then
+                bCode43yr2009 = False
+            End If
+        End If
+        
+    Case Else
+    
+        bCode43yr2009 = False
+         
+End Select
+    
+Exit_bCode43yr2009:
+    Exit Function
+    
+Err_bCode43yr2009:
+    MsgBox Error$
+    Resume Exit_bCode43yr2009
+
+
+End Function
+
+Function bCode43yr2016a(ByVal nYear As Integer, ByVal CurTotal As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double, ByVal NHSRate As Double, ByVal ERRateAboveUEL As Double, ByVal EERateAboveUEL As Double) As Integer
+' Author        : Christopher Sneddon
+' Date          : 29 March 2017
+' Fuction Name  : bCode43yr2016a
+' Purpose       : Split Categories
+
+
+    On Error GoTo Err_bCode43yr2016a
+
+Dim Tolerance As Single
+
+bCode43yr2016a = True
+
+Select Case nYear
+
+
+    Case Is > 2008
+        
+        'phase 1
+        Dim code43db As Database
+        Dim code43rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        Dim SecondaryContRecorded As Currency
+        Dim PrimaryContsBelowUEL As Currency
+        Dim SecondaryContsBelowUEL As Currency
+        Dim SecondaryContsAboveUEL As Currency
+        Dim EarningsOverUEL As Currency
+        Dim PrimaryContsOnEarningsAboveUEL As Currency
+        Dim MinimumPrimaryConts As Currency
+        
+        
+        Set code43db = CurrentDb
+        
+        Taxyear = nTaxYear(Date)
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set code43rst = code43db.OpenRecordset(strSQL)
+        
+        Tolerance = (code43rst!WkLEL) / 2
+        
+        code43db.Close
+        
+        'step 1
+            PrimaryContsBelowUEL = curTruncate(CurETtoUEL * EERate)
+
+        'step 2
+            SecondaryContRecorded = curTruncate(CurTotal - EEConts)
+
+        'step 3
+            SecondaryContsBelowUEL = curTruncate(CurETtoUEL * ERRate)
+            
+        'step 4
+            SecondaryContsAboveUEL = SecondaryContRecorded - SecondaryContsBelowUEL
+            
+            If SecondaryContsAboveUEL > 0 Then
+            
+                'step 6
+                EarningsOverUEL = curTruncate(SecondaryContsAboveUEL / ERRateAboveUEL)
+                
+                'step 7
+                PrimaryContsOnEarningsAboveUEL = curTruncate(EarningsOverUEL * NHSRate)
+
+                'step 8
+                MinimumPrimaryConts = PrimaryContsBelowUEL + PrimaryContsOnEarningsAboveUEL
+                
+                If EEConts >= (MinimumPrimaryConts + Tolerance) Or EEConts <= (MinimumPrimaryConts - Tolerance) Then
+                    
+                    bCode43yr2016a = False
+                
+                End If
+                                
+
+            Else
+                'step 5
+                bCode43yr2016a = IIf((EEConts <= (PrimaryContsBelowUEL + Tolerance)), IIf((EEConts >= (PrimaryContsBelowUEL - Tolerance)), True, False), False)
+
+            End If
+
+        'phase 2
+        If CurETtoUEL = 0 Then
+            If EEConts > 0 Then
+                bCode43yr2016a = False
+            End If
+        End If
+        
+    Case Else
+    
+        bCode43yr2016a = False
+         
+End Select
+    
+Exit_bCode43yr2016a:
+    Exit Function
+    
+Err_bCode43yr2016a:
+    MsgBox Error$
+    Resume Exit_bCode43yr2016a
+
+
+End Function
+
+
+
+Function bCode43yr2016b(ByVal nYear As Integer, ByVal CurTotal As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double, ByVal NHSRate As Double, ByVal ERRateAboveUEL As Double, ByVal EERateAboveUEL As Double) As Integer
+' Author        : Christopher Sneddon
+' Date          : 28th December 2016
+' Fuction Name  : bCode43yr2016
+' Purpose       : remove UAP going forward
+
+
+    On Error GoTo Err_bCode43yr2016b
+
+Dim Tolerance As Single
+
+bCode43yr2016b = True
+
+Select Case nYear
+
+
+    Case Is > 2008
+        
+        'phase 1
+        Dim code43db As Database
+        Dim code43rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        Dim SecondaryContRecorded As Currency
+        Dim PrimaryContsBelowUEL As Currency
+        Dim SecondaryContsBelowUEL As Currency
+        Dim SecondaryContsAboveUEL As Currency
+        Dim EarningsOverUEL As Currency
+        Dim PrimaryContsOnEarningsAboveUEL As Currency
+        Dim MinimumPrimaryConts As Currency
+        
+        
+        Set code43db = CurrentDb
+        
+        Taxyear = nYear
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set code43rst = code43db.OpenRecordset(strSQL)
+        
+        Tolerance = (code43rst!WkLEL) / 2
+        
+        code43db.Close
+        
+        'step 1
+            PrimaryContsBelowUEL = curTruncate(CurETtoUEL * EERate)
+            
+        'Magic happens
+
+        'step 8
+            MinimumPrimaryConts = PrimaryContsBelowUEL - Tolerance
+                
+                If EEConts < (MinimumPrimaryConts) Then
+                    bCode43yr2016b = False
+                
+                End If
+         'Success!
+         
+        'phase 2
+        If CurETtoUEL = 0 Then
+            If EEConts > 0 Then
+                bCode43yr2016b = False
+            End If
+        End If
+        
+    Case Else
+    
+        bCode43yr2016b = False
+         
+End Select
+    
+Exit_bCode43yr2016b:
+    Exit Function
+    
+Err_bCode43yr2016b:
+    MsgBox Error$
+    Resume Exit_bCode43yr2016b
+
+
+End Function
+
+Function bCode43yr2015(ByVal nYear As Integer, ByVal CurTotal As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUAP As Currency, ByVal CurUAPtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double, ByVal NHSRate As Double, ByVal ERRateAboveUAP As Double, ByVal EERateAboveUAP As Double, ByVal ERRateAboveUEL As Double, ByVal EERateAboveUEL As Double) As Integer
+' Author        : Christopher Sneddon
+' Date          : 4th January 2016
+' Fuction Name  : bCode43yr2015
+' Purpose       : Category MIKZ need a separate calc with much less processing....
+
+
+    On Error GoTo Err_bCode43yr2015
+
+Dim Tolerance As Single
+
+bCode43yr2015 = True
+
+Select Case nYear
+
+
+    Case Is > 2008
+        
+        'phase 1
+        Dim code43db As Database
+        Dim code43rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        Dim SecondaryContRecorded As Currency
+        Dim PrimaryContsBelowUEL As Currency
+        Dim SecondaryContsBelowUEL As Currency
+        Dim SecondaryContsAboveUEL As Currency
+        Dim EarningsOverUEL As Currency
+        Dim PrimaryContsOnEarningsAboveUEL As Currency
+        Dim MinimumPrimaryConts As Currency
+        
+        
+        Set code43db = CurrentDb
+        
+        Taxyear = nTaxYear(Date)
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set code43rst = code43db.OpenRecordset(strSQL)
+        
+        Tolerance = (code43rst!WkLEL) / 2
+        
+        code43db.Close
+        
+        'step 1
+            PrimaryContsBelowUEL = curTruncate(CurETtoUAP * EERate) + curTruncate(CurUAPtoUEL * EERateAboveUAP)
+
+
+        'step 8
+            MinimumPrimaryConts = PrimaryContsBelowUEL - Tolerance
+                
+                'If EEConts >= (MinimumPrimaryConts + Tolerance) Or EEConts <= (MinimumPrimaryConts - Tolerance) Then
+                If EEConts < (MinimumPrimaryConts - Tolerance) Then
+                    bCode43yr2015 = False
+                
+                End If
+                
+        'phase 2
+        If CurETtoUAP = 0 Then
+            If EEConts > 0 Then
+                bCode43yr2015 = False
+            End If
+        End If
+        
+    Case Else
+    
+        bCode43yr2015 = False
+         
+End Select
+    
+Exit_bCode43yr2015:
+    Exit Function
+    
+Err_bCode43yr2015:
+    MsgBox Error$
+    Resume Exit_bCode43yr2015
+
+
+End Function
+
+
+
+
+Function bCode43Yr2000(ByVal EEConts As Currency, ByVal CurEEETtoERET As Currency, ByVal CurERETtoUEL As Currency, ByVal EERate As Double) As Integer
+' Author        : Peter Morton
+' Date          : 22/11/2000
+' Function Name : bCode43
+' Purpose       : Total Primary Contribution must be compatible with Total Primary Earnings within a tolerance
+' Primary Contributions = (((EEETtoERET) + ERETtoUEL) x Primary Cont Rate) +/- tolerance
+' Author        : Christopher Schuler
+' Date          : 3 May 2002
+' Purpose       : CCA6847 increase tolerance level from 2000/2001 onwards(see bCode43 as well)
+'               : The current LEL on the date of calculation should be used for the tolerance,
+'               : and not the LEL for the year of contributions
+' Author        : Christopher Schuler
+' Date          : 23 May 2002
+' Purpose       : V644655 - curTruncate replaces curRound to make code follow tech. specification
+
+
+On Error GoTo Err_bCode43Yr2000
+
+Dim Tolerance As Single
+Dim CurTotConts As Currency
+
+'CCA6847    Tolerance = 33.5      'LEL/2
+    Dim code43db As Database
+    Dim code43rst As DAO.Recordset
+    Dim strSQL As String
+    Dim Taxyear As String
+    
+    Set code43db = CurrentDb
+    Taxyear = nTaxYear(Date)
+    strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+    
+    Set code43rst = code43db.OpenRecordset(strSQL)
+    
+    Tolerance = (code43rst!WkLEL) / 2
+    
+    code43db.Close
+    
+bCode43Yr2000 = True ' default
+
+CurTotConts = curTruncate((CurEEETtoERET + CurERETtoUEL) * EERate)
+
+If EEConts > CurTotConts + Tolerance Then 'upper limit
+    bCode43Yr2000 = False
+    Exit Function
+End If
+
+If EEConts < CurTotConts - Tolerance Then 'lower limit
+    bCode43Yr2000 = False
+    Exit Function
+End If
+
+
+   
+
+Exit_bCode43Yr2000:
+    Exit Function
+    
+Err_bCode43Yr2000:
+    MsgBox Error$
+    Resume Exit_bCode43Yr2000
+
+
+End Function
+
+
+Function bCode44(ByVal nYear As Integer, ByVal TotalConts As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double, RebateFlag As String) As Integer
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Fuction Name  : bCode44
+' Purpose       : Total Contributions must be greater than the actual due less a tolerance
+' Author        : Christopher Schuler
+' Date          : 31 Jan 2002
+' Purpose       : Amended for 2001
+' Author        : Christopher Schuler
+' Date          : 3 May 2002
+' Purpose       : CCA6847 increase tolerance level from 2000/2001 onwards(see bCode44Yr2000 as well)
+'               : The current LEL on the date of calculation should be used for the tolerance,
+'               : and not the LEL for the year of contributions
+' Author        : Christopher Schuler
+' Date          : 23 May 2002
+' Purpose       : V644655 - curTruncate replaces curRound to make code follow tech. specification
+' Author        : Christopher Schuler
+' Date          : 15 Mar 2004
+' Purpose       : Amended for 2003
+' Author        : Christopher Schuler
+' Date          : 16 January 2006
+' Purpose       : Amended for 2005
+' Author        : Christopher Schuler
+' Date          : 2 January 2007
+' Purpose       : Amended for 2006
+' Author        : Christopher Sneddon
+' Date          : 26 November 2007
+' Purpose       : Amended for 2007
+' Author        : Christopher Sneddon
+' Date          : 16 February 2009
+' Purpose       : Amended for 2008
+' Author        : Christopher Sneddon
+' Date          : 25 January 2010
+' Purpose       : Amended for 2009
+
+
+On Error GoTo Err_bCode44
+
+Dim Tolerance As Single
+
+bCode44 = True ' default
+
+Select Case nYear
+    Case 1999
+        Tolerance = 33      'LEL/2
+    
+        bCode44 = IIf((TotalConts >= (curTruncate(((CurLELtoET + CurETtoUEL) * EERate) + (CurETtoUEL * ERRate) - Tolerance))), True, False)
+    
+    ' this should possibly be 1 year behind the tax year..
+    Case 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+        'Tolerance = 36      'LEL/2
+        Dim code44db As Database
+        Dim code44rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        
+        Set code44db = CurrentDb
+        Taxyear = nTaxYear(Date)
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set code44rst = code44db.OpenRecordset(strSQL)
+        
+        Tolerance = (code44rst!WkLEL)
+        
+        code44db.Close
+        If nYear < 2003 Then
+        
+            bCode44 = IIf((TotalConts >= (curTruncate((CurETtoUEL * EERate) + (CurETtoUEL * ERRate) - Tolerance))), True, False)
+        
+        Else
+        
+            Dim SecondaryContsDue As Currency
+            Dim MinSecondaryContsDue As Currency
+            Dim RecordedSecondaryConts As Currency
+            
+            SecondaryContsDue = curTruncate(CurETtoUEL * ERRate)
+            MinSecondaryContsDue = SecondaryContsDue - Tolerance
+            
+            If Trim(RebateFlag) = "R" Then
+            
+                RecordedSecondaryConts = -(TotalConts)
+            
+            Else
+            
+                RecordedSecondaryConts = TotalConts - EEConts
+                
+            End If
+            
+            If RecordedSecondaryConts < MinSecondaryContsDue Then
+            
+                bCode44 = False
+                
+            End If
+            
+        
+        End If
+        
+    Case Else
+        bCode44 = False
+        
+End Select
+
+Exit_bCode44:
+    Exit Function
+    
+Err_bCode44:
+    MsgBox Error$
+    Resume Exit_bCode44
+
+
+End Function
+
+
+Function bCode51(ByVal nYear As Integer, ByVal TotalConts As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUAP As Currency, ByVal CurUAPtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double, RebateFlag As String) As Integer
+' Author        : Christopher Sneddon
+' Date          : 16 September 2009
+' Fuction Name  : bCode51
+' Purpose       : Earnings between UAP and UEL > 58 weeks at UAP to UEL
+
+' Name : Ben Stephenson
+' Date : 07/09/2011
+' Desc : RT51 should be applied for all years post 2008, not just 2009
+' EARS : 00017108823
+' Tag  : BSTE_20110907
+
+On Error GoTo Err_bCode51
+
+
+bCode51 = True ' default
+
+Dim CurrLEL As Currency
+Dim CurrET As Currency
+Dim CurrUEL As Currency
+Dim CurrUAP As Currency
+
+'CurrLEL = DLookup("[WkLEL]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+'CurrET = DLookup("[WkER_ET]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+CurrUAP = DLookup("[WkUAP]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+CurrUEL = DLookup("[WkUEL]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+
+Select Case nYear
+    
+    ' BSTE_20110907 Case 2009
+    Case Is > 2008           ' BSTE_20110907
+        If ((CurUAPtoUEL > (CurrUEL - CurrUAP) * 58)) Then
+           
+           bCode51 = False
+        Else
+           bCode51 = True
+        End If
+    Case Else
+    
+        bCode51 = False
+        
+End Select
+
+Exit_bCode51:
+    Exit Function
+    
+Err_bCode51:
+    MsgBox Error$
+    Resume Exit_bCode51
+
+
+End Function
+
+Function bCode44Yr2000(ByVal TotalConts As Currency, ByVal CurEEETtoERET As Currency, ByVal CurERETtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double) As Integer
+' Author        : Peter Morton
+' Date          : 22/11/2000
+' Function Name : bCode44Yr2000
+' Purpose       : Total Contributions must be greater than the actual due less a tolerance
+' Author        : Christopher Schuler
+' Date          : 3 May 2002
+' Purpose       : CCA6847 increase tolerance level from 2000/2001 onwards(see bCode44 as well)
+'               : The current LEL on the date of calculation should be used for the tolerance,
+'               : and not the LEL for the year of contributions
+' Author        : Christopher Schuler
+' Date          : 23 May 2002
+' Purpose       : V644655 - curTruncate replaces curRound to make code follow tech. specification
+
+
+On Error GoTo Err_bCode44Yr2000
+
+Dim Tolerance As Single
+Dim CurTotCont As Currency
+
+'Tolerance = 33.5      'LEL/2
+Dim code44db As Database
+Dim code44rst As DAO.Recordset
+Dim strSQL As String
+Dim Taxyear As String
+    
+Set code44db = CurrentDb
+Taxyear = nTaxYear(Date)
+strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+    
+Set code44rst = code44db.OpenRecordset(strSQL)
+
+Tolerance = (code44rst!WkLEL)
+
+code44db.Close
+    
+bCode44Yr2000 = True ' set default
+    
+CurTotCont = (CurEEETtoERET + CurERETtoUEL) * EERate
+CurTotCont = curTruncate(CurTotCont + (CurERETtoUEL * ERRate))
+
+If TotalConts < CurTotCont - Tolerance Then ' fails
+    bCode44Yr2000 = False
+    Exit Function
+End If
+
+Exit_bCode44Yr2000:
+    Exit Function
+    
+Err_bCode44Yr2000:
+    MsgBox Error$
+    Resume Exit_bCode44Yr2000
+
+
+End Function
+
+
+Function bCode45(ByVal CurUpToLEL As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency) As Integer
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Fuction Name  : bCode45
+' Purpose       : Earnings must be greater than zero
+
+    On Error GoTo Err_bCode45
+
+    bCode45 = IIf((CurUpToLEL + CurLELtoET + CurETtoUEL) > 0, True, False)
+
+
+Exit_bCode45:
+    Exit Function
+    
+Err_bCode45:
+    MsgBox Error$
+    Resume Exit_bCode45
+
+End Function
+
+Function bCode45Yr2000(ByVal CurUpToLEL As Currency, ByVal CurLELtoEEET As Currency, ByVal CurEEETtoERET As Currency, ByVal CurERETtoUEL As Currency) As Integer
+' Author        : Peter Morton
+' Date          : 22/11/2000
+' Function Name : bCode45Yr2000
+' Purpose       : Earnings must be greater than zero
+
+On Error GoTo Err_bCode45Yr2000
+
+    bCode45Yr2000 = IIf((CurUpToLEL + CurLELtoEEET + CurEEETtoERET + CurERETtoUEL) > 0, True, False)
+
+
+Exit_bCode45Yr2000:
+    Exit Function
+    
+Err_bCode45Yr2000:
+    MsgBox Error$
+    Resume Exit_bCode45Yr2000
+
+End Function
+
+Function bCode45yr2009(ByVal CurUpToLEL As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUAP As Currency, ByVal CurUAPtoUEL As Currency) As Integer
+' Author        : Christopher Sneddon
+' Date          : 23 March 2009
+' Fuction Name  : bCode45yr2009
+' Purpose       : Earnings must be greater than zero
+
+    On Error GoTo Err_bCode45yr2009
+
+    bCode45yr2009 = IIf((CurUpToLEL + CurLELtoET + CurETtoUAP + CurUAPtoUEL) > 0, True, False)
+
+
+Exit_bCode45yr2009:
+    Exit Function
+    
+Err_bCode45yr2009:
+    MsgBox Error$
+    Resume Exit_bCode45yr2009
+
+End Function
+
+Function bCode45yr2016(ByVal CurUpToLEL As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency) As Integer
+' Author        : Christopher Sneddon
+' Date          : 29 December 2016
+' Fuction Name  : bCode45yr2016
+' Purpose       : Removal of UAP
+
+    On Error GoTo Err_bCode45yr2016
+
+    bCode45yr2016 = IIf((CurUpToLEL + CurLELtoET + CurETtoUEL) > 0, True, False)
+
+
+Exit_bCode45yr2016:
+    Exit Function
+    
+Err_bCode45yr2016:
+    MsgBox Error$
+    Resume Exit_bCode45yr2016
+
+End Function
+
+Function bCode46(ByVal CurLELtoEEET As Currency) As Integer
+' Author        : Peter Morton
+' Date          : 22/11/2000
+' Function Name : bCode46
+' Purpose       : UELtoEEET <= 58 weeks earnings (weekly value = LELtoEEET - UpToLEL, = 76 - 67, = 9)
+
+On Error GoTo Err_bCode46
+
+    bCode46 = IIf((CurLELtoEEET <= 522), True, False) '522 = 58 x 9
+
+Exit_bCode46:
+    Exit Function
+    
+Err_bCode46:
+    MsgBox Error$
+    Resume Exit_bCode46
+
+End Function
+
+
+Function bCode47(ByVal CurEEETtoERET As Currency) As Integer
+' Author        : Peter Morton
+' Date          : 22/11/2000
+' Function Name : bCode47
+' Purpose       : EEETtoERET <= 58 weeks earnings (weekly value = ER Threshold - EE Threshold, = 84 - 76, = 8)
+
+On Error GoTo Err_bCode47
+
+    bCode47 = IIf((CurEEETtoERET <= 464), True, False) '464 = 58 x 8
+
+Exit_bCode47:
+    Exit Function
+    
+Err_bCode47:
+    MsgBox Error$
+    Resume Exit_bCode47
+
+End Function
+
+Function bCode48(ByVal CurERETtoUEL As Currency) As Integer
+' Author        : Peter Morton
+' Date          : 23/11/2000
+' Function Name : bCode48
+' Purpose       : ERETtoUEL <= 58 weeks earnings (weekly value = UEL - ER Threshold, = 535 - 84, = 451)
+
+On Error GoTo Err_bCode48
+
+    bCode48 = IIf((CurERETtoUEL <= 26158), True, False) '26158 = 58 x 451
+
+Exit_bCode48:
+    Exit Function
+    
+Err_bCode48:
+    MsgBox Error$
+    Resume Exit_bCode48
+
+End Function
+
+
+Function bCode50(ByVal nYear As Integer, ByVal TotalConts As Currency, ByVal EEConts As Currency, _
+                 ByVal CurLELtoET As Currency, ByVal CurETtoUAP As Currency, ByVal CurUAPtoUEL As Currency, _
+                 ByVal EERate As Double, ByVal ERRate As Double, RebateFlag As String) As Integer
+
+' Author        : Christopher Sneddon
+' Date          : 16 September 2009
+' Fuction Name  : bCode50
+' Purpose       : Earnings between ET to UAP >58 Weeks at ET to UAP
+' Author        : Christopher Sneddon
+' Date          : 10 October 2011
+' Purpose       : additional processing for ST-PT
+
+
+
+On Error GoTo Err_bCode50
+
+Dim CurrLEL As Currency
+Dim CurrET_PT As Currency
+Dim CurrUAP As Currency
+
+bCode50 = True ' default
+
+CurrLEL = DLookup("[WkLEL]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+
+If nYear > 2010 Then
+    CurrET_PT = DLookup("[WkPT]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+Else
+    CurrET_PT = DLookup("[WkER_ET]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+End If
+
+CurrUAP = DLookup("[WkUAP]", "tblBandLimits1999", "[Tax Yr] = '" & nYear & "'")
+
+Select Case nYear
+    Case Is > 2008
+        If (CurETtoUAP > ((CurrUAP - CurrET_PT) * 58)) Then
+           
+           bCode50 = False
+        
+        End If
+    Case Else
+    
+       bCode50 = False
+        
+End Select
+
+Exit_bCode50:
+    Exit Function
+    
+Err_bCode50:
+    MsgBox Error$
+    Resume Exit_bCode50
+
+
+End Function
+
+
+Function bCode44yr2009(ByVal nYear As Integer, ByVal strCategory As String, ByVal TotalConts As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUAP As Currency, ByVal CurUAPtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double, ByVal ERRateAboveUAP As Double, RebateFlag As String) As Integer
+' Author        : Christopher Sneddon
+' Date          : 23 March 2009
+' Fuction Name  : bCode44yr2009
+' Purpose       : Total Contributions must be greater than the actual due, less a tolerance
+
+
+
+On Error GoTo Err_bCode44yr2009
+
+Dim Tolerance As Single
+
+bCode44yr2009 = True ' default
+
+Select Case nYear
+    Case Is > 2008
+        'Tolerance = 36      'LEL/2
+        Dim code44db As Database
+        Dim code44rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        
+        Set code44db = CurrentDb
+        Taxyear = nTaxYear(Date)
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set code44rst = code44db.OpenRecordset(strSQL)
+        
+        Tolerance = (code44rst!WkLEL)
+        
+        code44db.Close
+        
+            Dim SecondaryContsDue As Currency
+            Dim MinSecondaryContsDue As Currency
+            Dim RecordedSecondaryConts As Currency
+            
+                    
+        If strCategory <> "M" And strCategory <> "I" And strCategory <> "K" And strCategory <> "Z" Then '2015 changes
+                    
+                    SecondaryContsDue = curTruncate(CurETtoUAP * ERRate) + curTruncate(CurUAPtoUEL * ERRateAboveUAP)
+                    MinSecondaryContsDue = SecondaryContsDue - Tolerance
+            
+            If Trim(RebateFlag) = "R" Then
+            
+                RecordedSecondaryConts = -(TotalConts)
+            
+            Else
+            
+                RecordedSecondaryConts = TotalConts - EEConts
+                
+            End If
+            
+            If RecordedSecondaryConts < MinSecondaryContsDue Then
+            
+                bCode44yr2009 = False
+                
+            End If
+        End If
+            If strCategory <> "B" And strCategory <> "T" Then
+                If CurETtoUAP = 0 Then
+                    If TotalConts > 0 Then
+                        bCode44yr2009 = False
+                    End If
+                End If
+            End If
+        
+    Case Else
+    
+        bCode44yr2009 = False
+        
+End Select
+
+Exit_bCode44yr2009:
+    Exit Function
+    
+Err_bCode44yr2009:
+    MsgBox Error$
+    Resume Exit_bCode44yr2009
+
+
+End Function
+
+Function bCode44yr2016(ByVal nYear As Integer, ByVal strCategory As String, ByVal TotalConts As Currency, ByVal EEConts As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency, ByVal EERate As Double, ByVal ERRate As Double) As Integer
+' Author        : Christopher Sneddon
+' Date          : 28 December 2016
+' Fuction Name  : bCode44yr2016
+' Purpose       : Removal of the UAP and usage for new categories
+
+
+
+On Error GoTo Err_bCode44yr2016
+
+Dim Tolerance As Single
+
+bCode44yr2016 = True ' default
+
+Select Case nYear
+    Case Is > 2008
+        'Tolerance = 36      'LEL/2
+        Dim code44db As Database
+        Dim code44rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        
+        Set code44db = CurrentDb
+        Taxyear = nTaxYear(Date)
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set code44rst = code44db.OpenRecordset(strSQL)
+        
+        Tolerance = (code44rst!WkLEL)
+        
+        code44db.Close
+        
+            Dim SecondaryContsDue As Currency
+            Dim MinSecondaryContsDue As Currency
+            Dim RecordedSecondaryConts As Currency
+            
+                    
+        If strCategory <> "M" And strCategory <> "Z" Then '2016 removed I K
+                    
+                    SecondaryContsDue = curTruncate(CurETtoUEL * ERRate)
+                    MinSecondaryContsDue = SecondaryContsDue - Tolerance
+                    RecordedSecondaryConts = TotalConts - EEConts
+                
+            
+            If RecordedSecondaryConts < MinSecondaryContsDue Then
+            
+                bCode44yr2016 = False
+                
+            End If
+        End If
+            If strCategory <> "B" And strCategory <> "T" Then 'T Doesn't even exist in EOI.....
+                If CurETtoUEL = 0 Then
+                    If TotalConts > 0 Then
+                        bCode44yr2016 = False
+                    End If
+                End If
+            End If
+        
+    Case Else
+    
+        bCode44yr2016 = False
+        
+End Select
+
+Exit_bCode44yr2016:
+    Exit Function
+    
+Err_bCode44yr2016:
+    MsgBox Error$
+    Resume Exit_bCode44yr2016
+
+
+End Function
+
+
+
+Function bValidRatioCalculation()
+' Author        : Mustaq Hussain
+' Date          : 29 May 1996
+' Fuction Name  : bValidRatioCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+            
+
+
+    Dim strCategory As String
+    Dim CurTotal As Currency, curPrimary As Currency, curNIEarnings As Currency, curCOEarnings As Currency, curCOElement As Currency
+
+    Dim strComment As String
+
+    Dim nYear As Integer
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+
+    On Error GoTo Err_bValidRatioCalculation
+
+    DoCmd.Hourglass True
+
+    ' Assume valid
+    bValidRatioCalculation = True
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions")
+    
+    ' Calculate only if entries exist
+
+    
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+            mySet.Edit
+                
+                nYear = mySet![Taxyear]
+                strCategory = mySet![Category]
+                CurTotal = mySet![Total]
+                curPrimary = mySet![Primary]
+                curNIEarnings = mySet![NIEarnings]
+                curCOEarnings = IIf(IsNull(mySet![COEarnings]), 0, mySet![COEarnings])
+                curCOElement = IIf(IsNull(mySet![COElement]), 0, mySet![COElement])
+
+'   Added Cat F and G ratio checks, Ian Pilkington - RFC642H
+
+                strComment = "No data"
+                Select Case strCategory
+                    Case "A"
+                        CatA nYear, strCategory, CurTotal, curPrimary, curNIEarnings, curCOEarnings, curCOElement, strComment
+                    Case "B"
+                        CatB nYear, strCategory, CurTotal, curPrimary, curNIEarnings, curCOEarnings, curCOElement, strComment
+                    Case "D"
+                        CatD nYear, strCategory, CurTotal, curPrimary, curNIEarnings, curCOEarnings, curCOElement, strComment
+                    Case "E"
+                        CatE nYear, strCategory, CurTotal, curPrimary, curNIEarnings, curCOEarnings, curCOElement, strComment
+                    Case "F"
+                        CatF nYear, strCategory, CurTotal, curPrimary, curNIEarnings, curCOEarnings, curCOElement, strComment
+                    Case "G"
+                        CatG nYear, strCategory, CurTotal, curPrimary, curNIEarnings, curCOEarnings, curCOElement, strComment
+ 
+                End Select
+
+                mySet![Comment] = strComment
+                mySet![Pass] = IIf(strComment = "", True, False)
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    Else
+        Beep
+        MsgBox ("No entries")
+        ' Validation was incorrect
+        bValidRatioCalculation = False
+    End If
+    
+
+    mySet.Close
+
+Exit_bValidRatioCalculation:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidRatioCalculation:
+    MsgBox Error$
+    Resume Exit_bValidRatioCalculation
+
+End Function
+
+Function bValidRatioCalculation1999()
+
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Fuction Name  : bValidRatioCalculation1999
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+            
+
+
+    Dim strCategory As String
+    Dim CurTotal As Currency, CurEEConts As Currency, CurUpToLEL As Currency, CurLELtoET As Currency, CurETtoUEL As Currency
+
+    Dim strComment As String
+
+    Dim nYear As Integer
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim EERate
+    Dim ERRate
+    Dim NHSRate
+    Dim ERRateAboveUEL
+    Dim SQLString As String
+    Dim Yourset As DAO.Recordset
+    Dim strRebate As String
+
+    On Error GoTo Err_bValidRatioCalculation1999
+
+    DoCmd.Hourglass True
+
+    ' Assume valid
+    bValidRatioCalculation1999 = True
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions1999")
+    
+    ' Calculate only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+
+            'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+            SQLString = "SELECT * FROM [tblClass1_1999] WHERE"
+            SQLString = SQLString & " [tblClass1_1999].[Tax Yr] = '" & mySet![Taxyear] & "'"
+            SQLString = SQLString & " AND [tblClass1_1999].[Cat] = '" & mySet![Category] & "'"
+            
+            Set Yourset = myDB.OpenRecordset(SQLString)
+        
+            EERate = Yourset![EE_Rate]
+            ERRate = Yourset![ER_Rate]
+            NHSRate = IIf(IsNull(Yourset![EE_AboveUEL]), 0, Yourset![EE_AboveUEL])  'v1550826
+            ERRateAboveUEL = Yourset![ER_AboveUEL]   'v1651548
+            
+            Yourset.Close
+            
+            
+            mySet.Edit
+                
+                nYear = mySet![Taxyear]
+                strCategory = mySet![Category]
+                CurTotal = mySet![Total]
+                CurEEConts = mySet![EEConts]
+                CurUpToLEL = mySet![UpToLEL]
+                CurLELtoET = IIf(IsNull(mySet![LELtoET]), 0, mySet![LELtoET])
+                CurETtoUEL = IIf(IsNull(mySet![ETtoUEL]), 0, mySet![ETtoUEL])
+                'strRebate = mySet![Rebate]
+                strRebate = IIf(IsNull(mySet![Rebate]), 0, mySet![Rebate])  'v1550826
+
+                strComment = "No data"
+                        
+                Checks1999 nYear, strCategory, CurTotal, CurEEConts, CurUpToLEL, CurLELtoET, CurETtoUEL, EERate, ERRate, NHSRate, ERRateAboveUEL, strRebate, strComment
+
+                mySet![Comment] = strComment
+                mySet![Pass] = IIf(strComment = "", True, False)
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    Else
+        Beep
+        MsgBox ("No entries")
+        ' Validation was incorrect
+        bValidRatioCalculation1999 = False
+    End If
+    
+
+    mySet.Close
+
+Exit_bValidRatioCalculation1999:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidRatioCalculation1999:
+    MsgBox Error$
+    Resume Exit_bValidRatioCalculation1999
+End Function
+
+Function bValidRatioCalculation2000()
+
+' Author        : Peter Morton
+' Date          : 20/11/2000
+' Fuction Name  : bValidRatioCalculation2000
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+            
+
+
+    Dim strCategory As String
+    Dim CurTotal As Currency  'Total conts Employee (EE) + Employer (ER)
+    Dim CurEEConts As Currency 'EE conts
+    Dim CurUpToLEL As Currency ' = LEL
+    Dim CurLELtoEEET As Currency 'LEL to Employee Earnings Threshold
+    Dim CurEEETtoERET As Currency ' Employee Earnings Threshold to Employer Earnings Threshold
+    Dim CurERETtoUEL As Currency 'Employer Earnings Threshold to UEL
+
+    Dim strComment As String
+
+    Dim nYear As Integer
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim EERate
+    Dim ERRate
+    Dim SQLString As String
+    Dim Yourset As DAO.Recordset
+
+
+    On Error GoTo Err_bValidRatioCalculation2000
+
+    DoCmd.Hourglass True
+
+    ' Assume valid
+    bValidRatioCalculation2000 = True
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions1999")
+    
+    ' Calculate only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+
+            'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+            SQLString = "SELECT * FROM [tblClass1_1999] WHERE"
+            SQLString = SQLString & " [tblClass1_1999].[Tax Yr] = '" & mySet![Taxyear] & "'"
+            SQLString = SQLString & " AND [tblClass1_1999].[Cat] = '" & mySet![Category] & "'"
+            
+            Set Yourset = myDB.OpenRecordset(SQLString)
+        
+            EERate = Yourset![EE_Rate]
+            ERRate = Yourset![ER_Rate]
+        
+            Yourset.Close
+            
+            
+            mySet.Edit
+                
+                nYear = mySet![Taxyear]
+                strCategory = mySet![Category]
+                CurTotal = mySet![Total]
+                CurEEConts = mySet![EEConts]
+                CurUpToLEL = mySet![UpToLEL]
+                CurLELtoEEET = IIf(IsNull(mySet![LELToEEET]), 0, mySet![LELToEEET])
+                CurEEETtoERET = IIf(IsNull(mySet![EEETToERET]), 0, mySet![EEETToERET])
+                CurERETtoUEL = IIf(IsNull(mySet![ERETToUEL]), 0, mySet![ERETToUEL])
+
+
+                strComment = "No data"
+                        
+                Checks2000 nYear, strCategory, CurTotal, CurEEConts, CurUpToLEL, CurLELtoEEET, CurEEETtoERET, CurERETtoUEL, EERate, ERRate, strComment
+
+                mySet![Comment] = strComment
+                mySet![Pass] = IIf(strComment = "", True, False)
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    Else
+        Beep
+        MsgBox ("No entries")
+        ' Validation was incorrect
+        bValidRatioCalculation2000 = False
+    End If
+    
+
+    mySet.Close
+
+Exit_bValidRatioCalculation2000:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidRatioCalculation2000:
+    MsgBox Error$
+    Resume Exit_bValidRatioCalculation2000
+End Function
+
+Sub CatA(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency, strComment As String)
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : CatA
+' Purpose       : Carry out calculation for Category A
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_CatA
+
+    ' Assume pass
+    strComment = ""
+
+    nMaxTaxYear = CInt(strCurrentTaxYear("BAND TABLE")) - 1
+    Select Case nYear
+        Case 1987 To 1998
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode02AND13(curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 02 and  13"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode23(strCategory, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 23"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode24(strCategory, curNIEarnings)
+            If bPass = False Then
+                strComment = "Code 24"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode25(nYear, strCategory, curNIEarnings)
+            If bPass = False Then
+                strComment = "Code 25"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode26(nYear, strCategory, curPrimary, curNIEarnings)
+            If bPass = False Then
+                strComment = "Code 26"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode33(strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 33"
+                GoTo FailedChecks_CatA
+            End If
+        
+        Case 1985 To 1986
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode02AND13(curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 02 and 13"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code19"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode33(strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 33"
+                GoTo FailedChecks_CatA
+            End If
+    
+        Case 1975 To 1984
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatA
+            End If
+            bPass = bCode02AND13(curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 02 and 13"
+                GoTo FailedChecks_CatA
+            End If
+        
+        Case Else
+            strComment = "No Ratio data"
+    End Select
+
+FailedChecks_CatA:
+
+
+Exit_CatA:
+    Exit Sub
+    
+Err_CatA:
+    MsgBox Error$
+    Resume Exit_CatA
+
+End Sub
+
+Sub CatB(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency, strComment As String)
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : CatB
+' Purpose       : Carry out calculation for Category B
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_CatB
+
+    ' Assume pass
+    strComment = ""
+    
+    nMaxTaxYear = CInt(strCurrentTaxYear("BAND TABLE")) - 1
+
+    Select Case nYear
+        
+        Case 1985 To 1998
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatB
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatB
+            End If
+            bPass = bCode02AND13(curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 02 and 13"
+                GoTo FailedChecks_CatB
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatB
+            End If
+            bPass = bCode33(strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 33"
+                GoTo FailedChecks_CatB
+            End If
+        
+        Case 1975 To 1984
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatB
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatB
+            End If
+            bPass = bCode02AND13(curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 02 and 13"
+                GoTo FailedChecks_CatB
+            End If
+        
+        Case Else
+            strComment = "No Ratio data"
+    End Select
+
+FailedChecks_CatB:
+
+
+Exit_CatB:
+    Exit Sub
+    
+Err_CatB:
+    MsgBox Error$
+    Resume Exit_CatB
+
+End Sub
+
+Sub CatD(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency, strComment As String)
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : CatD
+' Purpose       : Carry out calculation for Category D
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_CatD
+
+    ' Assume pass
+    strComment = ""
+    
+    nMaxTaxYear = CInt(strCurrentTaxYear("BAND TABLE")) - 1
+    
+    Select Case nYear
+        
+        Case 1987 To nMaxTaxYear
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode03AND14(strCategory, curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 03 and 14"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode07AND16(nYear, strCategory, curPrimary, curNIEarnings, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 07 and 16"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode08AND09AND17AND18(nYear, strCategory, curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 08, 09, 17 and 18"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode27(strCategory, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 27"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode28(strCategory, curNIEarnings, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 28"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode29(nYear, strCategory, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 29"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode30(nYear, strCategory, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 30"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode31(nYear, strCategory, curPrimary, curNIEarnings, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 31"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode32(nYear, strCategory, curPrimary, curNIEarnings, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 32"
+                GoTo FailedChecks_CatD
+            End If
+        Case 1985, 1986
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode03AND14(strCategory, curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 03 and 14"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode07AND16(nYear, strCategory, curPrimary, curNIEarnings, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 07 and 16"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode08AND09AND17AND18(nYear, strCategory, curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 08, 09, 17 and 18"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatD
+            End If
+
+        Case 1978 To 1984
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode03AND14(strCategory, curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 03 and 14"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode07AND16(nYear, strCategory, curPrimary, curNIEarnings, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 07 and 16"
+                GoTo FailedChecks_CatD
+            End If
+            bPass = bCode08AND09AND17AND18(nYear, strCategory, curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 08, 09, 17 and 18"
+                GoTo FailedChecks_CatD
+            End If
+            If nYear = 1979 Or nYear = 1980 Or nYear = 1981 Then
+                bPass = bCode10AND11(nYear, strCategory, curPrimary, curNIEarnings, curCOElement)
+                If bPass = False Then
+                    strComment = "Code 10 and 11"
+                    GoTo FailedChecks_CatD
+                End If
+            End If
+
+
+        Case Else
+            strComment = "No Ratio data"
+    End Select
+
+FailedChecks_CatD:
+
+
+Exit_CatD:
+    Exit Sub
+    
+Err_CatD:
+    MsgBox Error$
+    Resume Exit_CatD
+
+End Sub
+
+Sub CatE(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency, strComment As String)
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : CatB
+' Purpose       : Carry out calculation for Category E
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_CatE
+
+    ' Assume pass
+    strComment = ""
+    
+    nMaxTaxYear = CInt(strCurrentTaxYear("BAND TABLE")) - 1
+
+    Select Case nYear
+        
+        Case 1991 To nMaxTaxYear
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatE
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatE
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatE
+            End If
+            bPass = bCode29(nYear, strCategory, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 29"
+                GoTo FailedChecks_CatE
+            End If
+            bPass = bCode30(nYear, strCategory, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 30"
+                GoTo FailedChecks_CatE
+            End If
+        Case 1989, 1990
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatE
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatE
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatE
+            End If
+        Case 1985 To 1988
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatE
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatE
+            End If
+        Case 1975 To 1984
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatE
+            End If
+        
+        Case Else
+            strComment = "No Ratio data"
+    End Select
+
+FailedChecks_CatE:
+
+
+Exit_CatE:
+    Exit Sub
+    
+Err_CatE:
+    MsgBox Error$
+    Resume Exit_CatE
+
+End Sub
+
+Sub CatF(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency, strComment As String)
+
+' Author        : Ian Pilkington
+' Date          : 19 Feb 1998
+' Fuction Name  : CatF
+' Purpose       : Carry out calculation for Category F, valid from 97 onwards
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_CatF
+
+    ' Assume pass
+    strComment = ""
+    
+    nMaxTaxYear = CInt(strCurrentTaxYear("BAND TABLE")) - 1
+    
+    Select Case nYear
+        
+        Case 1997 To nMaxTaxYear
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode03AND14(strCategory, curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 03 and 14"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode07AND16(nYear, strCategory, curPrimary, curNIEarnings, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 07 and 16"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode08AND09AND17AND18(nYear, strCategory, curPrimary, curCOElement)
+            If bPass = False Then
+                strComment = "Code 08, 09, 17 and 18"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode27(strCategory, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 27"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode28(strCategory, curNIEarnings, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 28"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode29(nYear, strCategory, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 29"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode30(nYear, strCategory, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 30"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode31(nYear, strCategory, curPrimary, curNIEarnings, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 31"
+                GoTo FailedChecks_CatF
+            End If
+            bPass = bCode32(nYear, strCategory, curPrimary, curNIEarnings, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 32"
+                GoTo FailedChecks_CatF
+            End If
+
+        Case Else
+            strComment = "No Ratio data"
+    End Select
+
+FailedChecks_CatF:
+
+
+Exit_CatF:
+    Exit Sub
+    
+Err_CatF:
+    MsgBox Error$
+    Resume Exit_CatF
+
+End Sub
+
+Sub CatG(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal curPrimary As Currency, ByVal curNIEarnings As Currency, ByVal curCOEarnings As Currency, ByVal curCOElement As Currency, strComment As String)
+
+' Author        : Ian Pilkington
+' Date          : 19 Feb 1998
+' Fuction Name  : CatG
+' Purpose       : Carry out calculation for Category G, valid only after 97
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_CatG
+
+    ' Assume pass
+    strComment = ""
+    
+    nMaxTaxYear = CInt(strCurrentTaxYear("BAND TABLE")) - 1
+
+    Select Case nYear
+        
+        Case 1997 To nMaxTaxYear
+            bPass = bCode00(nYear, strCategory, curPrimary, CurTotal, curNIEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 00"
+                GoTo FailedChecks_CatG
+            End If
+            bPass = bCode01AND12(curPrimary, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_CatG
+            End If
+            bPass = bCode19(nYear, strCategory, curPrimary)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_CatG
+            End If
+            bPass = bCode29(nYear, strCategory, curCOEarnings)
+            If bPass = False Then
+                strComment = "Code 29"
+                GoTo FailedChecks_CatG
+            End If
+            bPass = bCode30(nYear, strCategory, curCOEarnings, curCOElement)
+            If bPass = False Then
+                strComment = "Code 30"
+                GoTo FailedChecks_CatG
+            End If
+        
+        Case Else
+            strComment = "No Ratio data"
+    End Select
+
+FailedChecks_CatG:
+
+
+Exit_CatG:
+    Exit Sub
+    
+Err_CatG:
+    MsgBox Error$
+    Resume Exit_CatG
+
+End Sub
+
+Sub Checks1999(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, ByVal CurUpToLEL As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency, ByVal EERate As Variant, ByVal ERRate As Variant, ByVal NHSRate As Variant, ByVal ERRateAboveUEL As Variant, ByVal RebateFlag As String, strComment As String)
+' Author        : Christopher Schuler
+' Date          : 15 March 2000
+' Fuction Name  : Checks1999
+' Purpose       : Carry out calculation for 1999
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_Checks1999
+
+    ' Assume pass
+    strComment = ""
+
+
+            bPass = bCode01AND12(CurEEConts, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_Checks1999
+            End If
+            bPass = bCode19(nYear, strCategory, CurEEConts)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_Checks1999
+            End If
+            bPass = bCode40(nYear, CurUpToLEL)
+            If bPass = False Then
+                strComment = "Code 40"
+                GoTo FailedChecks_Checks1999
+            End If
+            bPass = bCode41(nYear, CurLELtoET)
+            If bPass = False Then
+                strComment = "Code 41"
+                GoTo FailedChecks_Checks1999
+            End If
+            bPass = bCode42(nYear, CurETtoUEL)
+            If bPass = False Then
+                strComment = "Code 42"
+                GoTo FailedChecks_Checks1999
+            End If
+            bPass = bCode43(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUEL, EERate, ERRate, NHSRate, ERRateAboveUEL)
+            If bPass = False Then
+                strComment = "Code 43"
+                GoTo FailedChecks_Checks1999
+            End If
+            bPass = bCode44(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUEL, EERate, ERRate, RebateFlag)
+            If bPass = False Then
+                strComment = "Code 44"
+                GoTo FailedChecks_Checks1999
+            End If
+            bPass = bCode45(CurUpToLEL, CurLELtoET, CurETtoUEL)
+            If bPass = False Then
+                strComment = "Code 45"
+                GoTo FailedChecks_Checks1999
+            End If
+
+
+
+FailedChecks_Checks1999:
+
+
+Exit_Checks1999:
+    Exit Sub
+    
+Err_Checks1999:
+    MsgBox Error$
+    Resume Exit_Checks1999
+
+End Sub
+
+Sub Checks2000(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, ByVal CurUpToLEL As Currency, ByVal CurLELtoEEET As Currency, ByVal CurEEETtoERET As Currency, ByVal CurERETtoUEL As Currency, ByVal EERate As Variant, ByVal ERRate As Variant, strComment As String)
+
+' Author        : Peter Morton
+' Date          : 20/11/2000
+' Function Name : Checks2000
+' Purpose       : Carry out calculation for 2000
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_Checks2000
+
+    ' Assume pass
+    strComment = ""
+
+
+            bPass = bCode01AND12(CurEEConts, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_Checks2000
+            End If
+            If strCategory <> "B" Then
+                bPass = bCode45Yr2000(CurUpToLEL, CurLELtoEEET, CurEEETtoERET, CurERETtoUEL)
+                If bPass = False Then
+                    strComment = "Code 45" 'code fail number is kept as Code 45 as this is what is
+                                           'given in the documentation
+                    GoTo FailedChecks_Checks2000
+                End If
+                
+                bPass = bCode40(nYear, CurUpToLEL)
+                If bPass = False Then
+                    strComment = "Code 40"
+                    GoTo FailedChecks_Checks2000
+                End If
+    
+                bPass = bCode46(CurLELtoEEET)
+                If bPass = False Then
+                    strComment = "Code 46"
+                    GoTo FailedChecks_Checks2000
+                End If
+    
+                bPass = bCode47(CurEEETtoERET)
+                If bPass = False Then
+                    strComment = "Code 47"
+                    GoTo FailedChecks_Checks2000
+                End If
+    
+                bPass = bCode48(CurERETtoUEL)
+                If bPass = False Then
+                    strComment = "Code 48"
+                    GoTo FailedChecks_Checks2000
+                End If
+                
+                bPass = bCode43Yr2000(CurEEConts, CurEEETtoERET, CurERETtoUEL, EERate)
+                If bPass = False Then
+                    strComment = "Code 43" 'code fail number is kept as Code 43 as this is what is
+                                           'given in the documentation
+                    GoTo FailedChecks_Checks2000
+                End If
+            End If
+            bPass = bCode19(nYear, strCategory, CurEEConts)
+            If bPass = False Then
+                strComment = "Code 19"
+                GoTo FailedChecks_Checks2000
+            End If
+
+            bPass = bCode44Yr2000(CurTotal, CurEEETtoERET, CurERETtoUEL, EERate, ERRate)
+            If bPass = False Then
+                strComment = "Code 44" 'code fail number is kept as Code 44 as this is what is
+                                       'given in the documentation
+                GoTo FailedChecks_Checks2000
+            End If
+            If strCategory <> "B" Then
+                bPass = bCode04(nYear, strCategory, CurUpToLEL, CurLELtoEEET, CurEEETtoERET, CurERETtoUEL)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2000
+                End If
+            End If
+
+FailedChecks_Checks2000:
+
+
+Exit_Checks2000:
+    Exit Sub
+    
+Err_Checks2000:
+    MsgBox Error$
+    Resume Exit_Checks2000
+
+End Sub
+
+
+Sub UseClass1Rate(ByVal nYear As Integer, ByVal sCategory As String, ByVal nRateRequired As Integer, ByVal nBand As Integer, Percentage As Double)
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : UseClass1Rate
+' Purpose       : Get Percentage from Class 1 Rate table
+' History Date  : 18 September 1995
+'               : Allow for calculation where start of Directorship does not straddle split year
+' History Date  : 9 October 1995
+'               : Allow for calculation where end of Directorship in first period for split years
+' History Date  : 19 October 1995
+'               : Checks Annual 'To' for split years
+' History Date  : 31 October 1995
+'               : Split has average using three periods (82 & 83)
+' History Date  : 16 October 1995
+'               : The [CLASS 1 RATE TABLE] use the PAYE Calender not the normal calender
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim sYear As String, SQLQuery As String, sColumn As String
+
+    Dim nMonth As Integer, nDay As Integer, nStart As Integer, nStartMonth As Integer, nYearPro As Integer
+
+    Dim bAveragePercentage As Integer
+    
+    Dim vReturnedValue As Variant
+    
+    On Error GoTo Err_Class_1_Rate
+
+
+    ' Need to convert Tax Yr into a string, without a leading space
+    sYear = Mid(Str(nYear), 2, 5)
+    
+
+    ' Construct field to lookup
+    Select Case nRateRequired
+
+        Case cRatioLELEmployee:  sColumn = IIf(nYear > 1984, "[Up to LEL" + Mid(Str(nBand), 2, 3) + " (employee)]", "[Up to LEL1 (employee)]")
+
+        Case cRatioUELEmployee:  sColumn = IIf(nYear > 1984, "[Employee Rte" + Str(nBand) + "]", "[Employee Rte 1]")
+        
+        Case cRatioLELEmployer:  sColumn = IIf(nYear > 1984, "[Up to LEL" + Mid(Str(nBand), 2, 3) + " (employer)]", "[Up to LEL1 (employer)]")
+
+        Case cRatioUELEmployer:  sColumn = IIf(nYear > 1984, "[Employer Rte" + Str(nBand) + "]", "[Employer Rte 4]")
+
+        Case cRatioAboveUEL:     sColumn = IIf(nYear > 1984, "[Above UEL (employer)]", "*")
+
+    End Select
+
+
+    ' Check for years without UEL
+    If nRateRequired = cRatioAboveUEL And nYear < 1985 Then
+    
+        Percentage = 0
+        
+    Else
+        
+        ' Query to get the Annual Bands for [Tax Yr]
+        SQLQuery = "SELECT [Start Week], [Start Month], " + sColumn + " FROM [CLASS 1 RATE TABLE]"
+        SQLQuery = SQLQuery + "WHERE [Tax Yr] = '" + sYear + "' AND [Cat] = '" + sCategory + "';"
+        
+
+        Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset(SQLQuery)
+    
+        mySet.MoveFirst
+         
+        ' Ensure NULL treated as 0
+        vReturnedValue = mySet.Fields(2).value
+        If IsNull(vReturnedValue) Then
+            Percentage = 0
+        Else
+            Percentage = vReturnedValue
+        End If
+
+
+        ' Check for split periods
+        mySet.MoveLast
+        If mySet.Recordcount > 1 Then
+            'Is a split period
+                    vReturnedValue = mySet.Fields(2).value
+                    ' Average over two periods
+                    Percentage = IIf(IsNull(vReturnedValue), Percentage, (Percentage + vReturnedValue) / 2)
+
+        End If ' Finish split year
+
+
+    End If
+
+Exit_Class_1_Rate:
+    Exit Sub
+
+Err_Class_1_Rate:
+    MsgBox Error$
+    Resume Exit_Class_1_Rate
+
+End Sub
+Function bValidRatioCalculation2001()
+
+' Author        : Christopher Schuler
+' Date          : 31 Jan 2002
+' Fuction Name  : bValidRatioCalculation2001
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+
+    Dim strCategory As String
+    Dim CurTotal As Currency, CurEEConts As Currency, CurUpToLEL As Currency, CurLELtoET As Currency, CurETtoUEL As Currency
+
+    Dim strComment As String
+
+    Dim nYear As Integer
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim EERate
+    Dim ERRate
+    Dim NHSRate
+    Dim ERRateAboveUEL
+    Dim SQLString As String
+    Dim Yourset As DAO.Recordset
+    Dim strRebate As String
+
+    On Error GoTo Err_bValidRatioCalculation2001
+
+    DoCmd.Hourglass True
+
+    ' Assume valid
+    bValidRatioCalculation2001 = True
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions1999")
+    
+    ' Calculate only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+
+            'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+            SQLString = "SELECT * FROM [tblClass1_1999] WHERE"
+            SQLString = SQLString & " [tblClass1_1999].[Tax Yr] = '" & mySet![Taxyear] & "'"
+            SQLString = SQLString & " AND [tblClass1_1999].[Cat] = '" & mySet![Category] & "'"
+            
+            Set Yourset = myDB.OpenRecordset(SQLString)
+        
+            EERate = Yourset![EE_Rate]
+            ERRate = Yourset![ER_Rate]
+            NHSRate = IIf(IsNull(Yourset![EE_AboveUEL]), 0, Yourset![EE_AboveUEL])
+            ERRateAboveUEL = Yourset![ER_AboveUEL]   'v1651548
+            
+            Yourset.Close
+            
+            
+            mySet.Edit
+                
+                nYear = mySet![Taxyear]
+                strCategory = mySet![Category]
+                CurTotal = mySet![Total]
+                CurEEConts = mySet![EEConts]
+                CurUpToLEL = mySet![UpToLEL]
+                CurLELtoET = IIf(IsNull(mySet![LELtoET]), 0, mySet![LELtoET])
+                CurETtoUEL = IIf(IsNull(mySet![ETtoUEL]), 0, mySet![ETtoUEL])
+                strRebate = IIf(IsNull(mySet![Rebate]), 0, mySet![Rebate])
+
+
+                strComment = "No data"
+                        
+                Checks2001 nYear, strCategory, CurTotal, CurEEConts, CurUpToLEL, CurLELtoET, CurETtoUEL, EERate, ERRate, NHSRate, ERRateAboveUEL, strRebate, strComment
+
+                mySet![Comment] = strComment
+                mySet![Pass] = IIf(strComment = "", True, False)
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    Else
+        Beep
+        MsgBox ("No entries")
+        ' Validation was incorrect
+        bValidRatioCalculation2001 = False
+    End If
+    
+
+    mySet.Close
+
+Exit_bValidRatioCalculation2001:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidRatioCalculation2001:
+    MsgBox Error$
+    Resume Exit_bValidRatioCalculation2001
+
+End Function
+Function bValidRatioCalculation2016()
+
+' Author        : Christopher Sneddon
+' Date          : 28/12/2016
+' Fuction Name  : bValidRatioCalculation2016
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+
+    Dim strCategory As String
+    Dim CurTotal As Currency, CurEEConts As Currency, CurUpToLEL As Currency, CurLELtoET As Currency
+    Dim CurETtoUEL As Currency
+
+    Dim strComment As String
+
+    Dim nYear As Integer
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim EERate
+    Dim ERRate
+    Dim NHSRate
+    
+    Dim ERRateAboveUEL
+    Dim EERateAboveUEL
+    Dim SQLString As String
+    Dim Yourset As DAO.Recordset
+    Dim strRebate As String
+
+    On Error GoTo Err_bValidRatioCalculation2016
+
+    DoCmd.Hourglass True
+
+    ' Assume valid
+    bValidRatioCalculation2016 = True
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions2016")
+    
+    ' Calculate only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+
+            'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+            SQLString = "SELECT * FROM [tblClass1_1999] WHERE"
+            SQLString = SQLString & " [tblClass1_1999].[Tax Yr] = '" & mySet![Taxyear] & "'"
+            SQLString = SQLString & " AND [tblClass1_1999].[Cat] = '" & mySet![Category] & "'"
+            
+            Set Yourset = myDB.OpenRecordset(SQLString)
+        
+            EERate = Yourset![EE_Rate]
+            ERRate = Yourset![ER_Rate]
+            'ERRateAboveUAP = Yourset![ER_AboveUAP]
+            'EERateAboveUAP = Yourset![EE_AboveUAP]
+
+            NHSRate = IIf(IsNull(Yourset![EE_AboveUEL]), 0, Yourset![EE_AboveUEL])
+            ERRateAboveUEL = Yourset![ER_AboveUEL]
+            EERateAboveUEL = Yourset![EE_AboveUEL]
+            Yourset.Close
+            
+            
+            mySet.Edit
+                
+                nYear = mySet![Taxyear]
+                strCategory = mySet![Category]
+                CurTotal = mySet![Total]
+                CurEEConts = mySet![EEConts]
+                CurUpToLEL = mySet![UpToLEL]
+                CurLELtoET = IIf(IsNull(mySet![LELtoET]), 0, mySet![LELtoET])
+                CurETtoUEL = IIf(IsNull(mySet![ETtoUEL]), 0, mySet![ETtoUEL])
+                'strRebate = IIf(IsNull(mySet![Rebate]), 0, mySet![Rebate])
+
+
+                strComment = "No data"
+                
+                Checks2016 nYear, strCategory, CurTotal, CurEEConts, CurUpToLEL, CurLELtoET, CurETtoUEL, EERate, ERRate, NHSRate, ERRateAboveUEL, EERateAboveUEL, strRebate, strComment
+      
+                
+                mySet![Comment] = strComment
+                mySet![Pass] = IIf(strComment = "", True, False)
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    Else
+        Beep
+        MsgBox ("No entries")
+        ' Validation was incorrect
+        bValidRatioCalculation2016 = False
+    End If
+    
+
+    mySet.Close
+
+Exit_bValidRatioCalculation2016:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidRatioCalculation2016:
+    MsgBox Error$
+    Resume Exit_bValidRatioCalculation2016
+
+End Function
+Function bValidRatioCalculation2009()
+
+' Author        : Christopher Sneddon
+' Date          : 23 march 2009
+' Fuction Name  : bValidRatioCalculation2009
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+
+    Dim strCategory As String
+    Dim CurTotal As Currency, CurEEConts As Currency, CurUpToLEL As Currency, CurLELtoET As Currency
+    Dim CurUAPtoUEL As Currency
+    Dim CurETtoUAP As Currency
+
+    Dim strComment As String
+
+    Dim nYear As Integer
+
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim EERate
+    Dim ERRate
+    Dim EERateAboveUAP
+    Dim ERRateAboveUAP
+    Dim NHSRate
+    
+    Dim ERRateAboveUEL
+    Dim EERateAboveUEL
+    Dim SQLString As String
+    Dim Yourset As DAO.Recordset
+    Dim strRebate As String
+
+    On Error GoTo Err_bValidRatioCalculation2009
+
+    DoCmd.Hourglass True
+
+    ' Assume valid
+    bValidRatioCalculation2009 = True
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblRatioContributions2009")
+    
+    ' Calculate only if entries exist
+    If Not mySet.EOF Then
+
+        mySet.MoveFirst
+        Do Until mySet.EOF
+
+            'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+            SQLString = "SELECT * FROM [tblClass1_1999] WHERE"
+            SQLString = SQLString & " [tblClass1_1999].[Tax Yr] = '" & mySet![Taxyear] & "'"
+            SQLString = SQLString & " AND [tblClass1_1999].[Cat] = '" & mySet![Category] & "'"
+            
+            Set Yourset = myDB.OpenRecordset(SQLString)
+        
+            EERate = Yourset![EE_Rate]
+            ERRate = Yourset![ER_Rate]
+            ERRateAboveUAP = Yourset![ER_AboveUAP]
+            EERateAboveUAP = Yourset![EE_AboveUAP]
+
+            NHSRate = IIf(IsNull(Yourset![EE_AboveUEL]), 0, Yourset![EE_AboveUEL])
+            ERRateAboveUEL = Yourset![ER_AboveUEL]
+            EERateAboveUEL = Yourset![EE_AboveUEL]
+            Yourset.Close
+            
+            
+            mySet.Edit
+                
+                nYear = mySet![Taxyear]
+                strCategory = mySet![Category]
+                CurTotal = mySet![Total]
+                CurEEConts = mySet![EEConts]
+                CurUpToLEL = mySet![UpToLEL]
+                CurLELtoET = IIf(IsNull(mySet![LELtoET]), 0, mySet![LELtoET])
+                CurETtoUAP = IIf(IsNull(mySet![ETtoUAP]), 0, mySet![ETtoUAP])
+                CurUAPtoUEL = IIf(IsNull(mySet![UAPToUEL]), 0, mySet![UAPToUEL])
+                strRebate = IIf(IsNull(mySet![Rebate]), 0, mySet![Rebate])
+
+
+                strComment = "No data"
+                If nYear > 2014 Then
+                Checks2015 nYear, strCategory, CurTotal, CurEEConts, CurUpToLEL, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, EERateAboveUAP, ERRateAboveUAP, NHSRate, ERRateAboveUEL, EERateAboveUEL, strRebate, strComment
+      
+                Else
+                
+                Checks2009 nYear, strCategory, CurTotal, CurEEConts, CurUpToLEL, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, EERateAboveUAP, ERRateAboveUAP, NHSRate, ERRateAboveUEL, EERateAboveUEL, strRebate, strComment
+                End If
+                
+                mySet![Comment] = strComment
+                mySet![Pass] = IIf(strComment = "", True, False)
+
+            mySet.Update
+            mySet.MoveNext
+        Loop
+
+    Else
+        Beep
+        MsgBox ("No entries")
+        ' Validation was incorrect
+        bValidRatioCalculation2009 = False
+    End If
+    
+
+    mySet.Close
+
+Exit_bValidRatioCalculation2009:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidRatioCalculation2009:
+    MsgBox Error$
+    Resume Exit_bValidRatioCalculation2009
+
+End Function
+
+
+Sub Checks2001(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, ByVal CurUpToLEL As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency, ByVal EERate As Variant, ByVal ERRate As Variant, ByVal NHSRate As Variant, ByVal ERRateAboveUEL As Variant, ByVal RebateFlag As String, strComment As String)
+' Author        : Christopher Schuler
+' Date          : 31 Jan 2002
+' Function Name  : Checks2001
+' Purpose       : Carry out calculation for 2001
+' Author        : Christopher Schuler
+' Date          : 14 May 2004
+' Purpose       : Get LEL here and pass to other functions
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_Checks2001
+
+    ' Assume pass
+    strComment = ""
+    
+        Dim Checks2001db As Database
+        Dim Checks2001rst As DAO.Recordset
+        Dim strSQL As String
+        Dim Taxyear As String
+        Dim CurrentLEL As Currency
+        Set Checks2001db = CurrentDb
+        Taxyear = nTaxYear(Date)
+        strSQL = "select wklel from tblBandLimits1999 where [Tax Yr] = '" & Taxyear & "';"
+        
+        Set Checks2001rst = Checks2001db.OpenRecordset(strSQL)
+        
+        CurrentLEL = (Checks2001rst!WkLEL)
+        
+        Checks2001db.Close
+        
+        
+Select Case strCategory
+        
+    Case "C", "X", "Y"
+            bPass = bCode04AND22(nYear, strCategory, CurUpToLEL, CurLELtoET, CurETtoUEL, CurTotal, CurEEConts, RebateFlag, CurrentLEL, ERRate)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2001
+                End If
+            GoTo FailedChecks_Checks2001 'cats C,X and Y only tested for code 4
+    Case Else
+        
+            bPass = bCode01AND12(CurEEConts, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_Checks2001
+            End If
+            If strCategory <> "B" Then
+                bPass = bCode04AND22(nYear, strCategory, CurUpToLEL, CurLELtoET, CurETtoUEL, CurTotal, CurEEConts, RebateFlag, CurrentLEL, ERRate)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2001
+                End If
+            End If
+            If nYear < 2003 Then
+                bPass = bCode19(nYear, strCategory, CurEEConts)
+                If bPass = False Then
+                    strComment = "Code 19"
+                    GoTo FailedChecks_Checks2001
+                End If
+            End If
+            If strCategory <> "B" Then
+                bPass = bCode40(nYear, CurUpToLEL)
+                If bPass = False Then
+                    strComment = "Code 40"
+                    GoTo FailedChecks_Checks2001
+                End If
+            End If
+            bPass = bCode41(nYear, CurLELtoET)
+            If bPass = False Then
+                strComment = "Code 41"
+                GoTo FailedChecks_Checks2001
+            End If
+            
+            bPass = bCode42(nYear, CurETtoUEL)
+            If bPass = False Then
+                strComment = "Code 42"
+                GoTo FailedChecks_Checks2001
+            End If
+            If strCategory <> "B" Then
+                bPass = bCode43(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUEL, EERate, ERRate, NHSRate, ERRateAboveUEL)
+                If bPass = False Then
+                    strComment = "Code 43"
+                    GoTo FailedChecks_Checks2001
+                End If
+            End If
+            bPass = bCode44(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUEL, EERate, ERRate, RebateFlag)
+            If bPass = False Then
+                strComment = "Code 44"
+                GoTo FailedChecks_Checks2001
+            End If
+            If strCategory <> "B" Then
+                bPass = bCode45(CurUpToLEL, CurLELtoET, CurETtoUEL)
+                If bPass = False Then
+                    strComment = "Code 45"
+                    GoTo FailedChecks_Checks2001
+                End If
+            End If
+End Select 'strCategory
+
+FailedChecks_Checks2001:
+
+
+Exit_Checks2001:
+    Exit Sub
+    
+Err_Checks2001:
+    MsgBox Error$
+    Resume Exit_Checks2001
+
+End Sub
+
+Sub Checks2009(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, ByVal CurUpToLEL As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUAP As Currency, ByVal CurUAPtoUEL As Currency, ByVal EERate As Variant, ByVal ERRate As Variant, ByVal EERateAboveUAP As Variant, ByVal ERRateAboveUAP As Variant, ByVal NHSRate As Variant, ByVal ERRateAboveUEL As Variant, ByVal EERateAboveUEL As Variant, ByVal RebateFlag As String, strComment As String)
+' Author        : Christopher Sneddon
+' Date          : 23 march 2009
+' Fuction Name  : Checks2009
+' Purpose       : Modified calculations for 2009
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+    Dim CurrentLEL As Currency
+
+    On Error GoTo Err_Checks2009
+
+    ' Assume pass
+    strComment = ""
+
+
+Select Case strCategory
+        
+    Case "C", "X", "Y"
+            bPass = bCode04AND22yr09(nYear, strCategory, CurUpToLEL, CurLELtoET, CurETtoUAP, CurUAPtoUEL, CurTotal, CurEEConts, RebateFlag, CurrentLEL, ERRate)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2009
+                End If
+            GoTo FailedChecks_Checks2009 'cats C,X and Y only tested for code 4
+    Case Else
+        
+            bPass = bCode01AND12(CurEEConts, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_Checks2009
+            End If
+            
+            If strCategory <> "B" Then
+                bPass = bCode45yr2009(CurUpToLEL, CurLELtoET, CurETtoUAP, CurUAPtoUEL)
+                If bPass = False Then
+                    strComment = "Code 45"
+                    GoTo FailedChecks_Checks2009
+                End If
+            End If
+            
+            If strCategory <> "B" Then
+                bPass = bCode40(nYear, CurUpToLEL)
+                If bPass = False Then
+                    strComment = "Code 40"
+                    GoTo FailedChecks_Checks2009
+                End If
+            End If
+            
+            bPass = bCode41(nYear, CurLELtoET)
+            If bPass = False Then
+                strComment = "Code 41"
+                GoTo FailedChecks_Checks2009
+            End If
+            
+            bPass = bCode50(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, RebateFlag)
+            If bPass = False Then
+                strComment = "Code 50"
+                GoTo FailedChecks_Checks2009
+            End If
+            
+            bPass = bCode51(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, RebateFlag)
+            If bPass = False Then
+                strComment = "Code 51"
+                GoTo FailedChecks_Checks2009
+            End If
+            
+            If strCategory <> "BMIKZ" Then 'check this
+                bPass = bCode43yr2009(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, NHSRate, ERRateAboveUAP, EERateAboveUAP, ERRateAboveUEL, EERateAboveUEL)
+                If bPass = False Then
+                    strComment = "Code 43"
+                    GoTo FailedChecks_Checks2009
+                End If
+            ElseIf strCategory = "BMIKZ" Then
+                bPass = bCode43yr2015(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, NHSRate, ERRateAboveUAP, EERateAboveUAP, ERRateAboveUEL, EERateAboveUEL)
+                If bPass = False Then
+                    strComment = "Code 43"
+                    GoTo FailedChecks_Checks2009
+                End If
+            End If
+            
+            bPass = bCode44yr2009(nYear, strCategory, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, ERRateAboveUAP, RebateFlag)
+            If bPass = False Then
+                strComment = "Code 44"
+                GoTo FailedChecks_Checks2009
+            End If
+            
+            
+            If strCategory <> "B" Then
+                bPass = bCode04AND22yr09(nYear, strCategory, CurUpToLEL, CurLELtoET, CurETtoUAP, CurUAPtoUEL, CurTotal, CurEEConts, RebateFlag, CurrentLEL, ERRate)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2009
+                End If
+            End If
+
+
+
+End Select 'strCategory
+
+
+FailedChecks_Checks2009:
+
+
+Exit_Checks2009:
+    Exit Sub
+    
+Err_Checks2009:
+    MsgBox Error$
+    Resume Exit_Checks2009
+
+End Sub
+
+Sub Checks2016(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, ByVal CurUpToLEL As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUEL As Currency, ByVal EERate As Variant, ByVal ERRate As Variant, ByVal NHSRate As Variant, ByVal ERRateAboveUEL As Variant, ByVal EERateAboveUEL As Variant, ByVal RebateFlag As String, strComment As String)
+' Author        : Christopher Sneddon
+' Date          : 28th December 2016
+' Fuction Name  : Checks2016
+' Purpose       : Modified calculations for 2016
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+    Dim CurrentLEL As Currency
+
+    On Error GoTo Err_Checks2016
+
+    ' Assume pass
+    strComment = ""
+
+
+Select Case strCategory
+        
+    Case "C", "X", "Y"
+            bPass = bCode04AND22yr16(nYear, strCategory, CurUpToLEL, CurLELtoET, CurETtoUEL, CurTotal, CurEEConts, CurrentLEL, ERRate)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2016
+                End If
+            GoTo FailedChecks_Checks2016 'cats C,X and Y only tested for code 4
+    Case Else
+        
+            bPass = bCode01AND12(CurEEConts, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_Checks2016
+            End If
+            
+            If strCategory <> "B" Then
+                bPass = bCode45yr2016(CurUpToLEL, CurLELtoET, CurETtoUEL)
+                If bPass = False Then
+                    strComment = "Code 45"
+                    GoTo FailedChecks_Checks2016
+                End If
+            End If
+            
+            If strCategory <> "B" Then
+                bPass = bCode40(nYear, CurUpToLEL)
+                If bPass = False Then
+                    strComment = "Code 40"
+                    GoTo FailedChecks_Checks2016
+                End If
+            End If
+            
+            bPass = bCode41(nYear, CurLELtoET)
+            If bPass = False Then
+                strComment = "Code 41"
+                GoTo FailedChecks_Checks2016
+            End If
+            
+            bPass = bCode42yr2016(nYear, CurETtoUEL)
+            If bPass = False Then
+                strComment = "Code 42"
+                GoTo FailedChecks_Checks2016
+            End If
+            
+            
+            If strCategory <> "B" And strCategory <> "M" And strCategory <> "I" And strCategory <> "H" And strCategory <> "Z" Then 'check this
+                bPass = bCode43yr2016a(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUEL, EERate, ERRate, NHSRate, ERRateAboveUEL, EERateAboveUEL)
+                If bPass = False Then
+                    strComment = "Code 43"
+                    GoTo FailedChecks_Checks2016
+                End If
+            Else
+                bPass = bCode43yr2016b(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUEL, EERate, ERRate, NHSRate, ERRateAboveUEL, EERateAboveUEL)
+                If bPass = False Then
+                    strComment = "Code 43"
+                    GoTo FailedChecks_Checks2016
+                End If
+            End If
+            
+            bPass = bCode44yr2016(nYear, strCategory, CurTotal, CurEEConts, CurLELtoET, CurETtoUEL, EERate, ERRate)
+            If bPass = False Then
+                strComment = "Code 44"
+                GoTo FailedChecks_Checks2016
+            End If
+            
+            
+            If strCategory <> "B" Then
+                bPass = bCode04AND22yr16(nYear, strCategory, CurUpToLEL, CurLELtoET, CurETtoUEL, CurTotal, CurEEConts, CurrentLEL, ERRate)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2016
+                End If
+            End If
+
+
+
+End Select 'strCategory
+
+
+FailedChecks_Checks2016:
+
+
+Exit_Checks2016:
+    Exit Sub
+    
+Err_Checks2016:
+    MsgBox Error$
+    Resume Exit_Checks2016
+
+End Sub
+
+
+Sub Checks2015(ByVal nYear As Integer, ByVal strCategory As String, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, ByVal CurUpToLEL As Currency, ByVal CurLELtoET As Currency, ByVal CurETtoUAP As Currency, ByVal CurUAPtoUEL As Currency, ByVal EERate As Variant, ByVal ERRate As Variant, ByVal EERateAboveUAP As Variant, ByVal ERRateAboveUAP As Variant, ByVal NHSRate As Variant, ByVal ERRateAboveUEL As Variant, ByVal EERateAboveUEL As Variant, ByVal RebateFlag As String, strComment As String)
+' Author        : Christopher Sneddon
+' Date          : 21 January 2016
+' Fuction Name  : Checks2009
+' Purpose       : Modified calculations for 2015
+            
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+    Dim CurrentLEL As Currency
+
+    On Error GoTo Err_Checks2015
+
+    ' Assume pass
+    strComment = ""
+
+
+Select Case strCategory
+        
+    Case "C", "X", "Y"
+            bPass = bCode04AND22yr09(nYear, strCategory, CurUpToLEL, CurLELtoET, CurETtoUAP, CurUAPtoUEL, CurTotal, CurEEConts, RebateFlag, CurrentLEL, ERRate)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2015
+                End If
+            GoTo FailedChecks_Checks2015 'cats C,X and Y only tested for code 4
+    Case Else
+        
+            bPass = bCode01AND12(CurEEConts, CurTotal)
+            If bPass = False Then
+                strComment = "Code 01 and 12"
+                GoTo FailedChecks_Checks2015
+            End If
+            
+            If strCategory <> "B" Then
+                bPass = bCode45yr2009(CurUpToLEL, CurLELtoET, CurETtoUAP, CurUAPtoUEL)
+                If bPass = False Then
+                    strComment = "Code 45"
+                    GoTo FailedChecks_Checks2015
+                End If
+            End If
+            
+            If strCategory <> "B" Then
+                bPass = bCode40(nYear, CurUpToLEL)
+                If bPass = False Then
+                    strComment = "Code 40"
+                    GoTo FailedChecks_Checks2015
+                End If
+            End If
+            
+            bPass = bCode41(nYear, CurLELtoET)
+            If bPass = False Then
+                strComment = "Code 41"
+                GoTo FailedChecks_Checks2015
+            End If
+            
+            bPass = bCode50(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, RebateFlag)
+            If bPass = False Then
+                strComment = "Code 50"
+                GoTo FailedChecks_Checks2015
+            End If
+            
+            bPass = bCode51(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, RebateFlag)
+            If bPass = False Then
+                strComment = "Code 51"
+                GoTo FailedChecks_Checks2015
+            End If
+            
+            If strCategory <> "B" And strCategory <> "M" And strCategory <> "I" And strCategory <> "K" And strCategory <> "Z" Then 'check this
+                bPass = bCode43yr2009(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, NHSRate, ERRateAboveUAP, EERateAboveUAP, ERRateAboveUEL, EERateAboveUEL)
+                If bPass = False Then
+                    strComment = "Code 43"
+                    GoTo FailedChecks_Checks2015
+                End If
+            Else
+                bPass = bCode43yr2015(nYear, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, NHSRate, ERRateAboveUAP, EERateAboveUAP, ERRateAboveUEL, EERateAboveUEL)
+                If bPass = False Then
+                    strComment = "Code 43"
+                    GoTo FailedChecks_Checks2015
+                End If
+            End If
+            
+            bPass = bCode44yr2009(nYear, strCategory, CurTotal, CurEEConts, CurLELtoET, CurETtoUAP, CurUAPtoUEL, EERate, ERRate, ERRateAboveUAP, RebateFlag)
+            If bPass = False Then
+                strComment = "Code 44"
+                GoTo FailedChecks_Checks2015
+            End If
+            
+            
+            If strCategory <> "B" Then
+                bPass = bCode04AND22yr09(nYear, strCategory, CurUpToLEL, CurLELtoET, CurETtoUAP, CurUAPtoUEL, CurTotal, CurEEConts, RebateFlag, CurrentLEL, ERRate)
+                If bPass = False Then
+                    strComment = "Code 04"
+                    GoTo FailedChecks_Checks2015
+                End If
+            End If
+
+
+
+End Select 'strCategory
+
+
+FailedChecks_Checks2015:
+
+
+Exit_Checks2015:
+    Exit Sub
+    
+Err_Checks2015:
+    MsgBox Error$
+    Resume Exit_Checks2015
+
+End Sub
+
+
+
+Function bCode04AND22(nYear As Integer, ByVal strCategory As String, CurUpToLEL As Currency, CurLELtoET As Currency, CurETtoUEL As Currency, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, RebateFlag As String, ByVal CurrentLEL As Currency, ByVal ERRate As Variant) As Integer
+' Author        : Christopher schuler
+' Date          : 6 February 2002
+' Function Name : bCode04AND22
+' Purpose       :
+' 1) if curUpToLEL = 0 then LELtoET <=0
+' 2) if LELtoET = 0 then ETtoUEL <=0
+' Applies to all cats
+' Author        : Christopher schuler
+' Date          : 13 May 2004
+' Purpose       : Fail if rebate indicator is set for a non contracted out category from 2003
+
+    On Error GoTo Err_bCode04AND22
+
+    bCode04AND22 = True  'set default
+    
+    If nYear > 2000 Then
+            
+            If nYear > 2002 Then
+            
+                Select Case strCategory
+                
+                    Case "A", "B", "C", "J", "X" 'non contracted out categories
+                    
+                        If Trim(RebateFlag) = "R" Then
+                        
+                            bCode04AND22 = False
+                            
+                                Exit Function
+                                
+                        End If
+                
+                End Select
+                
+            End If
+            
+            Select Case strCategory
+                
+                Case "X"
+                    If nYear > 2002 Then
+                    
+                        If CurTotal <> 0 Or CurEEConts <> 0 Then
+                            bCode04AND22 = False
+                                Exit Function
+                        End If
+                    
+                    Else
+                    
+                        If CurUpToLEL >= 0 Or CurLELtoET >= 0 Or CurETtoUEL >= 0 Or CurTotal <> 0 Or CurEEConts <> 0 Then
+                            bCode04AND22 = False
+                                Exit Function
+                        End If
+ 
+                    End If
+                    
+                Case "C"
+                    If nYear > 2002 Then
+                        If CurEEConts <> 0 Or CurTotal = 0 Then
+                            bCode04AND22 = False
+                        End If
+                        If CurEEConts = 0 And CurTotal = 0 Then
+                            If CurETtoUEL > 0 Then
+                                If (CurETtoUEL * ERRate) < CurrentLEL Then
+                                    bCode04AND22 = True
+                                End If
+                            End If
+                        End If
+                        If CurEEConts = 0 And CurTotal = 0 Then
+                            If CurUpToLEL > 0 Then
+                                If CurLELtoET >= 0 Then
+                                    If CurETtoUEL = 0 Then
+                                        bCode04AND22 = True
+                                    End If
+                                End If
+                            End If
+                        End If
+
+                    Else
+                        If CurUpToLEL <> 0 Or CurLELtoET <> 0 Or CurETtoUEL <> 0 Or CurTotal <= 0 Or CurEEConts <> 0 Then
+                            bCode04AND22 = False
+                                Exit Function
+                        End If
+                    End If
+                Case "Y"
+                    If CurUpToLEL <> 0 Or CurLELtoET <> 0 Or CurETtoUEL <> 0 Or CurTotal <= 0 Or CurEEConts <> 0 Then
+                        bCode04AND22 = False
+                            Exit Function
+                    End If
+                Case Else
+                
+                   If CurUpToLEL = 0 Then
+                        If CurLELtoET > 0 Then
+                            bCode04AND22 = False
+                            Exit Function
+                        End If
+                    End If
+                    If CurLELtoET = 0 Then
+                        If CurETtoUEL > 0 Then
+                            bCode04AND22 = False
+                            Exit Function
+                        End If
+                    End If
+            End Select 'strCategory
+                    
+    End If 'year
+
+Exit_bCode04AND22:
+    Exit Function
+    
+Err_bCode04AND22:
+    MsgBox Error$
+    Resume Exit_bCode04AND22
+
+End Function
+
+Function bCode04AND22yr09(nYear As Integer, ByVal strCategory As String, CurUpToLEL As Currency, CurLELtoET As Currency, CurETtoUAP As Currency, CurUAPtoUEL As Currency, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, RebateFlag As String, ByVal CurrentLEL As Currency, ByVal ERRate As Variant) As Integer
+' Author        : Christopher schuler
+' Date          : 6 February 2002
+' Function Name : bCode04AND22
+' Purpose       :
+' 1) if curUpToLEL = 0 then LELtoET <=0
+' 2) if LELtoET = 0 then ETtoUEL <=0
+' Applies to all cats
+' Author        : Christopher schuler
+' Date          : 13 May 2004
+' Purpose       : Fail if rebate indicator is set for a non contracted out category from 2003
+' Author        : Christopher Sneddon
+' Date          : 25th march 2009#
+' Purpose       : heavily modifed for 2009
+
+    On Error GoTo Err_bCode04AND22yr09
+
+    bCode04AND22yr09 = True  'set default
+    
+    Select Case strCategory
+                
+        Case "A", "B", "C", "J", "X", "L", "M" 'non contracted out categories
+                    
+            If Trim(RebateFlag) = "R" Then
+                        
+                bCode04AND22yr09 = False
+                            
+                Exit Function
+                                
+            End If
+                
+    End Select
+                
+
+            
+    Select Case strCategory
+                
+        Case "X"
+                     
+            If CurTotal <> 0 Or CurEEConts <> 0 Then
+                            
+                bCode04AND22yr09 = False
+                Exit Function
+                        
+            End If
+                    
+                    
+        Case "C"
+                    
+            If CurEEConts <> 0 Or CurTotal = 0 Then
+                bCode04AND22yr09 = False
+            End If
+
+     
+        Case Else
+                
+            If CurUpToLEL = 0 Then
+                If CurLELtoET > 0 Then
+                    bCode04AND22yr09 = False
+                        Exit Function
+                    End If
+                End If
+            If CurLELtoET = 0 Then
+                If CurETtoUAP > 0 Then
+                    bCode04AND22yr09 = False
+                        Exit Function
+                End If
+            End If
+            If CurETtoUAP = 0 Then
+                If CurUAPtoUEL > 0 Then
+                    bCode04AND22yr09 = False
+                    Exit Function
+                End If
+            End If
+
+        End Select 'strCategory
+                    
+
+Exit_bCode04AND22yr09:
+    Exit Function
+    
+Err_bCode04AND22yr09:
+    MsgBox Error$
+    Resume Exit_bCode04AND22yr09
+
+End Function
+
+Function bCode04AND22yr16(nYear As Integer, ByVal strCategory As String, CurUpToLEL As Currency, CurLELtoET As Currency, CurETtoUEL As Currency, ByVal CurTotal As Currency, ByVal CurEEConts As Currency, ByVal CurrentLEL As Currency, ByVal ERRate As Variant)
+
+' Author        : Christopher Sneddon
+' Date          : 28th December 2016
+' Purpose       : heavily modifed for 2016
+
+    On Error GoTo Err_bCode04AND22yr16
+
+    bCode04AND22yr16 = True  'set default
+    
+    Select Case strCategory
+                    
+                    
+        Case "C"
+                    
+            If CurEEConts <> 0 Or CurTotal = 0 Then
+                bCode04AND22yr16 = False
+            End If
+
+     
+        Case Else
+                
+            If CurUpToLEL = 0 Then
+                If CurLELtoET > 0 Then
+                    bCode04AND22yr16 = False
+                        Exit Function
+                    End If
+                End If
+            If CurLELtoET = 0 Then
+                If CurETtoUEL > 0 Then
+                    bCode04AND22yr16 = False
+                        Exit Function
+                End If
+            End If
+            
+        End Select 'strCategory
+                    
+
+Exit_bCode04AND22yr16:
+    Exit Function
+    
+Err_bCode04AND22yr16:
+    MsgBox Error$
+    Resume Exit_bCode04AND22yr16
+
+End Function
+

@@ -1,0 +1,465 @@
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub cboPPWeeks_AfterUpdate()
+If IsNull(Forms!frmSPPAdoptionPayable!txtPeriodStarts) Then
+    Exit Sub
+Else
+    txtPeriodStarts_AfterUpdate 'reset pay period weeks
+End If
+End Sub
+
+Private Sub cmdCalculate_Click()
+    
+    DoCmd.Hourglass False 'just in case on when testing and crashed
+    
+    SAPSPPValid = True ' set valid = true and test after each call to the various checks.
+                       ' If it's false then the nessage will already have been sent to
+                       ' the user so just exit
+    
+    ' Check Matching Week date set
+    If IsNull([txtMatchingWeek]) Then
+        Beep
+        MsgBox ("Matching Week date not set"), vbInformation
+        Exit Sub
+    End If
+
+    ' Check Matching Week
+    txtMatchingWeek_BeforeUpdate (0)
+    If SAPSPPValid = False Then
+        txtMatchingWeek.SetFocus
+        Exit Sub
+    End If
+
+    ' Check Placement date set
+    If IsNull(txtPlacement) Then
+        Beep
+        MsgBox ("Placement date not set"), vbInformation
+        txtPlacement.SetFocus
+        Exit Sub
+    End If
+
+
+    'check txt placement
+    txtPlacement_BeforeUpdate (0)
+    If SAPSPPValid = False Then
+        txtPlacement.SetFocus
+        Exit Sub
+    End If
+
+    ' Check pay period dates correct
+    SAPSPPCheckIrregularFromDate Me
+    If SAPSPPValid = False Then
+        txtIrregularFrom.SetFocus
+        Exit Sub
+    End If
+    SAPSPPCheckIrregularToDate Me
+    If SAPSPPValid = False Then
+        txtIrregularTo.SetFocus
+        Exit Sub
+    End If
+    
+    'check Pay Period start date
+    'Check date set
+    If IsNull(Me!txtPeriodStarts) Then
+        Beep
+        MsgBox ("Pay Period Start date not set")
+        txtPeriodStarts.SetFocus
+        Exit Sub
+    End If
+    txtPeriodStarts_BeforeUpdate (0)
+        If SAPSPPValid = False Then
+        txtPeriodStarts.SetFocus
+        Exit Sub
+    End If
+
+  
+
+    ' Check earnings set
+    CheckSAPSPPEarningsSet
+    If SAPSPPValid = False Then
+        Me!subEarnings.SetFocus
+        Exit Sub
+    End If
+
+    'check earnings
+    CheckSAPSPPEarningsDates
+    If SAPSPPValid = False Then
+        Me!subEarnings.SetFocus
+        Exit Sub
+    End If
+    
+    'Get average weekly earnings
+    'for Adoption LEL date used is Sat of Matching week
+    SetSAPSPPAverageEarnings Me, DateAdd("d", 6, txtMatchingWeek)
+        
+    
+    txt5DPAverageWeeklyEarnings = Int((txtAverageWeeklyEarnings + 0.0000001) * 100000) / 100000 '+ 0.0000001 allows for numerical storage errors eg 74.975 is actually stored as 74.97499999 possibly
+    
+      'set rates
+    SetSPPAdoptionRates
+ 
+    'set under/over payments
+    SetSAPSPPDueAndUnderOverPayment Me
+    
+    
+End Sub
+
+Private Sub cmdClear_Click()
+            
+    On Error GoTo Err_cmdClear_Click
+
+    SAPSPPClear Me
+    
+Exit_cmdClear_Click:
+    Exit Sub
+    
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the SPP Payable form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+
+    On Error GoTo Err_cmdPrint_Click
+
+        cmdCalculate_Click 'ensure data is correct before printing
+        
+        DoCmd.OpenReport "rptSPPAdoptionPayable", A_NORMAL
+        'DoCmd.OpenReport "rptSPPAdoptionPayable", acViewPreview 'pmor test
+    
+
+Exit_cmdPrint_Click:
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+    
+End Sub
+
+Private Sub cmdRecoverable_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 December 1995
+' Fuction Name  : cmdRecoverable_Click
+' Purpose       : Close Payable and open Recoverable
+' Author        : Pmor
+' Date          : Jan 03
+' Purpose       : Copy variables to recovery form before closing
+
+
+    On Error GoTo Err_cmdRecoverable_Click
+    
+    DoCmd.SetWarnings False
+    'clear subform data table
+    DoCmd.RunSQL "DELETE * FROM [tblSPPAdoptionPayments]"
+
+    DoCmd.OpenForm "frmSPPAdoptionRecoverable"
+    With Forms!frmSPPAdoptionRecoverable
+        !txtName = txtName
+        !txtInitials = txtInitials
+        !NIPrefix = NIPrefix
+        !NInumber = NInumber
+        !NIsuffix = NIsuffix
+        !txtRef = txtRef
+        !txtPreparedBy = txtPreparedBy
+        !subPayments.SetFocus
+    End With
+    DoCmd.Close acForm, "frmSPPAdoptionPayable"
+
+    DoCmd.SetWarnings True
+Exit_cmdRecoverable_Click:
+    Exit Sub
+
+Err_cmdRecoverable_Click:
+    MsgBox Error$
+    Resume Exit_cmdRecoverable_Click
+    
+End Sub
+
+
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+
+    On Error GoTo err_Form_Load
+    
+    
+    Dim Sname As String
+    Dim Fname As String
+    
+    DoCmd.SetWarnings True ' in case off if crashed when testing
+    DoCmd.Maximize
+    
+    ' Set the prepared by field
+   txtPreparedBy.Enabled = True
+    
+   [txtPreparedBy] = getinitials() & " " & getsurname()
+    txtPreparedBy.Enabled = False
+
+    'reset fields
+    SAPSPPClear Me
+    
+    'set combo fields on subform
+    Me!subWeeklyPayments!Entitlement.RowSource = "SPP Due;Week Worked;SSP Paid;Employee Excluded"
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub grpPayPeriod_AfterUpdate()
+
+Dim strSQL As String
+Dim rs As DAO.Recordset
+Dim EntryCount
+
+    On Error GoTo Err_grpPayPeriod_AfterUpdate
+    
+    'set the number of weeks or months in case the dates have been entered
+    'but wrong period selected
+    
+    strSQL = "SELECT COUNT (*) AS CountOfRecords FROM tblSAPSPPEarnings"
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    EntryCount = rs!countofrecords
+    
+    If EntryCount = 0 Then
+        EntryCount = ""
+    End If
+    
+    Select Case grpPayPeriod
+        Case gcPAY_PERIOD_WEEKLY
+            txtNoOfWeeks = EntryCount
+            txtNoOfMonths = ""
+            txtIrregularFrom.Enabled = False
+            txtIrregularTo.Enabled = False
+        Case gcPAY_PERIOD_MONTHLY
+            txtNoOfMonths = EntryCount
+            txtNoOfWeeks = ""
+            txtIrregularFrom.Enabled = False
+            txtIrregularTo.Enabled = False
+
+        Case gcPAY_PERIOD_IRREGULAR
+            txtNoOfWeeks = ""
+            txtNoOfMonths = ""
+            txtIrregularFrom.Enabled = True
+            txtIrregularTo.Enabled = True
+
+    End Select
+    
+   
+Exit_grpPayPeriod_AfterUpdate:
+    Exit Sub
+
+Err_grpPayPeriod_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_grpPayPeriod_AfterUpdate
+
+End Sub
+
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) And Not IsNull(txtMatchingWeek) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If nTaxYear(txtMatchingWeek) > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtMatchingWeek.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If nTaxYear(txtMatchingWeek) > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtMatchingWeek.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtMatchingWeek.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub txtIrregularFrom_AfterUpdate()
+'SAPSPPCheckIrregularToDate Me
+    If SAPSPPValid = False Then
+        Forms![frmSPPAdoptionPayable]!grpPayPeriod.SetFocus
+        Forms![frmSPPAdoptionPayable]!txtIrregularTo.SetFocus
+        Exit Sub
+    End If
+End Sub
+
+Private Sub txtIrregularFrom_BeforeUpdate(Cancel As Integer)
+Dim LastDaySetPeriod As Date ' period dates to check against
+Dim StartDaySetPeriod As Date
+
+
+
+'Check that dates are within the relevant pay period.
+'As this is a common form use the caption of the parent form label,
+'named SMPPayable, to determine if it is an adoption or birth period.
+
+'MsgBox Parent!SMPPayable.Caption
+
+    'MsgBox "Adoption"
+    LastDaySetPeriod = txtMatchingWeek + 6
+    StartDaySetPeriod = LastDaySetPeriod - 55 ' -8 weeks + 1 day
+
+
+
+If txtIrregularFrom < StartDaySetPeriod Then
+    Cancel = True
+    MsgBox "Irregular From date must be after the first day of the pay period"
+    Exit Sub
+End If
+
+If txtIrregularFrom > LastDaySetPeriod Then
+    Cancel = True
+    MsgBox "Irregular From date must be before the last day of the pay period"
+    Exit Sub
+End If
+
+ 
+
+End Sub
+
+Private Sub txtIrregularTo_BeforeUpdate(Cancel As Integer)
+    SAPSPPCheckIrregularToDate Me
+    
+    If SAPSPPValid = False Then
+        Cancel = True
+    End If
+    
+    
+End Sub
+
+Private Sub txtMatchingWeek_AfterUpdate()
+
+NIsuffix_AfterUpdate
+
+End Sub
+
+Private Sub txtMatchingWeek_BeforeUpdate(Cancel As Integer)
+If txtMatchingWeek < #4/8/2001# Then '8th April 2001
+    Cancel = True 'keep the focus
+    MsgBox "Matching Week must start on or after 8th April 2001", vbExclamation
+    SAPSPPValid = False 'used when checking the whole form
+
+ElseIf Weekday(txtMatchingWeek) <> vbSunday Then
+    Cancel = True 'keep the focus
+    MsgBox "Matching Week must start on a Sunday", vbExclamation
+    SAPSPPValid = False 'used when checking the whole form
+End If
+
+End Sub
+
+Private Sub txtPeriodStarts_AfterUpdate()
+    SetSAPSPPWeeklyDates Me, cboPPWeeks
+End Sub
+
+Private Sub txtPeriodStarts_BeforeUpdate(Cancel As Integer)
+
+Dim LatestPPPDate As Date
+
+If txtPeriodStarts < #4/6/2003# Then
+    Cancel = True
+    MsgBox "Pay Period must be on or after 06/04/2003", vbInformation
+    SAPSPPValid = False 'used when checking form when Calculate clicked
+    Exit Sub
+End If
+
+If txtPeriodStarts < txtPlacement Then
+    Cancel = True 'keep the focus
+    MsgBox "The PPP Start Date cannot be before the Date of Placement", vbExclamation
+    SAPSPPValid = False 'used when checking the whole form
+    Exit Sub
+End If
+
+'PPP must be taken within 8 weeks of placement
+If Not IsNull(txtPlacement) Then
+    Select Case cboPPWeeks
+        Case 1
+            LatestPPPDate = DateAdd("d", 49, txtPlacement)
+        Case 2
+            LatestPPPDate = DateAdd("d", 42, txtPlacement)
+    End Select
+
+
+    If txtPeriodStarts > LatestPPPDate Then
+        Cancel = True
+        MsgBox "The PPP must be taken within 8 weeks of the Date of Placement"
+        SAPSPPValid = False 'used when checking the whole form
+        Exit Sub
+    End If
+    
+End If
+
+End Sub
+
+Private Sub txtPlacement_BeforeUpdate(Cancel As Integer)
+
+If txtPlacement < txtMatchingWeek Then
+    Cancel = True
+    MsgBox "Date of placement must be on or after Matching Week date", vbInformation
+    SAPSPPValid = False 'used when checking form when Calculate clicked
+    Exit Sub
+End If
+
+If txtPlacement < #4/6/2003# Then
+    Cancel = True
+    MsgBox "Date of placement must be on or after 06/04/2003", vbInformation
+    SAPSPPValid = False 'used when checking form when Calculate clicked
+    Exit Sub
+End If
+
+End Sub

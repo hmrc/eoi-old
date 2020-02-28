@@ -1,0 +1,23 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private Sub Form_AfterUpdate()
+    
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Form_AfterUpdate
+    
+    Forms!frmClass1A.Recalc
+
+Exit_Form_AfterUpdate:
+    Exit Sub
+
+Err_Form_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Form_AfterUpdate
+
+End Sub

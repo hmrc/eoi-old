@@ -1,0 +1,66 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Function ConstructRowSource() As String
+
+' Author    :   Lisa Scothern
+' Date      :   29 October 1997
+' Purpose   :   Row Source on field properties does not update itself correctly if user goes back and amends
+'           :   the Debt table. Done this way so that row source will reflect current status of debt table.
+'           :   Also, if debt table is empty, warning will be issued and focus moved from remission table
+'           :   to the debt table.
+    
+    On Error GoTo Err_ConstructRowSource
+
+    Dim SelectStr As String
+    Dim myDB As Database
+    Dim MyRecs As DAO.Recordset
+    Dim bFirstOption
+    Dim strOptions As String
+
+    'SelectStr = "SELECT DISTINCT [tblInterestLateUnpaidClass1].[TaxYear] FROM [tblInterestLateUnpaidClass1];"
+    ' The line above does not always obtain the latest tax years,  so use the following (although this
+    ' may mean a tax year option appears twice if enter twice in the debt table by the user)...
+    SelectStr = "SELECT [TaxYear] FROM [tblInterestLateUnpaidClass1];"
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set MyRecs = myDB.OpenRecordset(SelectStr)
+
+    strOptions = " "
+    If MyRecs.Recordcount = 0 Then
+        MsgBox "Please enter debt before entering remission period(s)", 48, "Warning"
+        'set focus to debt table
+        Forms![frmInterestLateUnpaidClass1Main].subArrears.SetFocus
+    Else
+        bFirstOption = True
+        MyRecs.MoveFirst
+        Do Until MyRecs.EOF
+            If bFirstOption Then
+                strOptions = Str$(MyRecs![Taxyear])
+                bFirstOption = False
+            Else
+                strOptions = strOptions & ";" & Str$(MyRecs![Taxyear])
+            End If
+            MyRecs.MoveNext
+        Loop
+
+    End If
+
+    ConstructRowSource = strOptions
+
+Exit_ConstructRowSource:
+    Exit Function
+
+Err_ConstructRowSource:
+    MsgBox Error$
+    Resume Exit_ConstructRowSource
+
+End Function
+
+Private Sub Tax_Year_GotFocus()
+
+    [Tax Year].RowSource = ConstructRowSource()
+
+End Sub

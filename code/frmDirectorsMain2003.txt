@@ -1,0 +1,355 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cboTaxYear_AfterUpdate()
+'Author     Chris Schuler
+'Date       27 January 2003
+'Purpose    Open the main form and pass the year to it if not 2003
+'Author     Chris Schuler
+'Date       6 October 2004
+'Purpose    CCA8292 - Make year 2000 form the same as 2001 and 2002
+
+On Error GoTo err_cboTaxYear_AfterUpdate
+Application.Echo False
+
+Select Case cboTaxYear
+
+
+    Case Is < 2000  'switch form
+        DoCmd.OpenForm "frmDirectorsMain", , , , , , cboTaxYear
+        'set fields
+        With Forms!frmDirectorsMain
+            !Surname = Me!Surname
+            !Initial = Me!Initial
+            !NIPrefix = Me!NIPrefix
+            !NInumber = Me!NInumber
+            !NIsuffix = Me!NIsuffix
+            !Ref = Me!Ref
+            !optAPP.SetFocus
+        End With
+        DoCmd.Close acForm, "frmDirectorsMain2003"
+        Exit Sub
+        GoTo exit_cboTaxYear_AfterUpdate
+     
+    Case Is >= 2016
+     
+        DoCmd.OpenForm "frmDirectorsMain2016", , , , , , cboTaxYear
+        'set fields
+        With Forms!frmDirectorsMain2016
+            !Surname = Me!Surname
+            !Initial = Me!Initial
+            !NIPrefix = Me!NIPrefix
+            !NInumber = Me!NInumber
+            !NIsuffix = Me!NIsuffix
+            !Ref = Me!Ref
+            !optAPP.SetFocus
+        End With
+        DoCmd.Close acForm, "frmDirectorsMain2003"
+        Exit Sub
+        GoTo exit_cboTaxYear_AfterUpdate
+      
+    Case Is >= 2009
+        
+        DoCmd.OpenForm "frmDirectorsMain2009", , , , , , cboTaxYear
+        'set fields
+        With Forms!frmDirectorsMain2009
+            !Surname = Me!Surname
+            !Initial = Me!Initial
+            !NIPrefix = Me!NIPrefix
+            !NInumber = Me!NInumber
+            !NIsuffix = Me!NIsuffix
+            !Ref = Me!Ref
+            !optAPP.SetFocus
+        End With
+        DoCmd.Close acForm, "frmDirectorsMain2003"
+        Exit Sub
+        GoTo exit_cboTaxYear_AfterUpdate
+  
+    Case Is < 2003
+        
+        DoCmd.OpenForm "frmDirectorsMain2001", , , , , , cboTaxYear
+        'set fields
+        With Forms!frmDirectorsMain2001
+            !Surname = Me!Surname
+            !Initial = Me!Initial
+            !NIPrefix = Me!NIPrefix
+            !NInumber = Me!NInumber
+            !NIsuffix = Me!NIsuffix
+            !Ref = Me!Ref
+            !optAPP.SetFocus
+        End With
+        DoCmd.Close acForm, "frmDirectorsMain2003"
+        Exit Sub
+        GoTo exit_cboTaxYear_AfterUpdate
+        
+
+End Select
+
+
+    DoCmd.RunSQL "delete * from tblDirectorsContributions01"
+    
+    With Me
+        ' Update Details section, no records
+        ![DirectorsContributions].Form.Requery '<< is strange. CSNE
+        
+        ' Clear LEL/UEL
+        ![txtLEL] = Null
+        ![txtLELorEE_ET] = Null
+        ![txtLELorETorER_ET] = Null
+        ![txtUEL] = Null
+    
+        ' Clear summary fields
+        ![nTotalContributions].value = Null
+        ![nTotalEEContributions].value = Null
+        ![nTotalERContributions].value = Null
+        
+        'Clear payments fields
+        !nNITotalPaid = Null
+        !nEENITotalPaid = Null
+        !nERNITotalPaid = Null
+        !nNITotalUnderpayment = Null
+        !nNITotalOverpayment = Null
+        !nEENIUnderpayment = Null
+        !nEENIOverpayment = Null
+        !nERNIUnderpayment = Null
+        !nERNIOverpayment = Null
+        
+    
+    
+        
+        ' Set focus ("optapp" will not accept focus directly, quirky)
+        !Surname.SetFocus
+        !optAPP.SetFocus
+        
+        
+        
+    End With
+    
+    
+    Me.Recalc
+    
+    NIsuffix_AfterUpdate
+    
+SetDefaultDates03
+ 
+exit_cboTaxYear_AfterUpdate:
+    Application.Echo True
+    Exit Sub
+
+err_cboTaxYear_AfterUpdate:
+    MsgBox Error$
+    Resume exit_cboTaxYear_AfterUpdate
+
+End Sub
+
+Private Sub cboTaxYear_Change()
+ Forms![frmDirectorsMain2003]!optAPP.SetFocus
+End Sub
+
+
+
+Private Sub cboTaxYear_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)
+ Forms![frmDirectorsMain2003]!optAPP.SetFocus
+End Sub
+
+Private Sub cmdCalculate_Click()
+'Author     Chris schuler
+'Date       27 January 2003
+'Purpose    Changes to procedure 'directorCalc01' to allow for 2003
+
+        OpenReferenceTables1999
+        
+        directorCalc01 cboTaxYear, Me
+        
+        
+        CloseReferenceTables
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Peter Morton
+' Date          : 04 Jan 2001
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear the Director's 2001 entry form, ready for new data
+
+    On Error GoTo Err_NewButton_Click
+    
+    ' Clear the form
+    Clearform03
+
+    'FirstLine = True
+    
+Exit_NewButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_NewButton_Click:
+    MsgBox Error$
+    Resume Exit_NewButton_Click
+
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the Directors form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+' Author        : Christopher Schuler
+' Date          : 27 January
+' Reason        : Amend for 2003
+
+
+    On Error GoTo Err_cmdPrint_Enter
+
+    Recalc
+    
+    cmdCalculate_Click
+    
+    DoCmd.OpenReport "rptDirectorsContributions03", A_NORMAL    'A_preView test
+    
+
+Exit_cmdPrint_Enter:
+    Exit Sub
+
+Err_cmdPrint_Enter:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Enter
+    
+End Sub
+
+
+
+Private Sub Form_Load()
+'Author     Peter Morton
+'Date       03 January 2001
+'Purpose    New form for 2001
+'Author     Christopher Schuler
+'Date       09 January 2002
+'Purpose    Allow for years after 2001
+'Author     Christopher Schuler
+'Date       27 January 2003
+'Purpose    Allow for years after 2003
+
+    On Error GoTo err_Form_Load
+    
+    DoCmd.SetWarnings False
+    Application.Echo False
+    
+    
+    DoCmd.Maximize
+    
+    ' Set the prepared by field
+    Me!PreparedBy.Enabled = True
+    
+    Me![PreparedBy] = getinitials() & " " & getsurname()
+    Me!PreparedBy.Enabled = False
+    
+    
+    'check if year passed in
+    If Me.OpenArgs <> "" Then
+        cboTaxYear = OpenArgs
+    Else
+        cboTaxYear = strCurrentTaxYear("CLASS 1 RATE TABLE")
+    End If
+    
+    cboTaxYear_AfterUpdate
+    
+
+    ' Clear the entry form
+    Clearform03
+
+    Recalc
+
+    SetDefaultDates03
+
+exit_Form_Load:
+    Application.Echo True
+    DoCmd.Hourglass False
+
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+
+If Not IsNull(NIsuffix) Then
+    Select Case NIsuffix
+    
+    
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If cboTaxYear > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                cboTaxYear.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+                
+    
+    
+    End Select
+End If
+
+End Sub
+
+Private Sub optEarningsPeriod_AfterUpdate()
+
+On Error GoTo Err_optEarningsPeriod_AfterUpdate
+
+    SetDefaultDates03
+
+Exit_optEarningsPeriod_AfterUpdate:
+    Exit Sub
+
+Err_optEarningsPeriod_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_optEarningsPeriod_AfterUpdate
+
+End Sub

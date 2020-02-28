@@ -1,0 +1,427 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub Button15_GotFocus()
+cboNewEmp.Enabled = False
+txtDaysPaid.Enabled = False
+
+End Sub
+
+Private Sub Button17_GotFocus()
+cboNewEmp.Enabled = False
+txtDaysPaid.Enabled = False
+
+End Sub
+
+Private Sub cboNewEmp_AfterUpdate()
+
+If cboNewEmp = True Then
+    txtDaysPaid.Enabled = True
+    txtDaysPaid.SetFocus
+Else
+    txtDaysPaid = 0
+    txtDaysPaid.Enabled = False
+End If
+
+End Sub
+
+Private Sub chkFri_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 November 1995
+' Fuction Name  : chkFri_Exit
+' Purpose       : Ensure correct number of QDs set
+
+    On Error GoTo Err_chkFri_Exit
+    
+    Cancel = bInvalidSetOfQualifyingDays()
+    If Cancel = True Then
+        chkFri = True
+    End If
+
+
+Exit_chkFri_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_chkFri_Exit:
+    MsgBox Error$
+    Resume Exit_chkFri_Exit
+
+End Sub
+
+Private Sub chkMon_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 November 1995
+' Fuction Name  : chkMon_Exit
+' Purpose       : Ensure correct number of QDs set
+
+    On Error GoTo Err_chkMon_Exit
+    
+    Cancel = bInvalidSetOfQualifyingDays()
+    If Cancel = True Then
+        chkMon = True
+    End If
+
+
+Exit_chkMon_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_chkMon_Exit:
+    MsgBox Error$
+    Resume Exit_chkMon_Exit
+
+End Sub
+
+Private Sub chkSat_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 November 1995
+' Fuction Name  : chkSat_Exit
+' Purpose       : Ensure correct number of QDs set
+
+    On Error GoTo Err_chkSat_Exit
+    
+    Cancel = bInvalidSetOfQualifyingDays()
+    If Cancel = True Then
+        chkSat = True
+    End If
+
+
+Exit_chkSat_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_chkSat_Exit:
+    MsgBox Error$
+    Resume Exit_chkSat_Exit
+
+End Sub
+
+Private Sub chkSun_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 November 1995
+' Fuction Name  : chkSun_Exit
+' Purpose       : Ensure correct number of QDs set
+
+    On Error GoTo Err_chkSun_Exit
+    
+    Cancel = bInvalidSetOfQualifyingDays()
+    If Cancel = True Then
+        chkSun = True
+    End If
+
+
+Exit_chkSun_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_chkSun_Exit:
+    MsgBox Error$
+    Resume Exit_chkSun_Exit
+
+End Sub
+
+Private Sub chkThur_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 November 1995
+' Fuction Name  : chkThur_Exit
+' Purpose       : Ensure correct number of QDs set
+
+    On Error GoTo Err_chkThur_Exit
+    
+    Cancel = bInvalidSetOfQualifyingDays()
+    If Cancel = True Then
+        chkThur = True
+    End If
+
+
+Exit_chkThur_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_chkThur_Exit:
+    MsgBox Error$
+    Resume Exit_chkThur_Exit
+
+End Sub
+
+Private Sub chkTue_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 November 1995
+' Fuction Name  : chkTue_Exit
+' Purpose       : Ensure correct number of QDs set
+
+    On Error GoTo Err_chkTue_Exit
+    
+    Cancel = bInvalidSetOfQualifyingDays()
+    If Cancel = True Then
+        chkTue = True
+    End If
+
+
+Exit_chkTue_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_chkTue_Exit:
+    MsgBox Error$
+    Resume Exit_chkTue_Exit
+
+End Sub
+
+Private Sub chkWed_Exit(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 23 October 1996
+' Fuction Name  : chkWed_Exit
+' Purpose       : Ensure correct number of QDs set
+
+    On Error GoTo Err_chkWed_Exit
+    
+    Cancel = bInvalidSetOfQualifyingDays()
+    If Cancel = True Then
+        chkWed = True
+    End If
+
+
+Exit_chkWed_Exit:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_chkWed_Exit:
+    MsgBox Error$
+    Resume Exit_chkWed_Exit
+
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear the
+
+    On Error GoTo Err_cmdClear_Click
+
+    ClearSSPPayable
+
+
+Exit_cmdClear_Click:
+    Exit Sub
+
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+    
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 19 November 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the SSP form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Print the report
+
+    On Error GoTo Err_cmdPrint_Click
+
+    If bValidSSPPayableCalculation() = True Then
+        DoCmd.OpenReport "rptSSPPayable", A_NORMAL
+    End If
+
+Exit_cmdPrint_Click:
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+    
+End Sub
+
+Private Sub cmdRecoverable_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 December 1995
+' Fuction Name  : cmdRecoverable_Click
+' Purpose       : Close Payable and open Recoverable
+
+    On Error GoTo Err_cmdRecoverable_Click
+
+    DoCmd.OpenForm "frmSSPRecoverable"
+    DoCmd.Close acForm, "frmSSPPayable"
+
+
+Exit_cmdRecoverable_Click:
+    Exit Sub
+
+Err_cmdRecoverable_Click:
+    MsgBox Error$
+    Resume Exit_cmdRecoverable_Click
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 6 November 1995
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+
+    On Error GoTo err_Form_Load
+    
+    
+    Dim Sname As String
+    Dim Fname As String
+    
+    DoCmd.SetWarnings False
+    DoCmd.Maximize
+    
+    ' Set the prepared by field
+    Forms![frmSSPPayable]!txtPreparedBy.Enabled = True
+    
+    Forms![frmSSPPayable]![txtPreparedBy] = getinitials() & " " & getsurname()
+    Forms![frmSSPPayable]!txtPreparedBy.Enabled = False
+
+    ClearSSPPayable
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub grpPayPeriod_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 26 November 1995
+' Fuction Name  : grpPayPeriod_AfterUpdate
+' Purpose       : Enable and disable pay period fields
+
+    On Error GoTo Err_grpPayPeriod_AfterUpdate
+    
+    EnablePayPeriodOptions ("frmSSPPayable")
+
+Exit_grpPayPeriod_AfterUpdate:
+    Exit Sub
+
+Err_grpPayPeriod_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_grpPayPeriod_AfterUpdate
+
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+
+
+If Not IsNull(NIsuffix) And Not IsNull(DFirst("From", "tblSSPPIW")) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+        
+        Case "F", "M"
+        
+            If DFirst("From", "tblSSPPIW") > #4/5/2005# Then
+            
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtInitial.SetFocus
+                NIsuffix.SetFocus
+                
+            End If
+       
+        Case Else
+        
+            
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                txtInitial.SetFocus
+                NIsuffix.SetFocus
+          
+    End Select
+End If
+End Sub
+
+Private Sub subEarnings_Enter()
+
+' Author        : Christopher Schuler
+' Date          : 9 July 1999
+' Purpose       : Hides Class1b column before 1999
+' Author        : Christopher Schuler
+' Date          : 14 December 1999
+' History       : Disable new employee fields before 2000
+    
+    If DLast("[From]", "tblSSPPIW") >= #4/6/1999# Then
+        Forms!frmSSPPayable!subEarnings.Form![Class1B].ColumnHidden = 0
+        Forms!frmSSPPayable!subEarnings.Width = 3600
+    Else
+        Forms!frmSSPPayable!subEarnings.Form![Class1B].ColumnHidden = -1
+        Forms!frmSSPPayable!subEarnings.Width = 2400
+
+    End If
+    If DLast("[From]", "tblSSPPIW") >= #4/6/2000# Then
+        Forms!frmSSPPayable!cboNewEmp.Enabled = True
+        
+    Else
+        Forms!frmSSPPayable!cboNewEmp.Enabled = False
+        
+    End If
+End Sub
+
+Private Sub subPIW_Exit(Cancel As Integer)
+If Not IsNull(Forms!frmSSPPayable!NIsuffix) And Not IsNull(DFirst("From", "tblSSPPIW")) Then
+
+    Select Case Forms!frmSSPPayable!NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+        
+        Case "F", "M"
+        
+            If DFirst("From", "tblSSPPIW") > #5/4/2007# Then
+            
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                Forms!frmSSPPayable!NIsuffix = Null
+                Forms!frmSSPPayable!txtInitial.SetFocus
+                Forms!frmSSPPayable!NIsuffix.SetFocus
+                
+            End If
+       
+        Case Else
+        
+            
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                Forms!frmSSPPayable!NIsuffix = Null
+                Forms!frmSSPPayable!txtInitial.SetFocus
+                Forms!frmSSPPayable!NIsuffix.SetFocus
+          
+    End Select
+End If
+End Sub

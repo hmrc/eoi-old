@@ -1,0 +1,461 @@
+Option Compare Database   'Use database order for string comparisons
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+Option Explicit
+
+
+Const gcINTEREST_UNPAID_DEBT = 1
+Const gcINTEREST_LATE_PAID_REFUNDS = 2
+
+'Declare Function getprivateprofilestring Lib "Kernel" (ByVal lpApplicationName As String, lpKeyName As Any, ByVal lpDefault As String, ByVal lpReturnedString As String, ByVal nSize As Integer, ByVal lpFileName As String) As Integer
+
+Function bCalculateInterest(ByVal strForm As String, ByVal strTable As String, ByVal nType As Integer, ByVal dtmInterestDate, ByVal nNoOfBankHolidays As Integer, curTotalDebt As Currency, curTotalInterest As Currency, perPercentage As Double) As Integer
+' Author        : Mustaq Hussain
+' Date          : 30 January 1996
+' Fuction Name  : bValidInterestLateCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' History
+' Author        : Mustaq Hussain
+' Date          : 30 June 1996
+' Purpose       : RFC 382 : Remission for Late and Unpaid Class 1 NIC
+' Author        : Mustaq Hussain
+' Date          : 14 June 1996
+' Purpose       : Remission breakdown expanded
+' Author        : Mustaq Hussain
+' Date          : 25 June 1996
+' Purpose       : Stir fix, to take into account multiple periods in each tax period
+' Author        : Mustaq Hussain
+' Date          : 9 January 1997
+' Purpose       : RFC 544 : New interest rate '31/1/97' must be split between two tables now, not common now
+' Author        : Lisa Scothern
+' Date          : 17 September 1997
+' Purpose       : RFC 541: For truncating Late/Unpaid, use curTruncate() not Int()
+' Author        : Lisa Scothern
+' Date          : 29 October 1997
+' Purpose       : RFC 526: Cater for Standard and Specific remission tables
+' Author        : Christopher Schuler
+' Date          : 6 April 2000
+' Purpose       : CCA 4985 No fallow period for interest payments from 06/04/2000
+' Author        : Christopher Schuler
+' Date          : 6 February 2002
+' Purpose       : CCA6886 Amend the start dates for Class 1 interest due
+
+
+    
+    On Error GoTo Err_CalculateInterest
+
+    DoCmd.Hourglass True
+    
+    Dim myDB As Database, mySet As DAO.Recordset, MyRemission As DAO.Recordset, MyLookUp As DAO.Recordset, MyReport As DAO.Recordset
+    Dim SQLQuery
+    
+    Dim dtmFromDate, dtmToDate, dtmStartDate, dtmEndCalculationDate
+    Dim nNoOfDays As Integer
+    Dim nNoOfBankHolidaysLeft As Integer
+    Dim curInterest As Currency
+    Dim curInterestInPeriod As Currency
+    Dim nTaxYear As Integer
+
+    Dim dtmReStart, dtmReEnd
+    Dim nDaysOfRemission
+
+    Dim nWeekDay As Integer, n5WorkingDaysIn  As Integer
+    Dim frmForm As Form
+    Dim brptTaxYears As Integer
+    Dim bDaysOfRemissionExist, bUpdateReport, bSpecific
+    Dim strRemissionTable As String
+    Dim strSQLUpdateReport As String
+    Dim strReportInfo As String
+
+    ' Assume true
+    bCalculateInterest = True
+
+    Set frmForm = Forms(strForm)
+    
+    curTotalDebt = 0
+    curTotalInterest = 0
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(strTable)
+    Set MyReport = myDB.OpenRecordset(strTable + "Report")
+    
+    ' Only for Late/Paid Refunds
+    If nType <> gcINTEREST_LATE_PAID_REFUNDS Then
+        strRemissionTable = strTable + "Remission"
+        If Forms![frmInterestLateUnpaidClass1Main]![RemPrdMode] = 1 Then
+            strRemissionTable = strRemissionTable + "Standard"
+            bSpecific = False
+        Else
+            strRemissionTable = strRemissionTable + "Specific"
+            bSpecific = True
+        End If
+        Set MyRemission = myDB.OpenRecordset(strRemissionTable)
+    End If
+
+    ' Delete report's table
+    DoCmd.RunSQL "DELETE * FROM [" + strTable + "Report" + "]"
+
+    ' Calculate only if entries exist
+    If Not mySet.EOF Then
+        mySet.MoveFirst
+
+        If (nType <> gcINTEREST_LATE_PAID_REFUNDS) And bSpecific Then ' Can't have bSpecific And Not Tax...  because Access
+                                            ' tries all parts of And statement even if first half returns False!
+            If Not TaxYearCheckOK(mySet, MyRemission) Then
+                MsgBox "You have used a Remission Period Tax Year which is" & Chr$(13) & "no-longer one of the Debt Tax Year(s)", 48, "Warning"
+                bCalculateInterest = False
+                GoTo Exit_CalculateInterest
+            End If
+        End If
+        
+        ' Loop through each tax year entry
+        Do Until mySet.EOF
+            mySet.Edit
+
+            If nType = gcINTEREST_LATE_PAID_REFUNDS Then
+                    SQLQuery = "SELECT [Interest rate], [Interest Start Date]  FROM [Class 1 Interest Charges Refunds] "
+            Else
+                    SQLQuery = "SELECT [Interest rate], [Interest Start Date]  FROM [Class 1 Interest Charges] "
+            End If
+            SQLQuery = SQLQuery + " WHERE [Interest Start Date]>=#4/19/93# "
+            SQLQuery = SQLQuery + " ORDER BY [Interest Start Date] ; "
+            
+            If nType = gcINTEREST_LATE_PAID_REFUNDS Then
+                ' Late paid refunds
+                If mySet![TaxYearFor] < 1999 Then
+                    
+                    If mySet![TaxYearFor] = mySet![TaxYearPaid] Then
+                        nTaxYear = mySet![TaxYearPaid] + 2
+                    Else
+                        nTaxYear = mySet![TaxYearPaid] + 1
+                    End If
+                    ' Add 5 weekdays
+                    dtmStartDate = CVDate(Format$("6/4/" + Format$(nTaxYear), "dd/mm/yy"))
+                
+                Else
+                    
+                    If mySet![DatePaid] >= CVDate(Format$("20/04/" + Format$(mySet![TaxYearFor] + 1), "dd/mm/yyyy")) Then
+   
+                        dtmStartDate = mySet![DatePaid]
+                    Else
+                        nTaxYear = mySet![TaxYearFor] + 1
+                        dtmStartDate = CVDate(Format$("20/04/" + Format$(nTaxYear), "dd/mm/yyyy"))
+
+                    End If
+                
+                End If
+                nWeekDay = Weekday(dtmInterestDate, 1)
+                n5WorkingDaysIn = Switch(nWeekDay = 1, 5, nWeekDay = 2, 7, nWeekDay = 3, 7, nWeekDay = 4, 7, nWeekDay = 5, 7, nWeekDay = 6, 7, nWeekDay = 7, 6)
+                    ' Weekday date
+                dtmEndCalculationDate = dtmInterestDate + n5WorkingDaysIn
+
+                ' Add the bankholidays
+                If nNoOfBankHolidays >= 1 Then
+                    For nNoOfBankHolidaysLeft = nNoOfBankHolidays To 1 Step -1
+                        nWeekDay = Weekday(dtmEndCalculationDate, 1)
+                        ' if not a Friday
+                        If nWeekDay < 6 Then
+                            ' Weekday date calculated
+                            dtmEndCalculationDate = dtmEndCalculationDate + 1
+                        Else
+                            ' Is a Friday
+                            ' Weekday date calculated
+                            dtmEndCalculationDate = dtmEndCalculationDate + 2 + 1
+                        End If
+                    Next
+                End If
+
+                    
+            Else
+                ' Unpaid
+                nTaxYear = mySet![Taxyear]
+                ' Start date depends on the tax year
+                If nTaxYear = 1992 Then
+                    dtmStartDate = CVDate(Format$("22/11/" + Format$(nTaxYear + 1), "dd/mm/yyyy"))
+                Else
+                    'dtmStartDate = CVDate(Format$("20/4/" + Format$(nTaxYear + 1), "dd/mm/yyyy"))
+                    dtmStartDate = CVDate(Format$("19/4/" + Format$(nTaxYear + 1), "dd/mm/yyyy"))   'CCA6886
+
+                End If
+                dtmEndCalculationDate = dtmInterestDate
+            End If
+
+            Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+
+            ' Make sure record found in table
+            If MyLookUp.EOF Then
+                ' No entry in table!
+                Beep
+                MsgBox ("No interest rates in tables")
+                Exit Do
+            Else
+                perPercentage = MyLookUp.Fields(0)
+                dtmToDate = dtmStartDate
+                dtmFromDate = dtmStartDate
+                ' Move to entry that covers the start date
+                Do Until 1 = 2
+                    If MyLookUp.Fields(1) <= dtmStartDate Then
+                        perPercentage = MyLookUp.Fields(0)
+                        MyLookUp.MoveNext
+                        If MyLookUp.EOF Then
+                            MyLookUp.MovePrevious
+                            Exit Do
+                        End If
+                    Else
+                        MyLookUp.MovePrevious
+                        Exit Do
+                    End If
+                Loop
+                        
+            End If
+
+            brptTaxYears = False
+            curInterest = 0
+            ' Loop through each change in interest rates
+            Do Until 1 = 2
+                
+                ' Insert report record
+                MyReport.AddNew
+                ' If first record of each For/Paid then add headers
+                If brptTaxYears = False Then
+                
+                    MyReport![Amount] = mySet![Amount]
+                    ' Update report specific fields
+                    If nType = gcINTEREST_LATE_PAID_REFUNDS Then
+                        
+                        If mySet![TaxYearFor] < 1999 Then
+                            MyReport![TaxYearPaid] = Format$(mySet![TaxYearPaid]) + "/" + Format$(mySet![TaxYearPaid] + 1)
+                        Else
+                            MyReport![DatePaid] = mySet![DatePaid]
+                        End If
+
+                        MyReport![TaxYearFor] = Format$(mySet![TaxYearFor]) + "/" + Format$(mySet![TaxYearFor] + 1)
+                    Else
+                        MyReport![Taxyear] = Format$(nTaxYear) + "/" + Format$(nTaxYear + 1)
+                    End If
+                    ' This For/Paid header updated
+                    brptTaxYears = True
+                End If
+
+                If MyLookUp.EOF Or dtmToDate >= dtmEndCalculationDate Then
+                    MyReport![Breakdown] = "                                               Sub Total = "
+                    MyReport![Interest] = curInterest
+                MyReport.Update
+                
+                MyReport.AddNew
+                    MyReport![Breakdown] = "____________________________________"
+
+                    Exit Do
+                Else
+                    perPercentage = MyLookUp.Fields(0)
+                    dtmFromDate = IIf(MyLookUp.Fields(1) <= dtmStartDate, dtmStartDate, MyLookUp.Fields(1))
+
+                    MyLookUp.MoveNext
+                    ' End of interest table reached
+                    If MyLookUp.EOF Then
+                        dtmToDate = dtmEndCalculationDate
+                    Else
+                        ' Check calculation date prior to change in interest date
+                        If MyLookUp.Fields(1) <= dtmEndCalculationDate Then
+                            ' Calculation date later
+                            dtmToDate = MyLookUp.Fields(1) - 1
+                        Else
+                                ' Calculation date before
+                                dtmToDate = dtmEndCalculationDate
+                        End If
+                    End If
+                End If
+
+                ' Calculate interest due
+                nNoOfDays = dtmToDate - dtmFromDate + 1
+                ' Remission Periods
+                bDaysOfRemissionExist = False
+                nDaysOfRemission = 0
+
+                If nType <> gcINTEREST_LATE_PAID_REFUNDS Then
+
+                    If Not MyRemission.EOF Then
+                                
+
+                        ' Loop through each remission period
+                        Do Until MyRemission.EOF
+                                MyRemission.Edit
+
+                                dtmReStart = MyRemission![Start]
+                                dtmReEnd = MyRemission![End]
+                                bUpdateReport = True
+
+                                If Forms![frmInterestLateUnpaidClass1Main]![RemPrdMode] = 2 Then
+                                    'Specific mode
+                                    If MyRemission![RemTaxYear] = mySet![Taxyear] Then
+                                        RemissionCheck dtmFromDate, dtmToDate, dtmReStart, dtmReEnd, bDaysOfRemissionExist, nDaysOfRemission
+                                        strReportInfo = Format$(dtmReStart, "dd/mm/yyyy") + " - " + Format$(dtmReEnd, "dd/mm/yyyy") + " = "
+                                        strReportInfo = strReportInfo + Format(dtmReEnd - dtmReStart + 1) + " Days applied to Tax Year "
+                                        strReportInfo = strReportInfo + Str$(mySet![Taxyear])
+                                    Else
+                                        bUpdateReport = False
+                                    End If
+                                Else
+                                    RemissionCheck dtmFromDate, dtmToDate, dtmReStart, dtmReEnd, bDaysOfRemissionExist, nDaysOfRemission
+                                    strReportInfo = Format$(dtmReStart, "dd/mm/yyyy") + " - " + Format$(dtmReEnd, "dd/mm/yyyy") + " = " + Format(dtmReEnd - dtmReStart + 1) + " Days"
+                                End If
+
+                                If bUpdateReport Then
+                                    MyRemission![Report] = strReportInfo
+                                End If
+                                MyRemission.Update
+                                MyRemission.MoveNext
+
+                        Loop
+                        ' Ready for next interest rate group
+                        MyRemission.MoveFirst
+                    
+                    End If
+                
+                End If
+                
+                If nType = gcINTEREST_LATE_PAID_REFUNDS Then
+                    curInterestInPeriod = curRoundUp(mySet![Amount] * nNoOfDays * perPercentage / 365)
+                Else
+                    curInterestInPeriod = curTruncate(mySet![Amount] * (nNoOfDays - nDaysOfRemission) * perPercentage / 366)
+                End If
+                curInterest = curInterest + curInterestInPeriod
+
+                ' Update breakdown in report
+                If bDaysOfRemissionExist = True Then
+                    MyReport![Breakdown] = "* " + Format$(dtmFromDate, "dd/mm/yyyy") + " - " + Format$(dtmToDate, "dd/mm/yyyy") + " = " + Format(nNoOfDays) + " Days - " + Format(nDaysOfRemission) + " Days @ " + Format$(perPercentage * 100) + "% = "
+                Else
+                    MyReport![Breakdown] = Format$(dtmFromDate, "dd/mm/yyyy") + " - " + Format$(dtmToDate, "dd/mm/yyyy") + " = " + Format(nNoOfDays) + " Days @ " + Format$(perPercentage * 100) + "% = "
+                End If
+                MyReport![Interest] = curInterestInPeriod
+                MyReport.Update
+            Loop
+            
+
+            mySet![Interest] = curInterest
+
+            ' Update total debt and  interest
+            curTotalDebt = curTotalDebt + mySet![Amount]
+            curTotalInterest = curTotalInterest + curInterest
+            mySet.Update
+            mySet.MoveNext
+        
+            MyReport.Update
+        
+        Loop
+        MyLookUp.Close
+
+    Else
+        Beep
+        MsgBox ("There are no entries in the table")
+        bCalculateInterest = False
+    End If
+
+    mySet.Close
+    MyReport.Close
+    ' Only for Late/Paid Refunds
+    If nType <> gcINTEREST_LATE_PAID_REFUNDS Then
+        MyRemission.Close
+        DoCmd.RunSQL "DELETE * FROM [tblInterestLateUnpaidClass1RemissionReport]"
+        strSQLUpdateReport = "INSERT INTO [tblInterestLateUnpaidClass1RemissionReport] (Report) SELECT [Report] FROM [" + strRemissionTable + "];"
+        DoCmd.RunSQL strSQLUpdateReport
+    End If
+    myDB.Close
+    
+    'next line added to remove delay in updating subform in Access97
+    If nType <> gcINTEREST_LATE_PAID_REFUNDS Then
+        Forms![frmInterestLateUnpaidClass1Main]![subArrears].Form.Recalc
+    End If
+
+Exit_CalculateInterest:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_CalculateInterest:
+    MsgBox Error$
+    Resume Exit_CalculateInterest
+
+End Function
+
+'   Author  :   Lisa Scothern
+'   Date    :   29 October 1997
+'   Purpose :   Moved from bCalculateInterest() into a Sub so that code does not have
+'           :   to be copied to be used by both Standard & Specific modes (RFC526)
+'
+Sub RemissionCheck(ByVal dtmFromDate, ByVal dtmToDate, ByVal dtmReStart, ByVal dtmReEnd, bDaysOfRemissionExist, nDaysOfRemission)
+
+    ' Enclosed by interest dates
+    If dtmFromDate <= dtmReStart And dtmToDate >= dtmReEnd Then
+        nDaysOfRemission = nDaysOfRemission + dtmReEnd - dtmReStart + 1
+        bDaysOfRemissionExist = True
+    Else
+        ' Remission before by interest dates but ends in interest period
+        If (dtmFromDate > dtmReStart And dtmFromDate <= dtmReEnd) And dtmToDate >= dtmReEnd Then
+            nDaysOfRemission = nDaysOfRemission + dtmReEnd - dtmFromDate + 1
+            bDaysOfRemissionExist = True
+        Else
+            ' Remission ends after interest dates but starts in interest period
+            If dtmFromDate <= dtmReStart And dtmToDate < dtmReEnd And dtmToDate >= dtmReStart Then
+                nDaysOfRemission = nDaysOfRemission + dtmToDate - dtmReStart + 1
+                bDaysOfRemissionExist = True
+            Else
+                ' Remission starts before and ends after
+                If dtmFromDate > dtmReStart And dtmToDate < dtmReEnd Then
+                    nDaysOfRemission = nDaysOfRemission + dtmToDate - dtmFromDate + 1
+                    bDaysOfRemissionExist = True
+                End If
+            End If
+        End If
+    End If
+
+End Sub
+
+Function TaxYearCheckOK(mySet As DAO.Recordset, MyRemission As DAO.Recordset) As Integer
+    
+' Author    :   Lisa Scothern
+' Date      :   29 October 1997
+' Purpose   :   RFC526: Check whether users have not entered a Remission tax year which is NOT one of the Debt Tax Years
+
+    On Error GoTo Err_TaxYearCheckOK
+
+    Dim bTaxYearFound
+
+    TaxYearCheckOK = True
+
+    If Not MyRemission.EOF Then
+        'Check only required if any remission periods have been entered
+        MyRemission.MoveFirst
+
+        Do Until MyRemission.EOF
+            bTaxYearFound = False
+            mySet.MoveFirst
+
+            Do Until mySet.EOF
+                If MyRemission![RemTaxYear] = mySet![Taxyear] Then
+                    bTaxYearFound = True
+                End If
+                mySet.MoveNext
+            Loop
+            If Not bTaxYearFound Then
+                TaxYearCheckOK = False
+                GoTo Exit_TaxYearCheckOK
+            End If
+            MyRemission.MoveNext
+        Loop
+
+        mySet.MoveFirst             ' Reset back to beginning of record sets, ready for later use
+        MyRemission.MoveFirst
+    End If
+
+Exit_TaxYearCheckOK:
+    Exit Function
+
+Err_TaxYearCheckOK:
+    MsgBox Error$
+    Resume Exit_TaxYearCheckOK
+
+
+End Function

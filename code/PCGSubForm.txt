@@ -1,0 +1,70 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cboCategory_GotFocus()
+
+' Modified History  :
+' Author            : Mustaq Hussain
+' Date              : 9 January 1996
+' Reason            : RFC 269 : 4 Weekly period
+' Author            : Mustaq Hussain
+' Date              : 13 February 1996
+' Reason            : RFC 269 : Check 4W to 13
+' Author            : Mustaq Hussain
+' Date              : 28 June 1996
+' Reason            : LER 93 : Weekly max should be 53
+'                   : Jane Mullen
+' Date              : 16 May 1997
+' Purpose           : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+ 
+On Error GoTo Err_cboCategory_GotFocus
+
+    Select Case Forms!PCGForm!Contributions.Form!cboPeriod
+    Case "W":
+        If Forms!PCGForm!Contributions.Form!PeriodNumber > 53 Then
+            MsgBox "Weekly period number cannot be greater than 53 weeks.", 0 + 48, "Information"
+            Forms!PCGForm!Contributions.Form!PeriodNumber.SetFocus
+        End If
+    Case "4W":
+        If Forms!PCGForm!Contributions.Form!PeriodNumber > 13 Then
+            MsgBox "4 Weekly period number cannot be greater than 13 four weeklys.", 0 + 48, "Information"
+            Forms!PCGForm!Contributions.Form!PeriodNumber.SetFocus
+        End If
+    Case "M"
+        If Forms!PCGForm!Contributions.Form!PeriodNumber > 12 Then
+            MsgBox "Monthly period number cannot be greater than 12 months.", 0 + 48, "Information"
+            Forms!PCGForm!Contributions.Form!PeriodNumber.SetFocus
+        End If
+    End Select
+
+    If IsNull(Forms!PCGForm!Taxyear) Or Forms!PCGForm!Taxyear = "" Then
+        Forms!PCGForm!Contributions.Form!cboCategory.RowSource = "A;B;C;D;E;f;G;S"
+    Else
+        If Forms!PCGForm!Taxyear > 1996 And Forms!PCGForm!Taxyear < 1999 Then
+            Forms!PCGForm!Contributions.Form!cboCategory.RowSource = "A;B;C;D;E;F;G;S"
+        ElseIf Forms!PCGForm!Taxyear > 1999 Then
+            Forms!PCGForm!Contributions.Form!Category.RowSource = "A;B;C;D;E;F;G;S"
+        ElseIf Forms!PCGForm!Taxyear > 1977 Then
+            Forms!PCGForm!Contributions.Form!cboCategory.RowSource = "A;B;C;D;E"
+        Else
+            Forms!PCGForm!Contributions.Form!cboCategory.RowSource = "A;B;C"
+        End If
+    End If
+
+    
+Exit_cboCategory_GotFocus:
+    Exit Sub
+
+Err_cboCategory_GotFocus:
+    MsgBox Error$
+    Resume Exit_cboCategory_GotFocus
+
+
+End Sub
+
+Private Sub Form_AfterUpdate()
+Forms!PCGForm!txtCalc_on = ""
+End Sub

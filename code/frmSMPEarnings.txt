@@ -1,0 +1,47 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 7 December 1995
+' Fuction Name  : Form_BeforeUpdate
+' Purpose       : Ensure Date correct and Earnings set correctly
+' Author        : pmor
+' Date          : Jan 03
+' Purpose       : Allow Earnings = 0
+
+    Dim frmForm As Form
+
+    On Error GoTo Err_Form_BeforeUpdate
+    
+    ' Assume correct
+    Cancel = False
+    
+    Set frmForm = Forms!frmSMPPayable!subEarnings.Form
+
+    If Not IsNull(frmForm![Date]) And (frmForm![Date] < CVDate(Format("6/4/85", "dd/mm/yy"))) Then 'Or frmForm![Date] > Date) Then
+        Beep
+        MsgBox ("Date must be between: 6/4/1985 and today inclusive")
+        Cancel = True
+        GoTo Exit_Form_BeforeUpdate
+    End If
+
+    If frmForm!Earnings < 0 And frmForm!Class1B < 0 Then 'pmor Jan 03 - allow equal to zero - as spec
+        Beep
+        MsgBox ("Earnings or Class 1B not set")
+        Cancel = True
+        GoTo Exit_Form_BeforeUpdate
+    End If
+
+
+Exit_Form_BeforeUpdate:
+    Exit Sub
+
+Err_Form_BeforeUpdate:
+    MsgBox Error$
+    Resume Exit_Form_BeforeUpdate
+
+End Sub

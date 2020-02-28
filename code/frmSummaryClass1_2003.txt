@@ -1,0 +1,22 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+
+Private Sub SummaryClose_Click()
+
+On Error GoTo Err_SummaryClose_Click
+
+    DoCmd.Close
+
+Exit_SummaryClose_Click:
+    Exit Sub
+
+Err_SummaryClose_Click:
+    MsgBox Error$
+    Resume Exit_SummaryClose_Click
+    
+
+End Sub

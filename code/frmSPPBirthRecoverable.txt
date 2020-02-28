@@ -1,0 +1,129 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub cmdCalculate_Click()
+  
+    SPPRecoverableCalculation "tblSPPBirthPayments", "tblSPPBirthRecoveryRates", Me
+End Sub
+
+Private Sub cmdClear_Click()
+    
+    On Error GoTo Err_cmdClear_Click
+    
+    DoCmd.SetWarnings False
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblSPPBirthPayments]"
+    
+    ' Update Details section, no records
+    Me![subPayments].Form.Requery
+
+    'Re-initialises all of the input fields and set focus back to first input field
+    
+    ' Clear information only fields
+    txtName = Null
+    txtInitials = Null
+    NIPrefix = Null
+    NInumber = Null
+    NIsuffix = Null
+    txtRef = Null
+    
+
+    ' Set focus
+    txtName.SetFocus
+    
+    DoCmd.SetWarnings True
+Exit_cmdClear_Click:
+    Exit Sub
+
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the Directors form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPayable_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 December 1995
+' Fuction Name  : cmdPayable_Click
+' Purpose       : Close Recoverable and open Payable
+
+    On Error GoTo Err_cmdPayable_Click
+
+    DoCmd.OpenForm "frmSPPBirthPayable"
+    DoCmd.Close acForm, "frmSPPBirthRecoverable"
+
+Exit_cmdPayable_Click:
+    Exit Sub
+
+Err_cmdPayable_Click:
+    MsgBox Error$
+    Resume Exit_cmdPayable_Click
+    
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 3 December 1995
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+
+    On Error GoTo Err_cmdPrint_Click
+
+        DoCmd.OpenReport "rptSPPBirthRecoverable", A_NORMAL
+        'DoCmd.OpenReport "rptSPPBirthRecoverable", acViewPreview 'pmor test
+
+Exit_cmdPrint_Click:
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 1 November 1995
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+
+    On Error GoTo err_Form_Load
+    
+
+    DoCmd.Maximize
+    
+    
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub

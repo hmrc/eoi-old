@@ -1,0 +1,224 @@
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private Sub TaxYearClick()
+With Forms!frmClass2MakeUp
+    ![txtDate of Enquiry] = Date
+    ![txtTotal Conts Paid] = 0
+    
+    ![txtNO Conts] = Null
+    ![txtRate] = Null
+    ![txtTotal] = Null
+    
+    ![txtNo Conts2] = Null
+    ![txtRate2] = Null
+    ![txtTotal2] = Null
+    
+    ![txtGrandTotal] = Null
+    
+    ![txtdate hrp applies] = Null
+    
+    ![txtfinal payment] = Null
+End With
+End Sub
+
+
+Private Sub Calculate_Exit(Cancel As Integer)
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_Calculate_Exit
+Forms!main![Tax Year].SetFocus
+exit_Calculate_Exit:
+    Exit Sub
+err_Calculate_Exit:
+    MsgBox Error$
+    Resume exit_Calculate_Exit
+End Sub
+
+
+
+Private Sub cboTax_Year_AfterUpdate()
+
+NIsuffix_AfterUpdate
+
+End Sub
+
+Private Sub cboTax_Year_Click()
+TaxYearClick
+End Sub
+
+Private Sub cmdClear_Click()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author  : Mustaq Hussain
+' Date    : 24 January 1997
+' Purpose : RFC 515 : Name, NINO and Ref
+
+On Error GoTo Err_cmdClear_Click
+DoCmd.Hourglass True
+With Forms!frmClass2MakeUp
+    ![txtNo Conts2].Visible = False
+    !txtRate2.Visible = False
+    ![txtTotal2].Visible = False
+    ![txtGrandTotal].Visible = False
+    ![AT].Visible = False
+    ![Equals].Visible = False
+    
+    ![Surname] = ""
+    ![Initial] = ""
+    ![Ref] = ""
+    ![NIPrefix] = ""
+    ![NInumber] = ""
+    ![NIsuffix] = ""
+    ![Ref] = ""
+End With
+
+TaxYearClick
+
+
+Forms![frmClass2MakeUp]![cboTax Year] = strCurrentTaxYear("CLASS 2 RATE TABLE")
+
+Forms!frmClass2MakeUp![Surname].SetFocus
+Exit_cmdClear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+End Sub
+
+Private Sub cmdClose_Click()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cmdClose_Click
+DoCmd.Hourglass True
+DoCmd.Close
+Exit_cmdClose_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdClose_Click:
+    MsgBox Error$
+    Resume Exit_cmdClose_Click
+End Sub
+
+Private Sub cmdPrint_Click()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Print_Report_Click
+    DoCmd.Hourglass True
+    Dim DocName As String
+
+    DocName = "rptClass2MakeUp"
+    DoCmd.OpenReport DocName, A_NORMAL
+
+Exit_Print_Report_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_Print_Report_Click:
+    MsgBox Error$
+    Resume Exit_Print_Report_Click
+
+End Sub
+
+
+Private Sub Form_Load()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_Form_Load
+Dim Sname As String
+Dim Fname As String
+Dim worked As Integer
+
+DoCmd.Maximize
+'Obtain user details via two functions making
+'API calls to User.INI file
+Sname = getsurname()
+Fname = getinitials()
+Forms![frmClass2MakeUp]![txtUserDetails] = Fname & " " & Sname
+
+Forms![frmClass2MakeUp]![cboTax Year] = strCurrentTaxYear("CLASS 2 RATE TABLE")
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If [cboTax Year] > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                [cboTax Year].SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If [cboTax Year] > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                [cboTax Year].SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                [cboTax Year].SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub txtTotal_Conts_Paid_GotFocus()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                                                                      '
+'               AUTHOR: BRIAN SHARRATT, ITSA 1995                      '
+'                                                                      '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_txtTotal_Conts_Paid_GotFocus
+    Forms!frmClass2MakeUp!Flash.Visible = True
+exit_txtTotal_Conts_Paid_GotFocus:
+    Exit Sub
+err_txtTotal_Conts_Paid_GotFocus:
+    MsgBox Error$
+    Resume exit_txtTotal_Conts_Paid_GotFocus
+End Sub

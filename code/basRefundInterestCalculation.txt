@@ -1,0 +1,698 @@
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+Global REFUNDDB As Database
+Global RefundInterestTable As DAO.Recordset
+Global RefundCalculatedRecords As DAO.Recordset
+Global RepayCalculatedRecords As DAO.Recordset
+'Declare API call to obtain user details
+'Declare Function getprivateprofilestring Lib "Kernel" (ByVal lpApplicationName As String, lpKeyName As Any, ByVal lpDefault As String, ByVal lpReturnedString As String, ByVal nSize As Integer, ByVal lpFileName As String) As Integer
+
+Function CloseRefundRefTables()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_CloseReferenceTables
+RefundInterestTable.Close
+RefundCalculatedRecords.Close
+REFUNDDB.Close
+Exit_CloseReferenceTables:
+    Exit Function
+Err_CloseReferenceTables:
+    MsgBox Error$
+    Resume Exit_CloseReferenceTables
+
+
+End Function
+
+Function GetFirstCalc(Taxyear, RefundDate, InterestDate, ContributionRefund) As Currency
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+'THIS FUNCTION IS USED FOR THE REFUND INTEREST REPORT BREAKDOWN
+'History
+'Author:    Lisa Scothern
+'Date:      17/09/97
+'Purpose:   RFC 541H Round-up calculation to the next penny (including intermediate steps in calcn)
+On Error GoTo err_GetFirstCalc
+
+
+
+Dim InterestRate As Currency
+Dim FirstCalc As Double
+
+Dim StartDate As Variant
+Dim NumberDays As Integer
+Dim NumberDaysRefundDateYear As Integer
+Dim April6Date As Variant
+Dim April5Date As Variant
+Dim RefundYear As Integer
+Dim Divisor As Integer
+Dim TaxYearCheckDate As Date
+
+Set REFUNDDB = CurrentDb()
+Set RefundInterestTable = REFUNDDB.OpenRecordset("Class 1 Interest Charges Refunds", DB_OPEN_TABLE, DB_READONLY)
+
+'Exit function if all parameters not yet present
+If IsNull(RefundDate) Or IsNull(Taxyear) Or IsNull(ContributionRefund) Or IsNull(InterestDate) Then
+    GetFirstCalc = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against refund date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtRefund Date] < TaxYearCheckDate Then
+    GetFirstCalc = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against interest date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtInterestDate] < TaxYearCheckDate Then
+    GetFirstCalc = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+
+'obtain appropriate interest rate
+RefundInterestTable.Index = "PrimaryKey"
+RefundInterestTable.Seek "<=", InterestDate
+InterestRate = RefundInterestTable![Interest rate]
+'convert tax year into correct base, this will now cope with years after turn of century
+StartDate = DateSerial(Taxyear + 2, 4, 5)
+
+'account for leap years by amending divisor.The amended divisor will only
+'apply to the tax year in which the refund date falls. The divisor for preceding
+'tax years will always be 365
+
+'first calculate number of days up to start of final year
+Divisor = 365
+
+RefundYear = DatePart("yyyy", RefundDate)
+April6Date = DateSerial(RefundYear, 4, 6)
+April5Date = DateSerial(RefundYear, 4, 5)
+If RefundDate < April6Date Then
+    April6Date = DateSerial(RefundYear - 1, 4, 6)
+    April5Date = DateSerial(RefundYear - 1, 4, 5)
+End If
+'number of days to end of tax year before tax year containing refund date
+NumberDays = DateDiff("y", StartDate, April5Date)
+GetFirstCalc = curRoundUp(ContributionRefund * InterestRate / Divisor * NumberDays)   'RFC541H
+
+exit_GetFirstCalc:
+    Exit Function
+err_GetFirstCalc:
+    MsgBox Error$
+    Resume exit_GetFirstCalc
+End Function
+
+Function GetInterestRate(InterestDate) As Single
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_GetInterestRate
+
+'THIS FUNCTION IS USED FOR THE REFUND INTEREST REPORT BREAKDOWN
+
+Set REFUNDDB = CurrentDb()
+Set RefundInterestTable = REFUNDDB.OpenRecordset("Class 1 Interest Charges Refunds", DB_OPEN_TABLE, DB_READONLY)
+
+'Exit function if parameter not yet present
+If IsNull(InterestDate) Then
+    GetInterestRate = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'Access appropriate table
+If RefundInterestTable.NoMatch Then
+    GetInterestRate = 0
+Else
+'obtain appropriate interest rate
+RefundInterestTable.Index = "PrimaryKey"
+RefundInterestTable.Seek "<=", InterestDate
+GetInterestRate = RefundInterestTable![Interest rate]
+End If
+exit_GetInterestRate:
+    Exit Function
+err_GetInterestRate:
+    MsgBox Error$
+    Resume exit_GetInterestRate
+End Function
+
+Function GetLastDivisor(Taxyear, RefundDate) As Integer
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_GetLastDivisor
+
+'THIS FUNCTION IS USED FOR THE REFUND INTEREST REPORT BREAKDOWN
+
+Dim InterestRate As Currency
+Dim FirstCalc As Double
+Dim SecondCalc As Double
+
+Dim TaxYearCheckDate As Variant
+Dim RefundCheckDate As Variant
+
+Dim StartDate As Variant
+Dim NumberDays As Integer
+Dim NumberDaysRefundDateYear As Integer
+Dim April6Date As Variant
+Dim April5Date As Variant
+Dim CalendarYearTest As Variant
+Dim RefundDateYearStart As Variant
+Dim RefundDateYearEnd As Variant
+Dim RefundYear As Integer
+Dim Divisor As Integer
+
+If IsNull(RefundDate) Or IsNull(Taxyear) Then
+    GetLastDivisor = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against refund date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtRefund Date] < TaxYearCheckDate Then
+    GetLastDivisor = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against interest date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtInterestDate] < TaxYearCheckDate Then
+    GetLastDivisor = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+
+StartDate = DateSerial(Taxyear + 2, 4, 5)
+
+'account for leap years by amending divisor.The amended divisor will only
+'apply to the tax year in which the refund date falls. The divisor for preceding
+'tax years will always be 365
+
+RefundYear = DatePart("yyyy", RefundDate)
+April6Date = DateSerial(RefundYear, 4, 6)
+April5Date = DateSerial(RefundYear, 4, 5)
+If RefundDate < April6Date Then
+    April6Date = DateSerial(RefundYear - 1, 4, 6)
+    April5Date = DateSerial(RefundYear - 1, 4, 5)
+End If
+'determine if leap year involved in final stage of calculation
+CalendarYearTest = DateSerial(RefundYear, 4, 5)
+If RefundDate > CalendarYearTest Then
+    RefundYear = RefundYear + 1
+Else
+    RefundYear = RefundYear
+End If
+'this will be the calendar year to check whether it is a leap year
+RefundDateYearStart = DateSerial(RefundYear, 1, 1)
+RefundDateYearEnd = DateSerial(RefundYear + 1, 1, 1)
+GetLastDivisor = DateDiff("y", RefundDateYearStart, RefundDateYearEnd)
+
+exit_GetLastDivisor:
+    Exit Function
+err_GetLastDivisor:
+    MsgBox Error$
+    Resume exit_GetLastDivisor
+End Function
+
+Function GetNoOfDays1(Taxyear, RefundDate) As Integer
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_GetNoOfDays1
+
+'THIS FUNCTION IS USED FOR THE REFUND INTEREST REPORT BREAKDOWN
+
+Dim StartDate As Variant
+Dim NumberDays As Integer
+Dim April6Date As Variant
+Dim April5Date As Variant
+Dim RefundYear As Integer
+Dim Divisor As Integer
+Dim TaxYearCheckDate As Date
+
+If IsNull(RefundDate) Or IsNull(Taxyear) Then
+    GetNoOfDays1 = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against refund date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtRefund Date] < TaxYearCheckDate Then
+    GetNoOfDays1 = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against interest date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtInterestDate] < TaxYearCheckDate Then
+    GetNoOfDays1 = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+
+'convert tax year into correct base, this will now cope with years after turn of century
+StartDate = DateSerial(Taxyear + 2, 4, 5)
+
+'account for leap years by amending divisor.The amended divisor will only
+'apply to the tax year in which the refund date falls. The divisor for preceding
+'tax years will always be 365
+
+RefundYear = DatePart("yyyy", RefundDate)
+April6Date = DateSerial(RefundYear, 4, 6)
+April5Date = DateSerial(RefundYear, 4, 5)
+If RefundDate < April6Date Then
+    April6Date = DateSerial(RefundYear - 1, 4, 6)
+    April5Date = DateSerial(RefundYear - 1, 4, 5)
+End If
+'number of days to end of tax year before tax year containing refund date
+GetNoOfDays1 = DateDiff("y", StartDate, April5Date)
+
+exit_GetNoOfDays1:
+    Exit Function
+err_GetNoOfDays1:
+    MsgBox Error$
+    Resume exit_GetNoOfDays1
+End Function
+
+Function GetNoOfDays2(Taxyear, RefundDate) As Integer
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_GetNoOfDays2
+
+'THIS FUNCTION IS USED FOR THE REFUND INTEREST REPORT BREAKDOWN
+
+Dim InterestRate As Currency
+Dim RoundStore As Double
+Dim FirstCalc As Double
+Dim SecondCalc As Double
+
+Dim TaxYearCheckDate As Variant
+Dim RefundCheckDate As Variant
+
+Dim StartDate As Variant
+Dim NumberDays As Integer
+Dim NumberDaysRefundDateYear As Integer
+Dim April6Date As Variant
+Dim April5Date As Variant
+Dim RefundDateYearStart As Variant
+Dim RefundDateYearEnd As Variant
+Dim RefundYear As Integer
+Dim Divisor As Integer
+
+If IsNull(RefundDate) Or IsNull(Taxyear) Then
+    GetNoOfDays2 = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+'validate tax year against refund date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtRefund Date] < TaxYearCheckDate Then
+    GetNoOfDays2 = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against interest date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtInterestDate] < TaxYearCheckDate Then
+    GetNoOfDays2 = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+
+StartDate = DateSerial(Taxyear + 2, 4, 5)
+
+'account for leap years by amending divisor.The amended divisor will only
+'apply to the tax year in which the refund date falls. The divisor for preceding
+'tax years will always be 365
+
+RefundYear = DatePart("yyyy", RefundDate)
+April6Date = DateSerial(RefundYear, 4, 6)
+April5Date = DateSerial(RefundYear, 4, 5)
+If RefundDate < April6Date Then
+    April6Date = DateSerial(RefundYear - 1, 4, 6)
+    April5Date = DateSerial(RefundYear - 1, 4, 5)
+End If
+'determine if leap year involved in final stage of calculation
+If RefundDate > April5Date Then
+    RefundYear = RefundYear + 1
+Else
+    RefundYear = RefundYear
+End If
+'this will be the calendar year to check whether it is a leap year
+RefundDateYearStart = DateSerial(RefundYear, 1, 1)
+RefundDateYearEnd = DateSerial(RefundYear + 1, 1, 1)
+Divisor = DateDiff("y", RefundDateYearStart, RefundDateYearEnd)
+'calculate number of days in final year
+GetNoOfDays2 = DateDiff("y", April5Date, RefundDate)
+
+exit_GetNoOfDays2:
+    Exit Function
+err_GetNoOfDays2:
+    MsgBox Error$
+    Resume exit_GetNoOfDays2
+End Function
+
+Function GetRefInterest(Taxyear, RefundDate, ContributionRefund, InterestDate) As Currency
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+'History
+'Author:    Lisa Scothern
+'Date:      17/09/97
+'Purpose:   RFC 541H Round-up calculation to the next penny (including intermediate steps in calcn)
+
+On Error GoTo err_GetRefInterest
+DoCmd.Hourglass True
+Dim InterestRate As Currency
+Dim RoundStore As Double
+Dim FirstCalc As Double
+Dim SecondCalc As Double
+
+Dim TaxYearCheckDate As Variant
+Dim RefundCheckDate As Variant
+
+Dim StartDate As Variant
+Dim NumberDays As Integer
+Dim NumberDaysRefundDateYear As Integer
+Dim April6Date As Variant
+Dim April5Date As Variant
+Dim CalendarYearTest As Variant
+Dim RefundDateYearStart As Variant
+Dim RefundDateYearEnd As Variant
+Dim RefundYear As Integer
+Dim Divisor As Integer
+Dim yearvalue As Integer
+Dim DayOfWeek As Integer
+'To ensure tax year is set up correctly the IsNull function is used.
+'Overflow occurs if taxyear is not set up correctly.
+If Taxyear = 0 Then
+    yearvalue = Null
+End If
+'Exit function if all parameters not yet present
+If IsNull(RefundDate) Or IsNull(yearvalue) Or IsNull(ContributionRefund) Or IsNull(InterestDate) Then
+    GetRefInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate input
+
+'calculate refund check date, 5 working days after todays date
+RefundCheckDate = Date + 7
+'this bit accounts for saturdays and sundays
+DayOfWeek = DatePart("w", RefundCheckDate)
+If DayOfWeek = 1 Then
+    RefundCheckDate = RefundCheckDate - 2
+ElseIf DayOfWeek = 7 Then
+    RefundCheckDate = RefundCheckDate - 1
+End If
+'13 days are added to account for any bank holidays & Xmas holidays, which are not
+'working days, added in by the user
+If RefundDate > RefundCheckDate + 13 Then
+    GetRefInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+'validate tax year against refund date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtRefund Date] < TaxYearCheckDate Then
+    GetRefInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against interest date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtInterestDate] < TaxYearCheckDate Then
+    GetRefInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+'validate monetary input
+
+If ContributionRefund > 99999999 Then
+    GetRefInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'Access appropriate table
+If RefundInterestTable.NoMatch Then
+    GetRefInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'obtain appropriate interest rate
+RefundInterestTable.Index = "PrimaryKey"
+RefundInterestTable.Seek "<=", InterestDate
+InterestRate = RefundInterestTable![Interest rate]
+'convert tax year into correct base, this will now cope with years after turn of century
+StartDate = DateSerial(Taxyear + 2, 4, 5)
+
+'account for leap years by amending divisor.The amended divisor will only
+'apply to the tax year in which the refund date falls. The divisor for preceding
+'tax years will always be 365
+
+'first calculate number of days up to start of final year
+Divisor = 365
+
+RefundYear = DatePart("yyyy", RefundDate)
+April6Date = DateSerial(RefundYear, 4, 6)
+April5Date = DateSerial(RefundYear, 4, 5)
+If RefundDate < April6Date Then
+    April6Date = DateSerial(RefundYear - 1, 4, 6)
+    April5Date = DateSerial(RefundYear - 1, 4, 5)
+End If
+'number of days to end of tax year before tax year containing refund date
+NumberDays = DateDiff("y", StartDate, April5Date)
+FirstCalc = ContributionRefund * InterestRate / Divisor * NumberDays
+'now determine if leap year involved in final stage of calculation
+CalendarYearTest = DateSerial(RefundYear, 4, 5)
+If RefundDate > CalendarYearTest Then
+    RefundYear = RefundYear + 1
+Else
+    RefundYear = RefundYear
+End If
+'this will be the calendar year to check whether it is a leap year
+RefundDateYearStart = DateSerial(RefundYear, 1, 1)
+RefundDateYearEnd = DateSerial(RefundYear + 1, 1, 1)
+Divisor = DateDiff("y", RefundDateYearStart, RefundDateYearEnd)
+'calculate number of days in final year
+NumberDaysRefundDateYear = DateDiff("y", April5Date, RefundDate)
+
+SecondCalc = ContributionRefund * InterestRate / Divisor * NumberDaysRefundDateYear
+
+'round according to business rules; up to next penny
+GetRefInterest = curRoundUp(FirstCalc) + curRoundUp(SecondCalc)       'RFC541H
+
+'If RoundStore * 100 - Int(RoundStore * 100) > 0 Then       no longer done this way, RFC541H
+'    GetRefInterest = Int(RoundStore * 100) / 100 + .01
+'    Else
+'    GetRefInterest = RoundStore
+'End If
+
+exit_GetRefInterest:
+    DoCmd.Hourglass False
+    Exit Function
+err_GetRefInterest:
+    MsgBox Error$
+    Resume exit_GetRefInterest
+End Function
+
+Function GetRepayInterest(LatePaidContributions, ContributionRefund, InterestCharged) As Currency
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+'History
+'Author:    Lisa Scothern
+'Date:      17/09/97
+'Purpose:   RFC 541H Round-up calculation to the next penny (including intermediate steps in calcn)
+
+On Error GoTo err_GetRepayInterest
+Dim result As Currency
+DoCmd.Hourglass True
+'Exit function if all parameters not yet present
+If IsNull(LatePaidContributions) Or IsNull(ContributionRefund) Or IsNull(InterestCharged) Then
+    GetRepayInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate input
+If ContributionRefund > 99999999 Then
+    GetRepayInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+If LatePaidContributions > 99999999 Then
+    GetRepayInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+If InterestCharged > 999999 Then
+    GetRepayInterest = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+'Access appropriate table
+
+    If LatePaidContributions > 0 Then
+        result = (ContributionRefund / LatePaidContributions * InterestCharged)
+        If result > InterestCharged Then
+            GetRepayInterest = curRoundUp(InterestCharged)
+        Else
+            GetRepayInterest = curRoundUp(result)
+        End If
+    Else
+        GetRepayInterest = 0
+    End If
+exit_GetRepayInterest:
+    DoCmd.Hourglass False
+    Exit Function
+err_GetRepayInterest:
+    MsgBox Error$
+    Resume exit_GetRepayInterest
+
+End Function
+
+Function GetSecondCalc(Taxyear, RefundDate, InterestDate, ContributionRefund) As Currency
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+'THIS FUNCTION IS USED FOR THE REFUND INTEREST REPORT BREAKDOWN
+
+'History
+'Author:    Lisa Scothern
+'Date:      17/09/97
+'Purpose:   RFC 541H Round-up calculation to the next penny (including intermediate steps in calcn)
+
+On Error GoTo err_GetSecondCalc
+
+
+
+Dim InterestRate As Currency
+Dim RoundStore As Double
+Dim FirstCalc As Double
+Dim SecondCalc As Double
+
+Dim TaxYearCheckDate As Variant
+Dim RefundCheckDate As Variant
+
+Dim StartDate As Variant
+Dim NumberDays As Integer
+Dim NumberDaysRefundDateYear As Integer
+Dim April6Date As Variant
+Dim April5Date As Variant
+Dim CalendarYearTest As Variant
+Dim RefundDateYearStart As Variant
+Dim RefundDateYearEnd As Variant
+Dim RefundYear As Integer
+Dim Divisor As Integer
+
+Set REFUNDDB = CurrentDb()
+Set RefundInterestTable = REFUNDDB.OpenRecordset("Class 1 Interest Charges Refunds", DB_OPEN_TABLE, DB_READONLY)
+
+'Exit function if all parameters not yet present
+If IsNull(RefundDate) Or IsNull(Taxyear) Or IsNull(ContributionRefund) Or IsNull(InterestDate) Then
+    GetSecondCalc = 0
+    Exit Function
+End If
+'validate tax year against refund date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtRefund Date] < TaxYearCheckDate Then
+    GetSecondCalc = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+'validate tax year against interest date
+TaxYearCheckDate = DateSerial(Taxyear + 2, 4, 6)
+If Forms!frmRefundInterestMain![txtInterestDate] < TaxYearCheckDate Then
+    GetSecondCalc = 0
+    DoCmd.Hourglass False
+    Exit Function
+End If
+
+
+'obtain appropriate interest rate
+RefundInterestTable.Index = "PrimaryKey"
+RefundInterestTable.Seek "<=", InterestDate
+InterestRate = RefundInterestTable![Interest rate]
+'convert tax year into correct base, this will now cope with years after turn of century
+StartDate = DateSerial(Taxyear + 2, 4, 5)
+
+'account for leap years by amending divisor.The amended divisor will only
+'apply to the tax year in which the refund date falls. The divisor for preceding
+'tax years will always be 365
+
+RefundYear = DatePart("yyyy", RefundDate)
+April6Date = DateSerial(RefundYear, 4, 6)
+April5Date = DateSerial(RefundYear, 4, 5)
+If RefundDate < April6Date Then
+    April6Date = DateSerial(RefundYear - 1, 4, 6)
+    April5Date = DateSerial(RefundYear - 1, 4, 5)
+End If
+'determine if leap year involved in final stage of calculation
+CalendarYearTest = DateSerial(RefundYear, 4, 5)
+If RefundDate > CalendarYearTest Then
+    RefundYear = RefundYear + 1
+Else
+    RefundYear = RefundYear
+End If
+'this will be the calendar year to check whether it is a leap year
+RefundDateYearStart = DateSerial(RefundYear, 1, 1)
+RefundDateYearEnd = DateSerial(RefundYear + 1, 1, 1)
+Divisor = DateDiff("y", RefundDateYearStart, RefundDateYearEnd)
+'calculate number of days in final year
+NumberDaysRefundDateYear = DateDiff("y", April5Date, RefundDate)
+GetSecondCalc = curRoundUp(ContributionRefund * InterestRate / Divisor * NumberDaysRefundDateYear)  'RFC541H
+exit_GetSecondCalc:
+    Exit Function
+err_GetSecondCalc:
+    MsgBox Error$
+    Resume exit_GetSecondCalc
+End Function
+
+Function OpenRefundRefTables()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_OpenRefundRefTables
+Set REFUNDDB = CurrentDb()
+Set RefundInterestTable = REFUNDDB.OpenRecordset("Class 1 Interest Charges Refunds", DB_OPEN_TABLE, DB_READONLY)
+exit_OpenRefundRefTables:
+    Exit Function
+err_OpenRefundRefTables:
+    MsgBox Error$
+    Resume exit_OpenRefundRefTables
+End Function

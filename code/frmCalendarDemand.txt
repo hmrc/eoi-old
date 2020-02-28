@@ -1,0 +1,261 @@
+Dim current_class As String
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub btnViewClass_Click()
+
+Dim Taxyear
+
+Taxyear = Forms!frmCalendarDemand.OpenArgs
+
+'Forms!frmCalendarDemand.RecordSource
+
+
+
+If Taxyear = "Class 2 11/12" Then
+    If current_class = "2" Then
+        current_class = "3"
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 2 Calendar"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = False
+        Forms!frmCalendarDemand.txt6MDate.Visible = False
+        Forms!frmCalendarDemand.RecordSource = "Class 3 11/12"
+        Forms!frmCalendarDemand.txtLabel = "Class 3 11/12 Demand Calendar"
+    Else
+        current_class = "2"
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.Visible = True
+        Forms!frmCalendarDemand.RecordSource = "Class 2 11/12"
+        Forms!frmCalendarDemand.txtLabel = "Class 2 11/12 Demand Calendar"
+    End If
+ElseIf Taxyear = "Class 2 12/13" Then
+    If current_class = "2" Then
+        current_class = "3"
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 2 Calendar"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = False
+        Forms!frmCalendarDemand.txt6MDate.Visible = False
+        Forms!frmCalendarDemand.RecordSource = "Class 3 12/13"
+        Forms!frmCalendarDemand.txtLabel = "Class 3 12/13 Demand Calendar"
+    Else
+       current_class = "2"
+       Forms!frmCalendarDemand.btnViewClass.Caption = "Vie#w Class 3 Calendar"
+       Forms!frmCalendarDemand.lbl6MDate.Visible = True
+       Forms!frmCalendarDemand.txt6MDate.Visible = True
+       Forms!frmCalendarDemand.RecordSource = "Class 2 12/13"
+       Forms!frmCalendarDemand.txtLabel = "Class 2 12/13 Demand Calendar"
+    End If
+ElseIf Taxyear = "Class 2 13/14" Then
+    If current_class = "2" Then
+        current_class = "3"
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 2 Calendar"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = False
+        Forms!frmCalendarDemand.txt6MDate.Visible = False
+        Forms!frmCalendarDemand.RecordSource = "Class 3 13/14"
+        Forms!frmCalendarDemand.txtLabel = "Class 3 13/14 Demand Calendar"
+    Else
+       current_class = "2"
+       Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+       Forms!frmCalendarDemand.lbl6MDate.Visible = True
+       Forms!frmCalendarDemand.txt6MDate.Visible = True
+       Forms!frmCalendarDemand.RecordSource = "Class 2 13/14"
+       Forms!frmCalendarDemand.txtLabel = "Class 2 13/14 Demand Calendar"
+    End If
+ElseIf Taxyear = "Class 2 14/15" Then
+    If current_class = "2" Then
+        current_class = "3"
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 2 Calendar"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = False
+        Forms!frmCalendarDemand.txt6MDate.Visible = False
+        Forms!frmCalendarDemand.RecordSource = "Class 3 14/15"
+        Forms!frmCalendarDemand.txtLabel = "Class 3 14/15 Demand Calendar"
+    Else
+       current_class = "2"
+       Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+       Forms!frmCalendarDemand.lbl6MDate.Visible = True
+       Forms!frmCalendarDemand.txt6MDate.Visible = True
+       Forms!frmCalendarDemand.RecordSource = "Class 2 14/15"
+       Forms!frmCalendarDemand.txtLabel = "Class 2 14/15 Demand Calendar"
+    End If
+ElseIf Taxyear = "Class 2 15/16" Then
+    If current_class = "2" Then
+        current_class = "3"
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 2 Calendar"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = False
+        Forms!frmCalendarDemand.txt6MDate.Visible = False
+        Forms!frmCalendarDemand.RecordSource = "Class 3 15/16"
+        Forms!frmCalendarDemand.txtLabel = "Class 3 15/16 Demand Calendar"
+    Else
+       current_class = "2"
+       Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+       Forms!frmCalendarDemand.lbl6MDate.Visible = True
+       Forms!frmCalendarDemand.txt6MDate.Visible = True
+       Forms!frmCalendarDemand.RecordSource = "Class 2 15/16"
+       Forms!frmCalendarDemand.txtLabel = "Class 2 15/16 Demand Calendar"
+    End If
+ElseIf Taxyear = "Class 2 16/17" Then
+    If current_class = "2" Then
+        current_class = "3"
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 2 Calendar"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = False
+        Forms!frmCalendarDemand.txt6MDate.Visible = False
+        Forms!frmCalendarDemand.RecordSource = "Class 3 16/17"
+        Forms!frmCalendarDemand.txtLabel = "Class 3 16/17 Demand Calendar"
+    Else
+       current_class = "2"
+       Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+       Forms!frmCalendarDemand.lbl6MDate.Visible = True
+       Forms!frmCalendarDemand.txt6MDate.Visible = True
+       Forms!frmCalendarDemand.RecordSource = "Class 2 16/17"
+       Forms!frmCalendarDemand.txtLabel = "Class 2 16/17 Demand Calendar"
+    End If
+ElseIf Taxyear = "Class 2 17/18" Then
+    If current_class = "2" Then
+        current_class = "3"
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 2 Calendar"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = False
+        Forms!frmCalendarDemand.txt6MDate.Visible = False
+        Forms!frmCalendarDemand.RecordSource = "Class 3 17/18"
+        Forms!frmCalendarDemand.txtLabel = "Class 3 17/18 Demand Calendar"
+    Else
+       current_class = "2"
+       Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+       Forms!frmCalendarDemand.lbl6MDate.Visible = True
+       Forms!frmCalendarDemand.txt6MDate.Visible = True
+       Forms!frmCalendarDemand.RecordSource = "Class 2 17/18"
+       Forms!frmCalendarDemand.txtLabel = "Class 2 17/18 Demand Calendar"
+    End If
+End If
+
+End Sub
+
+Private Sub Close_91_92_Demand_f_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Close_91_92_Demand_f_Click
+
+    DoCmd.Close
+
+Exit_Close_91_92_Demand_f_Click:
+    Exit Sub
+
+Err_Close_91_92_Demand_f_Click:
+    MsgBox Error$
+    Resume Exit_Close_91_92_Demand_f_Click
+    
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Function  : Form_Open
+' Reason    : Use this form to show all the demand data for passed year
+
+' Author    : Ben Stephenson
+' Date      : 23/06/2011
+' Project   : CCA10512
+' Desc      : Accomodate misaligned C2/3 dates post 2010
+
+' Author    : Chris Sneddon
+' Date      : 09/01/2012
+' Project   : CCA10605
+' Desc      : 12/13 tax year additions
+
+' Author    : Chris Sneddon
+' Date      : 10/01/2017
+' Desc      : 17/18 tax year additions
+
+    On Error GoTo Err_Form_Open
+
+    Dim args
+    
+    ' Passed argument, the year
+    args = Forms!frmCalendarDemand.OpenArgs
+    ' Setup form
+    Forms!frmCalendarDemand.RecordSource = args
+    Forms!frmCalendarDemand.txtLabel = args + " Demand Calendar"
+    DoCmd.Maximize
+    
+    If args Like "Class 2 11/12" Then
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+        current_class = "2"
+        Forms!frmCalendarDemand.lblBankDate.Caption = "Debit Date"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.ControlSource = "6MONTH DEBIT DATE"
+        Forms!frmCalendarDemand.btnViewClass.Visible = True
+    ElseIf args Like "Class 2 12/13" Then
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+        current_class = "2"
+        Forms!frmCalendarDemand.lblBankDate.Caption = "Debit Date"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.ControlSource = "6MONTH DEBIT DATE"
+        Forms!frmCalendarDemand.btnViewClass.Visible = True
+    ElseIf args Like "Class 2 13/14" Then
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+        current_class = "2"
+        Forms!frmCalendarDemand.lblBankDate.Caption = "Debit Date"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.ControlSource = "6MONTH DEBIT DATE"
+        Forms!frmCalendarDemand.btnViewClass.Visible = True
+    ElseIf args Like "Class 2 14/15" Then
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+        current_class = "2"
+        Forms!frmCalendarDemand.lblBankDate.Caption = "Debit Date"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.ControlSource = "6MONTH DEBIT DATE"
+        Forms!frmCalendarDemand.btnViewClass.Visible = True
+    ElseIf args Like "Class 2 15/6" Then
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+        current_class = "2"
+        Forms!frmCalendarDemand.lblBankDate.Caption = "Debit Date"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.ControlSource = "6MONTH DEBIT DATE"
+        Forms!frmCalendarDemand.btnViewClass.Visible = True
+    ElseIf args Like "Class 2 16/17" Then
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+        current_class = "2"
+        Forms!frmCalendarDemand.lblBankDate.Caption = "Debit Date"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.ControlSource = "6MONTH DEBIT DATE"
+        Forms!frmCalendarDemand.btnViewClass.Visible = True
+    ElseIf args Like "Class 2 17/18" Then
+        Forms!frmCalendarDemand.btnViewClass.Caption = "View Class 3 Calendar"
+        current_class = "2"
+        Forms!frmCalendarDemand.lblBankDate.Caption = "Debit Date"
+        Forms!frmCalendarDemand.lbl6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.Visible = True
+        Forms!frmCalendarDemand.txt6MDate.ControlSource = "6MONTH DEBIT DATE"
+        Forms!frmCalendarDemand.btnViewClass.Visible = True
+    End If
+    
+Exit_Form_Open:
+    Exit Sub
+
+Err_Form_Open:
+    MsgBox Error$
+    Resume Exit_Form_Open
+    
+End Sub
+Private Sub Command21_Click()
+On Error GoTo Err_Command21_Click
+
+
+    Screen.PreviousControl.SetFocus
+    DoCmd.FindNext
+
+Exit_Command21_Click:
+    Exit Sub
+
+Err_Command21_Click:
+    MsgBox Err.Description
+    Resume Exit_Command21_Click
+    
+End Sub

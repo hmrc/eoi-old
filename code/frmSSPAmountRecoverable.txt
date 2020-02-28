@@ -1,0 +1,340 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+
+Private Sub CheckYearSet()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : CheckYearSet
+' Purpose       : Move to Year, if not valid
+            
+    On Error GoTo Err_CheckYearSet
+
+    If IsNull(Forms!frmSSPRecoverable!subRecoverable.Form!Year) Or (Forms!frmSSPRecoverable!subRecoverable.Form!Year < 1991) Then
+        Forms!frmSSPRecoverable!subRecoverable.Form!Year.SetFocus
+    End If
+
+Exit_CheckYearSet:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_CheckYearSet:
+    MsgBox Error$
+    Resume Exit_CheckYearSet
+
+End Sub
+
+Private Sub Liability_Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : Liability_Enter
+' Purpose       : Only enter if Year valid
+            
+    On Error GoTo Err_Liability_Enter
+
+    CheckYearSet
+
+
+Exit_Liability_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Liability_Enter:
+    MsgBox Error$
+    Resume Exit_Liability_Enter
+
+End Sub
+
+Private Sub Paid_Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : Paid_Enter
+' Purpose       : Only enter if Year valid
+            
+    On Error GoTo Err_Paid_Enter
+
+    CheckYearSet
+
+
+Exit_Paid_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Paid_Enter:
+    MsgBox Error$
+    Resume Exit_Paid_Enter
+
+End Sub
+
+Private Sub Period_Enter()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Period_Enter
+' Purpose       : Only enter if Year valid
+            
+    On Error GoTo Err_Period_Enter
+
+    CheckYearSet
+
+
+Exit_Period_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Period_Enter:
+    MsgBox Error$
+    Resume Exit_Period_Enter
+
+End Sub
+
+Private Sub Period_GotFocus()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Period_GotFocus
+' Purpose       : Repopulate
+            
+    On Error GoTo Err_Period_GotFocus
+
+    Forms!frmSSPRecoverable!subRecoverable.Form!Period.Requery
+
+Exit_Period_GotFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Period_GotFocus:
+    MsgBox Error$
+    Resume Exit_Period_GotFocus
+
+End Sub
+
+Private Sub Rate_Enter()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Rate_Enter
+' Purpose       : Only enter if Year valid
+            
+    On Error GoTo Err_Rate_Enter
+
+    CheckYearSet
+
+Exit_Rate_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Rate_Enter:
+    MsgBox Error$
+    Resume Exit_Rate_Enter
+
+End Sub
+
+Private Sub Rate_GotFocus()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Rate_GotFocus
+' Purpose       : Repopulate
+            
+    On Error GoTo Err_Rate_GotFocus
+
+    Forms!frmSSPRecoverable!subRecoverable.Form!Rate.Requery
+
+Exit_Rate_GotFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Rate_GotFocus:
+    MsgBox Error$
+    Resume Exit_Rate_GotFocus
+
+End Sub
+
+Private Sub Recovered_Enter()
+' Author        : Mustaq Hussain
+' Date          : 12 December 1995
+' Fuction Name  : Recovered_Enter
+' Purpose       : Only enter if Year valid
+            
+    On Error GoTo Err_Recovered_Enter
+
+    CheckYearSet
+
+
+Exit_Recovered_Enter:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Recovered_Enter:
+    MsgBox Error$
+    Resume Exit_Recovered_Enter
+
+End Sub
+
+Private Function SetPeriodCombo(fld As Control, ID As Long, row As Long, col As Long, code As Integer)
+' Author        : Mustaq Hussain
+' Date          : 21 November 1995
+' Fuction Name  : SetPeriodCombo
+' Purpose       : Sets Period combo box
+            
+    On Error GoTo Err_SetPeriodCombo
+
+    Select Case code
+        Case LB_INITIALIZE          'Initialize.
+            SetPeriodCombo = True
+        Case LB_OPEN                'Open.
+            SetPeriodCombo = Timer   'Unique ID for control
+        Case LB_GETROWCOUNT         'Number of rows.
+            SetPeriodCombo = IIf(Forms!frmSSPRecoverable!subRecoverable.Form!Year >= 1995, 12, 1)
+        Case LB_GETCOLUMNCOUNT      'Number of columns.
+            SetPeriodCombo = 1
+        Case LB_GETCOLUMNWIDTH      'Column width.
+            SetPeriodCombo = -1      'Set the default width.
+        Case LB_GETVALUE            'Get the data.
+            ' Value depends on year
+            If Forms!frmSSPRecoverable!subRecoverable.Form!Year >= 1995 Then
+                Select Case row
+                    Case 0
+                        SetPeriodCombo = gcPERIOD_APRIL
+                    Case 1
+                        SetPeriodCombo = gcPERIOD_MAY
+                    Case 2
+                        SetPeriodCombo = gcPERIOD_JUNE
+                    Case 3
+                        SetPeriodCombo = gcPERIOD_JULY
+                    Case 4
+                        SetPeriodCombo = gcPERIOD_AUG
+                    Case 5
+                        SetPeriodCombo = gcPERIOD_SEPT
+                    Case 6
+                        SetPeriodCombo = gcPERIOD_OCT
+                    Case 7
+                        SetPeriodCombo = gcPERIOD_NOV
+                    Case 8
+                        SetPeriodCombo = gcPERIOD_DEC
+                    Case 9
+                        SetPeriodCombo = gcPERIOD_JAN
+                    Case 10
+                        SetPeriodCombo = gcPERIOD_FEB
+                    Case 11
+                        SetPeriodCombo = gcPERIOD_MARCH
+                End Select
+
+            Else
+                SetPeriodCombo = gcPERIOD_YEAR
+            End If
+    End Select
+
+
+
+Exit_SetPeriodCombo:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_SetPeriodCombo:
+    MsgBox Error$
+    Resume Exit_SetPeriodCombo
+
+End Function
+
+Private Function SetRateCombo(fld As Control, ID As Long, row As Long, col As Long, code As Integer)
+' Author        : Mustaq Hussain
+' Date          : 21 November 1995
+' Fuction Name  : SetRateCombo
+' Purpose       : Sets Rate combo box
+            
+    On Error GoTo Err_SetRateCombo
+
+    Select Case code
+        Case LB_INITIALIZE          'Initialize.
+            SetRateCombo = True
+        Case LB_OPEN                'Open.
+            SetRateCombo = Timer   'Unique ID for control
+        Case LB_GETROWCOUNT         'Number of rows.
+            SetRateCombo = IIf(Forms!frmSSPRecoverable!subRecoverable.Form!Year >= 1995, 1, 2)
+        Case LB_GETCOLUMNCOUNT      'Number of columns.
+            SetRateCombo = 1
+        Case LB_GETCOLUMNWIDTH      'Column width.
+            SetRateCombo = -1      'Set the default width.
+        Case LB_GETVALUE            'Get the data.
+            ' Value depends on year
+            If Forms!frmSSPRecoverable!subRecoverable.Form!Year >= 1995 Then
+                SetRateCombo = "N/A"
+            Else
+                SetRateCombo = IIf(row = 0, gcLEVEL_STANDARD, gcLEVEL_LOWER)
+            End If
+    End Select
+
+Exit_SetRateCombo:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_SetRateCombo:
+    MsgBox Error$
+    Resume Exit_SetRateCombo
+
+End Function
+
+Private Sub Year_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Year_AfterUpdate
+' Purpose       : Set Period and Level defaults
+            
+    On Error GoTo Err_Year_AfterUpdate
+
+    If Forms!frmSSPRecoverable!subRecoverable.Form!Year < 1995 Then
+        Forms!frmSSPRecoverable!subRecoverable.Form!Rate = gcLEVEL_STANDARD
+        Forms!frmSSPRecoverable!subRecoverable.Form!Period = gcPERIOD_YEAR
+    Else
+        Forms!frmSSPRecoverable!subRecoverable.Form!Rate = gcLEVEL_NA
+        Forms!frmSSPRecoverable!subRecoverable.Form!Period = gcPERIOD_APRIL
+    End If
+    
+    If Forms!frmSSPRecoverable!subRecoverable.Form!Year < 1999 Then
+        Forms!frmSSPRecoverable!subRecoverable.Form!Rebate.Enabled = False
+    Else
+        Forms!frmSSPRecoverable!subRecoverable.Form!Rebate.Enabled = True
+    End If
+
+Exit_Year_AfterUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Year_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Year_AfterUpdate
+
+End Sub
+
+Private Sub Year_BeforeUpdate(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 22 November 1995
+' Fuction Name  : Year_BeforeUpdate
+' Purpose       : RFC 435 : 94 rules , Default
+            
+    On Error GoTo Err_Year_BeforeUpdate
+
+    
+    If [Year] = 1994 Then
+        QDs = 1
+        DaysOfSSPPaid = 0
+        LinkedPIW = "No"
+    Else
+        If Not IsNull([Year]) Then
+            QDs = Null
+            DaysOfSSPPaid = Null
+            LinkedPIW = Null
+        End If
+    End If
+
+
+Exit_Year_BeforeUpdate:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_Year_BeforeUpdate:
+    MsgBox Error$
+    Resume Exit_Year_BeforeUpdate
+
+End Sub

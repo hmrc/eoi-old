@@ -1,0 +1,590 @@
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Sub SetFields_BandForm()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+' History       : Christopher Schuler
+' Date          : 01/07/1999
+' Purpose       : Amendments for 1999/2000
+' History       : Christopher Schuler
+' Date          : 01/12/2000
+' Purpose       : Amendments for 2001/02
+' History       : Christopher Sneddon
+' Date          : 21/01/2009
+' Purpose       : Amendments for 09/10
+
+
+On Error GoTo exit_taxyear_Click
+DoCmd.Hourglass True
+
+
+'Reset form
+With Forms!bandform
+    !Box124.BackStyle = 0
+    !Box125.BackStyle = 0
+    !Box126.BackStyle = 0
+    !Box127.BackStyle = 0
+    !Box128.BackStyle = 0
+    !Text51.Visible = True
+    !Text119.Visible = False
+
+    ![txtWk Band 1].ForeColor = 0
+    ![wkband1top].ForeColor = 0
+    ![txtMnth Band 1].ForeColor = 0
+    ![mthband1top].ForeColor = 0
+    ![txtAnn Band 1].ForeColor = 0
+    ![annband1top].ForeColor = 0
+
+
+
+'switch on/off label for special case for 1985/86
+
+    If !Taxyear = 1985 Then
+        !mess85.Visible = True
+    Else
+        !mess85.Visible = False
+    End If
+        
+
+If !Taxyear < 1985 Then
+
+    'switch appropriate fields on or off
+
+    !Text51.Caption = "              Band One"
+    !Text64.Caption = "              Band Two"
+    !Text65.Caption = "              Band Three"
+    !Text66.Caption = "              Band Four"
+
+    'Forms!bandform!box124.visible = True
+    !Box124.BackStyle = 1
+    !Text119.Visible = True
+    !Text51.Visible = False
+    'set colours
+    
+    ![txtWk Band 1].ForeColor = 255
+    ![wkband1top].ForeColor = 255
+    ![txtMnth Band 1].ForeColor = 255
+    ![mthband1top].ForeColor = 255
+    ![txtAnn Band 1].ForeColor = 255
+    ![annband1top].ForeColor = 255
+    
+ElseIf !Taxyear = 2000 Then
+
+        'Forms!bandform!box125.visible = True
+        !Box125.BackStyle = 1
+        !Box125.Left = 7500
+        !Box125.Width = 1700
+
+        !Box126.BackStyle = 1
+        !Box127.BackStyle = 1
+        !Box128.BackStyle = 1
+
+        
+        !Text51.Caption = "Lower Earnings Limit"
+        !Text64.Caption = "Employee Threshold"
+        !Text65.Caption = "Employer Threshold"
+        !Text66.Caption = "Upper Earnings Limit"
+
+        ![txtWk Band 1] = Forms!bandform![WkLEL]
+        ![txtMnth Band 1] = Forms!bandform![MnthLEL]
+        ![txtAnn Band 1] = Forms!bandform![AnnLEL]
+        
+        ![txtWk Band 2] = Forms!bandform![WkEE_ET]
+        ![txtMnth Band 2] = Forms!bandform![MnthEE_ET]
+        ![txtAnn Band 2] = Forms!bandform![AnnEE_ET]
+        
+        ![txtWk Band 3] = Forms!bandform![WkER_ET]
+        ![txtMnth Band 3] = Forms!bandform![MnthER_ET]
+        ![txtAnn Band 3] = Forms!bandform![AnnER_ET]
+        
+        ![txtWk Band 4] = Forms!bandform![WkUEL]
+        ![txtMnth Band 4] = Forms!bandform![MnthUEL]
+        ![txtAnn Band 4] = Forms!bandform![AnnUEL]
+
+ ElseIf !Taxyear > 2008 Then 'csne 16/02/2009
+        !Box125.BackStyle = 1
+        !Box125.Left = 7500
+        !Box125.Width = 1700
+
+        !Box126.BackStyle = 1
+        !Box127.BackStyle = 1
+        !Box128.BackStyle = 1
+        
+        !Text51.Caption = "Lower Earnings Limit"
+        !Text64.Caption = "Earnings Threshold"
+        !Text65.Caption = "Upper Accrual Point"
+        !Text66.Caption = "Upper Earnings Limit"
+
+        ![txtWk Band 1] = ![WkLEL]
+        ![txtMnth Band 1] = ![MnthLEL]
+        ![txtAnn Band 1] = ![AnnLEL]
+        
+        ![txtWk Band 2] = ![WkER_ET]
+        ![txtMnth Band 2] = ![MnthER_ET]
+        ![txtAnn Band 2] = ![AnnER_ET]
+        
+        ![txtWk Band 3] = ![wkUAP]
+        ![txtMnth Band 3] = ![MnthUAP]
+        ![txtAnn Band 3] = ![AnnUAP]
+        
+        ![txtWk Band 4] = ![WkUEL]
+        ![txtMnth Band 4] = ![MnthUEL]
+        ![txtAnn Band 4] = ![AnnUEL]
+
+
+
+ElseIf !Taxyear = 1999 Or !Taxyear > 2000 Then
+
+        !Box125.BackStyle = 1
+        !Box125.Left = 5830
+        !Box125.Width = 3500
+        !Box126.BackStyle = 1
+        !Box127.BackStyle = 1
+        !Box128.BackStyle = 1
+        
+        !Text51.Caption = "Lower Earnings Limit"
+        !Text64.Caption = "Earnings Threshold"
+        !Text65.Caption = "Upper Earnings Limit"
+
+        ![txtWk Band 1] = ![WkLEL]
+        ![txtMnth Band 1] = ![MnthLEL]
+        ![txtAnn Band 1] = ![AnnLEL]
+        
+        ![txtWk Band 2] = ![WkER_ET]
+        ![txtMnth Band 2] = ![MnthER_ET]
+        ![txtAnn Band 2] = ![AnnER_ET]
+        
+        ![txtWk Band 3] = ![WkUEL]
+        ![txtMnth Band 3] = ![MnthUEL]
+        ![txtAnn Band 3] = ![AnnUEL]
+
+
+Else
+
+    'switch fields on or off
+    
+    !Text119.Visible = False
+    
+    !Text51.Caption = "              Band One"
+    !Text64.Caption = "              Band Two"
+    !Text65.Caption = "              Band Three"
+    !Text66.Caption = "              Band Four"
+    
+    'set colours as appropriate
+    
+    
+    'point to appropriate areas for data
+    ![txtWk Band 1] = ![Wk Band 1]
+    ![txtMnth Band 1] = ![Mnth Band 1]
+    ![txtAnn Band 1] = ![Ann Band 1]
+
+    ![txtWk Band 2] = ![Wk Band 2]
+    ![txtMnth Band 2] = ![Mnth Band 2]
+    ![txtAnn Band 2] = ![Ann Band 2]
+    ![txtWk Band 3] = ![Wk Band 3]
+    ![txtMnth Band 3] = ![Mnth Band 3]
+    ![txtAnn Band 3] = ![Ann Band 3]
+    ![txtWk Band 4] = ![Wk Band 4]
+    ![txtMnth Band 4] = ![Mnth Band 4]
+    ![txtAnn Band 4] = ![Ann Band 4]
+    
+    !wkband1top = (![Wk Band 2] - 0.01)
+    !mthband1top = (![Mnth Band 2] - 0.01)
+    !annband1top = (![Ann Band 2] - 0.01)
+    
+End If
+
+End With
+
+exit_taxyear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_taxyear_Click:
+    MsgBox Error$
+    Resume exit_taxyear_Click
+
+End Sub
+
+Sub SetFieldsFor_Year_Cat_Week()
+
+' Author        : Christopher Schuler
+' Date          : 24 June 1999
+' Purpose       : Shows/hides fields on rateform relevant to year,
+'                   category and startweek (code placed here to avoid repetition in form)
+' Author        : Christopher Schuler
+' Date          : 17 November 1999
+' Purpose       : Amendments for tax year 2000
+
+' Author        : Christopher Schuler
+' Date          : 17 November 2000
+' Purpose       : Amendments for tax year 2000
+
+' Author        : Christopher Sneddon
+' Date          : 21 January 2009
+' Purpose       : changes for 09/10
+
+
+On Error GoTo err_SetFieldsFor_Year_Cat_Week
+
+'This code hides/unhides fields on the form depending on the year selected
+Forms!rateform.Requery
+With Forms!rateform
+    !Box159.BackStyle = 0
+    !Box156.BackStyle = 0
+    !Field87.Visible = False
+    !Text168.Visible = False
+    ![txtER NIC Rebate].Visible = False
+    !Text172.Visible = False
+    ![txtEE NIC Rebate].Visible = False
+    !Text175.Visible = False
+    !Field174.Visible = False
+
+    !Text79.Left = 7173
+    ![txtemployee rte 1].Left = 7740
+    !Text83.Left = 7173
+    ![txtemployer rte 1].Left = 7740
+    !Text80.Left = 7173
+    ![txtemployee rte 2].Left = 7740
+    !Text84.Left = 7173
+    ![txtemployer rte 2].Left = 7740
+    !Text37.Left = 7173
+    ![txtemployee rte 3].Left = 7740
+    !Text85.Left = 7173
+    ![txtemployer rte 3].Left = 7740
+    !Text39.Left = 7173
+    ![txtemployee rte 4].Left = 7740
+    !Text86.Left = 7173
+    ![txtemployer rte 4].Left = 7740
+    !Box170.BackStyle = 1
+    !Text51.Visible = True
+    !Text57.Visible = True
+    ![txtERAboveUEL].Visible = True
+    !Line143.Visible = True
+    !Line144.Visible = True
+    !Line145.Visible = True
+
+If !Taxyear < 1985 Or (!Taxyear = 1985 And !startweek = 1) Then
+    
+    !Line143.Visible = False
+    !Line144.Visible = False
+    !Line145.Visible = False
+    !Text51.Visible = False
+    !Text57.Visible = False
+    ![txtERAboveUEL].Visible = False
+    
+    
+    'Set appropriate control source for upper band limits
+    
+    ' weekly
+    !Field53 = ![Wk Band 5]
+    ' monthly
+    !Field68 = ![Mnth Band 5]
+    ' annually
+    !Field75 = ![Ann Band 5]
+    
+    ![txtemployer rte 1] = ![employer rte 4]
+    ![txtemployee rte 1] = ![Employee Rte 1]
+    Forms![rateform]!txtERAboveUEL = ![employer rte 4]
+
+    !Box156.BackStyle = 1
+    !Box159.BackStyle = 1
+    !Field87.Visible = True
+    !Box163.BackStyle = 0
+
+ElseIf !Taxyear = 1999 Then
+
+    !Text172.Visible = False
+    ![txtEE NIC Rebate].Visible = False
+
+    !Text51.Caption = "Up to LEL"
+    !Text64.Caption = "LEL to Earnings Threshold"
+    !Text96.Caption = "Earnings Threshold to UEL"
+    
+    
+    !Text168.Caption = "ER NIC REBATE"
+    !Text57.Top = 4000
+    ![txtERAboveUEL].Top = 4000
+
+    !Text79.Left = 5472
+    ![txtemployee rte 1].Left = 6040
+    !Text83.Left = 5472
+    ![txtemployer rte 1].Left = 6040
+    !Text80.Left = 5472
+    ![txtemployee rte 2].Left = 6040
+    !Text84.Left = 5472
+    ![txtemployer rte 2].Left = 6040
+    !Text37.Left = 5472
+    ![txtemployee rte 3].Left = 6040
+    !Text85.Left = 5472
+    ![txtemployer rte 3].Left = 6040
+
+    !Field57 = ![WkUEL]
+    !Field72 = ![MnthUEL]
+    !Field79 = ![AnnUEL]
+
+   ![txtWk Band 1] = 0
+   ![txtMnth Band 1] = 0
+   ![txtAnn Band 1] = 0
+
+
+   ![txtWk Band 2] = ![WkLEL] + 0.01
+   ![txtMnth Band 2] = ![MnthLEL] + 0.01
+   ![txtAnn Band 2] = ![AnnLEL] + 0.01
+   !Field53 = ![WkLEL]
+   !Field68 = ![MnthLEL]
+   !Field75 = ![AnnLEL]
+   
+   ![txtWk Band 3] = ![WkER_ET] + 0.01
+   ![txtMnth Band 3] = ![MnthER_ET] + 0.01
+   ![txtAnn Band 3] = ![AnnER_ET] + 0.01
+   !Field55 = ![WkER_ET]
+   !Field70 = ![MnthER_ET]
+   !Field77 = ![AnnER_ET]
+    ![txtemployee rte 1] = 0
+    ![txtemployer rte 1] = 0
+    ![txtemployee rte 2] = ![EE_Rate]
+    ![txtemployer rte 2] = 0
+    ![txtemployee rte 3] = ![EE_Rate]
+    ![txtemployer rte 3] = ![ER_Rate]
+    !Box156.BackStyle = 1
+    !Box163.BackStyle = 1
+    !Box164.BackStyle = 1
+    !Box165.BackStyle = 1
+    !Box166.BackStyle = 1
+    ![txtER NIC Rebate].Visible = True
+    !Text64.Visible = True
+    !Text168.Visible = True
+    Forms![rateform]!txtERAboveUEL = ![ER_AboveUEL]
+
+
+ElseIf !Taxyear = 2000 Then
+
+    !Text51.Caption = "Up to LEL"
+    !Text64.Caption = "LEL to Employee Earnings Threshold"
+    !Text96.Caption = "Employee to Employer Earnings Threshold" ' csne
+    !Text66.Caption = "Employer Earnings Threshold to UEL"
+    !Text168.Caption = "NIC REBATE 2"
+    
+    !Text57.Top = 4800
+    ![txtERAboveUEL].Top = 4800
+    !Text79.Left = 5472
+    ![txtemployee rte 1].Left = 6040
+    !Text83.Left = 5472
+    ![txtemployer rte 1].Left = 6040
+    !Text80.Left = 5472
+    ![txtemployee rte 2].Left = 6040
+    !Text84.Left = 5472
+    ![txtemployer rte 2].Left = 6040
+    !Text37.Left = 5472
+    ![txtemployee rte 3].Left = 6040
+    !Text85.Left = 5472
+    ![txtemployer rte 3].Left = 6040
+    !Text39.Left = 5472
+    ![txtemployee rte 4].Left = 6040
+    !Text86.Left = 5472
+    ![txtemployer rte 4].Left = 6040
+
+    !Field57 = ![WkER_ET]
+    !Field72 = ![MnthER_ET]
+    !Field79 = ![AnnER_ET]
+    ![txtWk Band 4] = ![WkER_ET] + 0.01
+    ![txtMnth Band 4] = ![MnthER_ET] + 0.01
+    ![txtAnn Band 4] = ![AnnER_ET] + 0.01
+   
+   ![txtWk Band 1] = 0
+   ![txtMnth Band 1] = 0
+   ![txtAnn Band 1] = 0
+
+   ![txtWk Band 2] = ![WkLEL] + 0.01
+   ![txtMnth Band 2] = ![MnthLEL] + 0.01
+   ![txtAnn Band 2] = ![AnnLEL] + 0.01
+   !Field53 = ![WkLEL]
+   !Field68 = ![MnthLEL]
+   !Field75 = ![AnnLEL]
+   
+   ![txtWk Band 3] = ![WkEE_ET] + 0.01
+   ![txtMnth Band 3] = ![MnthEE_ET] + 0.01
+   ![txtAnn Band 3] = ![AnnEE_ET] + 0.01
+   !Field55 = ![WkEE_ET]
+   !Field70 = ![MnthEE_ET]
+   !Field77 = ![AnnEE_ET]
+   ![txtWk Band 5] = ![WkUEL]
+   ![txtMnth Band 5] = ![MnthUEL]
+   ![txtAnn Band 5] = ![AnnUEL]
+
+
+    ![txtemployee rte 1] = 0
+    ![txtemployer rte 1] = 0
+    ![txtemployee rte 2] = 0
+    ![txtemployer rte 2] = 0
+    ![txtemployee rte 3] = ![EE_Rate]
+    ![txtemployer rte 3] = 0
+    ![txtemployee rte 4] = ![EE_Rate]
+    ![txtemployer rte 4] = ![ER_Rate]
+    Forms![rateform]!txtERAboveUEL = ![ER_AboveUEL]
+
+    !Box163.BackStyle = 1
+    !Box164.BackStyle = 1
+    !Box165.BackStyle = 1
+    !Box166.BackStyle = 1
+    !Text172.Visible = True
+    ![txtEE NIC Rebate].Visible = True
+    !Text168.Visible = True
+    ![txtER NIC Rebate].Visible = True
+    !Text175.Visible = True
+    !Field174.Visible = True
+    !Text64.Visible = True
+
+ElseIf !Taxyear > 2000 Then
+    
+    !Text172.Visible = False
+    '![txtEE NIC Rebate].visible = False
+
+    !Text51.Caption = "Up to LEL"
+    !Text64.Caption = "LEL to Earnings Threshold"
+    !Text96.Caption = "Earnings Threshold to UEL"
+    !Text168.Caption = "NIC REBATE 2"
+   
+    !Text57.Top = 4000
+    ![txtERAboveUEL].Top = 4000
+    !Text79.Left = 5472
+    ![txtemployee rte 1].Left = 6040
+    !Text83.Left = 5472
+    ![txtemployer rte 1].Left = 6040
+    !Text80.Left = 5472
+    ![txtemployee rte 2].Left = 6040
+    !Text84.Left = 5472
+    ![txtemployer rte 2].Left = 6040
+    !Text37.Left = 5472
+    ![txtemployee rte 3].Left = 6040
+    !Text85.Left = 5472
+    ![txtemployer rte 3].Left = 6040
+
+
+    !Field57 = ![WkUEL]
+    !Field72 = ![MnthUEL]
+    !Field79 = ![AnnUEL]
+
+    ![txtWk Band 1] = 0
+    ![txtMnth Band 1] = 0
+    ![txtAnn Band 1] = 0
+
+
+    ![txtWk Band 2] = ![WkLEL] + 0.01
+    ![txtMnth Band 2] = ![MnthLEL] + 0.01
+    ![txtAnn Band 2] = ![AnnLEL] + 0.01
+    !Field53 = ![WkLEL]
+    !Field68 = ![MnthLEL]
+    !Field75 = ![AnnLEL]
+   
+    ![txtWk Band 3] = ![WkER_ET] + 0.01
+    ![txtMnth Band 3] = ![MnthER_ET] + 0.01
+    ![txtAnn Band 3] = ![AnnER_ET] + 0.01
+    !Field55 = ![WkER_ET]
+    !Field70 = ![MnthER_ET]
+    !Field77 = ![AnnER_ET]
+
+    ![txtemployee rte 1] = 0
+    ![txtemployer rte 1] = 0
+    ![txtemployee rte 2] = 0
+    ![txtemployer rte 2] = 0
+    ![txtemployee rte 3] = ![EE_Rate]
+    ![txtemployer rte 3] = ![ER_Rate]
+    Forms![rateform]!txtERAboveUEL = ![ER_AboveUEL]
+
+    !Box156.BackStyle = 1
+    !Box163.BackStyle = 1
+    !Box164.BackStyle = 1
+    !Box165.BackStyle = 1
+    !Box166.BackStyle = 1
+    !Text172.Visible = True
+    ![txtEE NIC Rebate].Visible = True
+    !Text168.Visible = True
+    ![txtER NIC Rebate].Visible = True
+    !Text64.Visible = True
+
+
+Else
+
+    !Box163.BackStyle = 0
+    !Box164.BackStyle = 0
+    !Box165.BackStyle = 0
+    !Box166.BackStyle = 0
+    !Box170.BackStyle = 0
+    
+    !Text51.Caption = "Band One"
+    !Text64.Caption = "Band Two"
+    !Text96.Caption = "Band Three"
+    !Text66.Caption = "Band Four"
+    
+    !Text57.Top = 4800
+    ![txtERAboveUEL].Top = 4800
+   
+    
+    'set appropriate control source for band 1 and 2 upper limits
+
+   '''''''''''''''''''
+   ![txtWk Band 1] = ![Wk Band 1]
+   ![txtMnth Band 1] = ![Mnth Band 1]
+   ![txtAnn Band 1] = ![Ann Band 1]
+   '''''''''''''''''''
+   
+    'weekly
+    !Field57 = (![Wk Band 4] - 0.01)
+    'monthly
+    !Field72 = (![Mnth Band 4] - 0.01)
+    'annually
+    !Field79 = (![Ann Band 4] - 0.01)
+    
+   ![txtWk Band 2] = ![Wk Band 2]
+   ![txtMnth Band 2] = ![Mnth Band 2]
+   ![txtAnn Band 2] = ![Ann Band 2]
+   !Field53 = ![txtWk Band 2] - 0.01
+   !Field68 = ![txtMnth Band 2] - 0.01
+   !Field75 = ![txtAnn Band 2] - 0.01
+   
+   ![txtWk Band 3] = ![Wk Band 3]
+   ![txtMnth Band 3] = ![Mnth Band 3]
+   ![txtAnn Band 3] = ![Ann Band 3]
+   !Field55 = ![Wk Band 3] - 0.01
+   !Field70 = ![Mnth Band 3] - 0.01
+   !Field77 = ![Ann Band 3] - 0.01
+
+    ![txtWk Band 4] = ![Wk Band 4]
+    ![txtMnth Band 4] = ![Mnth Band 4]
+    ![txtAnn Band 4] = ![Ann Band 4]
+
+    ![txtWk Band 5] = ![Wk Band 5]
+    ![txtMnth Band 5] = ![Mnth Band 5]
+    ![txtAnn Band 5] = ![Ann Band 5]
+    
+    ![txtemployee rte 1] = ![Employee Rte 1]
+    ![txtemployer rte 1] = ![employer rte 1]
+    ![txtemployee rte 2] = ![employee rte 2]
+    ![txtemployer rte 2] = ![employer rte 2]
+    ![txtemployee rte 3] = ![employee rte 3]
+    ![txtemployer rte 3] = ![employer rte 3]
+    ![txtemployee rte 4] = ![Employee Rte 4]
+    ![txtemployer rte 4] = ![employer rte 4]
+    Forms![rateform]!txtERAboveUEL = ![Above UEL (employer)]
+
+
+    !Text64.Visible = True
+    
+End If
+
+End With
+
+exit_SetFieldsFor_Year_Cat_Week:
+    DoCmd.Hourglass False
+    Exit Sub
+err_SetFieldsFor_Year_Cat_Week:
+    MsgBox Error$
+    Resume exit_SetFieldsFor_Year_Cat_Week
+
+
+End Sub

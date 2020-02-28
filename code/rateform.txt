@@ -1,0 +1,305 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub bandenq_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_bandenq_Click
+DoCmd.Echo False
+
+DoCmd.OpenForm "bandform", A_NORMAL
+
+DoCmd.Close acForm, "rateform"
+
+'Forms!bandform!Taxyear.SetFocus
+
+DoCmd.Echo True
+
+exit_bandenq_Click:
+    Exit Sub
+err_bandenq_Click:
+    MsgBox Error$
+    Resume exit_bandenq_Click
+End Sub
+
+Private Sub category_Click()
+ 
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History       : Jane Mullen
+' Date          : 14 May 1997
+' Purpose       : RFC 642 : MsgBox for new F,G and S C/O categories, showing date less than 97'
+' Author        : Christopher Schuler
+' Date          : 01/07/1999
+' Purpose       : Move shared code to 'SetFieldsFor_Year_Cat_Week'
+
+On Error GoTo err_category_Click
+DoCmd.Hourglass True
+DoCmd.Echo False
+
+Dim fieldtest As Variant
+'Validation of input fields
+fieldtest = Forms!rateform!Taxyear
+'taxyear
+If IsNull(fieldtest) Or fieldtest = 0 Then
+MsgBox "You have not input a taxyear", 48, "Warning"
+Forms!rateform!Taxyear.SetFocus
+End If
+
+
+'This code validates the contracted out categories against tax year
+
+If fieldtest < 1978 Then
+    If Forms!rateform!Category = "D" Or Forms!rateform!Category = "D HMF" Or Forms!rateform!Category = "E" Or Forms!rateform!Category = "E HMF" Then
+    MsgBox "Contracted out category selection not possible before 1978/79 - please reinput", 48, "Warning"
+    Forms!rateform!Category = "A"
+    
+    End If
+End If
+
+'This code validates mariner categories against the tax year
+
+If Forms!rateform!Taxyear < 1988 Then
+    If Forms!rateform!Category = "R" Or Forms!rateform!Category = "T" Or Forms!rateform!Category = "W" Or Forms!rateform!Category = "N" Or Forms!rateform!Category = "O" Then
+    MsgBox "Mariner categories not available before 1988/89 - please reinput", 48, "Warning"
+    Forms!rateform!Category = "A"
+    
+    End If
+End If
+
+'This code validates contracted out categories F,G and S against the tax year
+
+If Forms!rateform!Taxyear < 1997 Then
+    If Forms!rateform!Category = "F" Or Forms!rateform!Category = "G" Or Forms!rateform!Category = "S" Then
+    MsgBox "Contracted Out categories for 'F,G and S' are not available before 1997/98 - please reinput", 48, "Warning"
+    Forms!rateform!Category = "A"
+    
+    End If
+End If
+
+If Forms!rateform!Taxyear > 1995 Then
+    If Forms!rateform!Category = "A HMF" Or Forms!rateform!Category = "B HMF" Or Forms!rateform!Category = "D HMF" Or Forms!rateform!Category = "E HMF" Then
+        MsgBox "Categories 'A HMF, B HMF, D HMF, E HMF' are not available after 1995/96 - please reinput", 48, "Warning"
+        Forms!rateform!Category = "A"
+       
+    End If
+End If
+
+Forms!rateform.Requery
+
+'Show/hide fields - code moved to sub
+SetFieldsFor_Year_Cat_Week
+
+If Forms!rateform!Category = "C" Then
+    Forms!rateform!Text151.Visible = True
+Else
+    Forms!rateform!Text151.Visible = False
+End If
+
+exit_category_Click:
+    DoCmd.Hourglass False
+    DoCmd.Echo True
+    Exit Sub
+err_category_Click:
+    MsgBox Error$
+    Resume exit_category_Click
+
+End Sub
+
+Private Sub Category_GotFocus()
+If Taxyear > 2001 Then
+    Me!Category.RowSource = "A;B;C;D;E;F;G;S"
+Else
+    Me!Category.RowSource = "A;B;C;D;E;F;G;S;A HMF;B HMF;D HMF;E HMF;R;T;W;N;O"
+End If
+End Sub
+
+Private Sub close_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_close_Click
+
+    DoCmd.Close
+ 
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+    
+End Sub
+
+Private Sub Detail0_Click()
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+DoCmd.OpenForm "bandform"
+End Sub
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 14 February 1997
+' Purpose       : RFC 515 : Default tax year, and pre-populate
+
+On Error GoTo err_Form_Load
+
+   If Me.OpenArgs <> "" Then
+        Taxyear = OpenArgs
+    
+    Else
+        Taxyear = 2012
+    End If
+    
+    Forms![rateform]!Category = "A"
+    Forms![rateform]!startweek = 1
+    
+    If Forms!rateform!Taxyear < 1999 Then
+
+        Forms!rateform.RecordSource = "earnq"
+
+    ElseIf Forms!rateform!Taxyear >= 1999 Then
+
+        Forms!rateform.RecordSource = "qryClass1Rates1999"
+
+    End If
+    Refresh
+    
+    DoCmd.Maximize
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+Private Sub startweek_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Christopher Schuler
+' Date          : 01/07/1999
+' Purpose       : Move shared code to 'SetFieldsFor_Year_Cat_Week'
+
+On Error GoTo err_startweek_Click
+DoCmd.Echo False
+DoCmd.Hourglass True
+
+Forms!rateform.Requery
+
+'Show/hide fields - code moved to sub
+SetFieldsFor_Year_Cat_Week
+
+
+exit_startweek_Click:
+    DoCmd.Hourglass False
+    DoCmd.Echo True
+    Exit Sub
+err_startweek_Click:
+    MsgBox Error$
+    Resume exit_startweek_Click
+End Sub
+
+Private Sub startweek_GotFocus()
+Refresh
+End Sub
+
+Private Sub taxyear_AfterUpdate()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History       : Jane Mullen
+' Date          : 14 May 1997
+' Purpose       : RFC 642 : MsgBox for new F,G and S C/O categories, showing date less than 97'
+' Author        : Christopher Schuler
+' Date          : 01/07/1999
+' Purpose       : Move shared code to 'SetFieldsFor_Year_Cat_Week'
+
+On Error GoTo err_taxyear_Click
+DoCmd.Hourglass True
+DoCmd.Echo False
+
+If Forms!rateform!Taxyear > 2015 Then
+    DoCmd.OpenForm "rateform_2016", , , , , , Taxyear
+    With Forms!rateform_2016
+        Forms!rateform_2016!startweek.value = 1
+        Forms!rateform_2016!Category = "A"
+        Forms!rateform_2016!TAXYEAR2016.value = Taxyear
+        Me.Requery
+        Forms!rateform_2016.Refresh
+    End With
+    DoCmd.Close acForm, "rateform"
+    Forms!rateform_2016!TAXYEAR2016.SetFocus
+    
+ElseIf Forms!rateform!Taxyear > 2010 Then
+    DoCmd.OpenForm "rateform_2011", , , , , , Taxyear
+    With Forms!rateform_2011
+        !startweek.value = 1
+        !Category = "A"
+        Me.Requery
+    End With
+    DoCmd.Close acForm, "rateform"
+    
+ElseIf Forms!rateform!Taxyear > 2008 Then
+    DoCmd.OpenForm "rateform_2009", , , , , , Taxyear
+    
+    Forms!rateform_2009.RecordSource = "qryClass1Rates2009"
+    DoCmd.Close acForm, "rateform"
+    Forms!rateform_2009!TAXYEAR2009.SetFocus
+
+ElseIf Forms!rateform!Taxyear > 2002 Then
+    DoCmd.OpenForm "rateform_2003", , , , , , Taxyear
+    
+    'Refresh
+    Forms!rateform_2003.Requery
+    DoCmd.Close acForm, "rateform"
+
+Else
+    'Set default value on start year
+    Forms!rateform!startweek.value = 1
+    Forms!rateform!Category = "A"
+      
+    
+    If Forms!rateform!Taxyear < 1999 Then
+        
+        Forms!rateform.RecordSource = "earnq"
+        
+      Else
+        Forms!rateform.RecordSource = "qryClass1Rates1999"
+    
+    End If
+    Forms!rateform.Requery
+    
+    'Show/hide fields - code moved to sub
+    SetFieldsFor_Year_Cat_Week
+    
+End If
+
+exit_taxyear_Click:
+    DoCmd.Hourglass False
+    DoCmd.Echo True
+    Exit Sub
+err_taxyear_Click:
+    MsgBox Error$
+    Resume exit_taxyear_Click
+End Sub

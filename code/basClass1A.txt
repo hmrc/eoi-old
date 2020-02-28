@@ -1,0 +1,1071 @@
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+' History
+' Author    : Mustaq Hussain
+' Date      : 4 March 1996
+' Reason    : LER 75 Global Database/Recordset causing inavlid operations in other calculations (Directors/SSP/SMP)
+' Author    : Mustaq Hussain
+' Date      : 24 July 1996
+' Reason    : RFC 412, Tax years 91, 92, and 93. Class1ACarScale, Class1AFuelReducedMileage, Class1ALowMileage.
+
+
+Global AccessoriesCost As Currency
+Global AccessoriesFitting As Currency
+
+Global Class1ATotalPrice As Currency
+Global Class1AReducedPrice As Currency
+Global Class1AReducedCapital As Currency
+Global Class1ALowMileage As Currency
+Global Class1AReducedMileage As Currency
+Global Class1AFuelReducedMileage As Currency
+Global Class1AReducedAge As Currency
+Global Class1AReducedUnavailable As Currency
+Global Class1AReducedPrivate As Currency
+Global Class1ACarAge As Integer
+Global Class1AFuelScale As Currency
+Global Class1ACarScale As Currency
+Global Class1AUnavailableFuel As Currency
+Global Class1APrivateFuel As Currency
+
+Sub GetAccessories()
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+ 
+On Error GoTo Err_GetAccessories
+
+    Dim AccessoriesDB As Database
+    Dim AccessoriesRecordSet As DAO.Recordset
+    Dim AccessoriesCount As Integer
+
+    If Forms!frmClass1A!cboTaxYear = "" Or IsNull(Forms!frmClass1A!cboTaxYear) Then
+        Exit Sub
+    End If
+    
+
+    Set AccessoriesDB = CurrentDb()
+
+    Set AccessoriesRecordSet = AccessoriesDB.OpenRecordset("SELECT DISTINCTROW Sum(tblAccessories.[Accessories cost]) AS [SumOfAccessories cost], Sum(tblAccessories.[Fitting Cost]) AS [SumOfFitting Cost] FROM tblAccessories;")
+
+    If IsNull(AccessoriesRecordSet![SumOfAccessories cost]) Then
+        AccessoriesCost = 0
+    Else
+        AccessoriesCost = AccessoriesRecordSet![SumOfAccessories cost]
+    End If
+
+    If IsNull(AccessoriesRecordSet![SumOfFitting Cost]) Then
+        AccessoriesFitting = 0
+    Else
+        AccessoriesFitting = AccessoriesRecordSet![SumOfFitting Cost]
+    End If
+    
+
+
+Exit_GetAccessories:
+    Exit Sub
+
+Err_GetAccessories:
+    MsgBox Error$
+    Resume Exit_GetAccessories
+
+End Sub
+
+Function GetClass1ACar(ListPrice, DeliveryCharges, CarTax, NumberPlates, CustomsDuties, DaysUnavailable, CarPrivateUse, FuelPrivateUse) As Currency
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+' History
+' Author    : Mustaq Hussain
+' Date      : 13 July
+' Reason    : Access Int(..) bug. Modify and do in two steps
+' Author    : Mustaq Hussain
+' Date      : 4 March 1996
+' Reason    : LER 75 Global Database/Recordset causing inavlid operations in other calculations (Directors/SSP/SMP)
+' Author    : Mustaq Hussain
+' Date      : 22 July 1996
+' Reason    : RFC 412, 91, 92, 93 tax years added. Also ensure Registration not after tax year
+' Author    : Lisa Scothern
+' Date      : 23 September 1997
+' Reason    : RFC 541I - round final amount with curRound(), so that exactly 0.5p is rounded down
+' Author    : Christopher Schuler
+' Date      : 23 May 1999
+' Reason    : 1998 tax year added
+' Author    : Christopher Schuler
+' Date      : 18 January 2000
+' Reason    : 1999 tax year added
+
+
+On Error GoTo Err_GetClass1ACar
+    
+    Dim Class1ADB As Database
+    Dim Class1ARecordSet As DAO.Recordset
+
+
+    Set Class1ADB = CurrentDb()
+
+    Dim MyTotalCarBenefit As Currency
+    Dim MyFullCarBenefit As Currency
+    Dim MaxFullCarBenefit As Currency
+    Dim MyReducedCarBenefit As Currency
+    Dim MyNetCarBenefit As Currency
+    Dim MyClass1ADue As Currency
+    Dim MyContribution As Currency
+    Dim PrivateUse As Currency
+    Dim RegDate As Variant
+    Dim CurrentDate As Variant
+    Dim CarAge As Integer
+    Dim YearPart As Variant
+    Dim CheckYear As Variant
+    Dim LowerMileage As Integer
+    Dim UpperMileage As Integer
+    Dim Class1AContrate As Currency
+    Dim ARate As String
+    Dim roundedvalue As Currency
+
+    Dim curTemp As Currency
+
+    Class1ATotalPrice = 0
+    Class1AReducedPrice = 0
+    Class1AReducedCapital = 0
+    Class1AReducedMileage = 0
+    Class1AReducedAge = 0
+    Class1AReducedUnavailable = 0
+    Class1AReducedPrivate = 0
+    Class1ACarAge = 0
+    Class1AFuelScale = 0
+    Class1AUnavailableFuel = 0
+    Class1APrivateFuel = 0
+    
+    MaxFullCarBenefit = 80000
+    ARate = "A"
+    
+    If Forms!frmClass1A!cboTaxYear = "" Or IsNull(Forms!frmClass1A!cboTaxYear) Then
+        Exit Function
+    End If
+
+    If Forms!frmClass1A!txtCarAge = "" Or IsNull(Forms!frmClass1A!txtCarAge) Then
+        MsgBox "Please enter the Date of Cars First Registration.", 0 + 48, "Information"
+        Forms!frmClass1A!txtCarAge.SetFocus
+        Exit Function
+    End If
+
+    'Registration must not be after tax year
+    If nTaxYear(Forms!frmClass1A!txtCarAge) > Forms!frmClass1A!cboTaxYear Then
+        MsgBox "Please ensure Cars First Registration not after Tax Year.", 0 + 48, "Information"
+        Forms!frmClass1A!txtCarAge.SetFocus
+        Exit Function
+    End If
+
+    ' Not applicable for 91, 92, 93
+    If Forms!frmClass1A!cboTaxYear >= 1994 Then
+    
+        If IsNull(ListPrice) Then
+            GetClass1ACar = 0
+            Exit Function
+        End If
+    
+        If IsNull(DeliveryCharges) Then
+            DeliveryCharges = 0
+        End If
+    
+        If IsNull(CarTax) Then
+            CarTax = 0
+        End If
+    
+        If IsNull(NumberPlates) Then
+            NumberPlates = 0
+        End If
+    
+        If IsNull(CustomsDuties) Then
+            CustomsDuties = 0
+        End If
+    
+    End If
+    
+
+' Determine the Full Car Benefit before allowances (upto Max of £80,000)
+
+'''''''''''
+' Stage 1 '
+'''''''''''
+
+    ' Not applicable for 91, 92, 93
+    If Forms!frmClass1A!cboTaxYear >= 1994 Then
+        
+        GetAccessories
+    
+        MyTotalCarBenefit = ((ListPrice) + (DeliveryCharges) + (CarTax) + (NumberPlates) + (CustomsDuties) + (AccessoriesCost) + (AccessoriesFitting))
+        MyTotalCarBenefit = Int(MyTotalCarBenefit)
+        
+        Class1ATotalPrice = MyTotalCarBenefit
+        MyFullCarBenefit = Int(MyTotalCarBenefit)
+    
+    End If
+
+'''''''''''''''
+' Stage 2 & 3 '
+'''''''''''''''
+    ' Not applicable for 91, 92, 93
+    If Forms!frmClass1A!cboTaxYear >= 1994 Then
+        
+        If IsNull(Forms!frmClass1A!txtCapitalContribution) Then
+            MyContribution = 0
+        Else
+            MyContribution = Forms!frmClass1A!txtCapitalContribution
+        End If
+    
+        If MyContribution > 5000 Then
+            MyContribution = 5000
+        End If
+    
+        MyFullCarBenefit = (MyFullCarBenefit - MyContribution)
+        MyFullCarBenefit = Int(MyFullCarBenefit)
+    
+        If MyFullCarBenefit > MaxFullCarBenefit Then
+            MyFullCarBenefit = MaxFullCarBenefit
+        End If
+    
+        Class1AReducedCapital = MyFullCarBenefit
+
+        If Forms!frmClass1A!cboTaxYear < 1999 Then
+            MyFullCarBenefit = (MyFullCarBenefit * 0.35)
+            MyFullCarBenefit = Int(MyFullCarBenefit)
+        End If
+
+        Class1AReducedPrice = MyFullCarBenefit
+    
+    End If
+
+'''''''''''
+' Stage 4 '
+'''''''''''
+    If IsNull(DaysUnavailable) Or DaysUnavailable = "" Then
+        DaysUnavailable = 0
+    End If
+    
+    If DaysUnavailable > 0 Then
+        LowerMileage = Int(2500 - ((2500 / 365) * DaysUnavailable))
+        UpperMileage = Int(18000 - ((18000 / 365) * DaysUnavailable))
+    Else
+        LowerMileage = 2500
+        UpperMileage = 18000
+    End If
+
+    If Forms!frmClass1A!txtMilage = "" Or IsNull(Forms!frmClass1A!txtMilage) Then
+        Forms!frmClass1A!txtMilage = 0
+    End If
+
+    If Forms!frmClass1A!cboTaxYear < 1999 Then
+        If (Forms!frmClass1A!txtMilage >= LowerMileage) And (Forms!frmClass1A!txtMilage < UpperMileage) Then
+            MyFullCarBenefit = ((MyFullCarBenefit / 3) * 2)
+            MyFullCarBenefit = Int(MyFullCarBenefit)
+        Else
+            If (Forms!frmClass1A!txtMilage >= UpperMileage) Then
+                MyFullCarBenefit = (MyFullCarBenefit / 3)
+                MyFullCarBenefit = Int(MyFullCarBenefit)
+            End If
+        End If
+     Else
+        If (Forms!frmClass1A!txtMilage < LowerMileage) Then
+            MyFullCarBenefit = (MyFullCarBenefit * 0.35)
+            MyFullCarBenefit = Int(MyFullCarBenefit)
+
+        ElseIf (Forms!frmClass1A!txtMilage >= LowerMileage) And (Forms!frmClass1A!txtMilage < UpperMileage) Then
+            MyFullCarBenefit = (MyFullCarBenefit * 0.25)
+            MyFullCarBenefit = Int(MyFullCarBenefit)
+
+        Else
+                MyFullCarBenefit = (MyFullCarBenefit * 0.15)
+                MyFullCarBenefit = Int(MyFullCarBenefit)
+            
+        End If
+     End If
+
+
+
+    Class1AReducedMileage = MyFullCarBenefit
+
+'''''''''''
+' Stage 5 '
+'''''''''''
+
+    If IsNull(Forms!frmClass1A!txtCarAge) Or Forms!frmClass1A!txtCarAge = "" Then
+        CarAge = 0
+    Else
+        YearPart = DatePart("yyyy", Forms!frmClass1A!txtCarAge)
+        CheckYear = CVDate("06/04/" & YearPart)
+    
+        RegDate = CVDate(Forms!frmClass1A!txtCarAge)
+        
+        If RegDate >= CheckYear Then
+            RegDate = CheckYear
+        Else
+            RegDate = CVDate("06/04/" & YearPart - 1)
+        End If
+    
+        CurrentDate = CVDate("06/04/" & Forms!frmClass1A!cboTaxYear)
+    
+    
+        CarAge = DateDiff("yyyy", RegDate, CurrentDate)
+    End If
+
+    Class1ACarAge = CarAge
+
+    ' Not for 91, 92, 93
+    If Forms!frmClass1A!cboTaxYear >= 1999 Then
+        If CarAge > 3 Then
+            MyFullCarBenefit = MyFullCarBenefit / 4 * 3
+            MyFullCarBenefit = Int(MyFullCarBenefit)
+        End If
+
+    ElseIf Forms!frmClass1A!cboTaxYear >= 1994 Then
+        If CarAge > 3 Then
+            MyFullCarBenefit = ((MyFullCarBenefit / 3) * 2)
+            MyFullCarBenefit = Int(MyFullCarBenefit)
+        End If
+
+    End If
+
+    Class1AReducedAge = MyFullCarBenefit
+
+'''''''''''
+' Stage 6a'
+'''''''''''
+
+    ' Only for 91, 92, 93
+    If Forms!frmClass1A!cboTaxYear < 1994 Then
+        Dim MyCarScale As Integer
+        
+        If Forms!frmClass1A!cboTaxYear = 1991 Or Forms!frmClass1A!cboPetrol = "Petrol" Then
+            Select Case Forms!frmClass1A!cboEngineSize
+                Case "1400cc or less"
+                    MyCarScale = 1
+                Case "1401 - 2000cc"
+                    MyCarScale = 2
+                Case "Over 2000cc"
+                    MyCarScale = 3
+                Case Else
+                    ' No Cylinder Capacity
+                    MyCarScale = 4
+            End Select
+        Else
+            ' Diesel
+            Select Case Forms!frmClass1A!cboEngineSize
+                Case "2000cc or less"
+                    MyCarScale = 5
+                Case "More than 2000cc"
+                    MyCarScale = 6
+                Case Else
+                    ' No Cylinder Capacity
+                    MyCarScale = 4
+            End Select
+        End If
+        
+        Select Case Forms!frmClass1A!cboTaxYear
+            Case 1991
+                If MyCarScale <> 4 And MyCarScale <> 7 And CarAge < 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 19250
+                            Select Case MyCarScale
+                                Case 1
+                                    MyFullCarBenefit = 2050
+                                Case 2, 5
+                                    MyFullCarBenefit = 2650
+                                Case 3, 6
+                                    MyFullCarBenefit = 4250
+                            End Select
+                        Case Is <= 29000
+                                MyFullCarBenefit = 5500
+                        Case Is > 29000
+                                MyFullCarBenefit = 8900
+                    End Select
+                End If
+                If MyCarScale <> 4 And MyCarScale <> 7 And CarAge >= 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 19250
+                            Select Case MyCarScale
+                                Case 1
+                                    MyFullCarBenefit = 1400
+                                Case 2, 5
+                                    MyFullCarBenefit = 1800
+                                Case 3, 6
+                                    MyFullCarBenefit = 2850
+                            End Select
+                        Case Is <= 29000
+                            MyFullCarBenefit = 3700
+                        Case Is > 29000
+                            MyFullCarBenefit = 5900
+                    End Select
+                End If
+                If (MyCarScale = 4 Or MyCarScale = 7) And CarAge < 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 5999
+                            MyFullCarBenefit = 2050
+                        Case Is <= 8499
+                            MyFullCarBenefit = 2650
+                        Case Is <= 19250
+                            MyFullCarBenefit = 4250
+                        Case Is <= 29000
+                            MyFullCarBenefit = 5500
+                        Case Is > 29000
+                            MyFullCarBenefit = 8900
+                    End Select
+                End If
+                If (MyCarScale = 4 Or MyCarScale = 7) And CarAge >= 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 5999
+                            MyFullCarBenefit = 1400
+                        Case Is <= 8499
+                            MyFullCarBenefit = 1800
+                        Case Is <= 19250
+                            MyFullCarBenefit = 2850
+                        Case Is <= 29000
+                            MyFullCarBenefit = 3700
+                        Case Is > 29000
+                            MyFullCarBenefit = 5900
+                    End Select
+                End If
+            Case 1992
+                If MyCarScale <> 4 And MyCarScale <> 7 And CarAge < 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 19250
+                            Select Case MyCarScale
+                                Case 1
+                                    MyFullCarBenefit = 2140
+                                Case 2, 5
+                                    MyFullCarBenefit = 2770
+                                Case 3, 6
+                                    MyFullCarBenefit = 4440
+                            End Select
+                        Case Is <= 29000
+                                MyFullCarBenefit = 5750
+                        Case Is > 29000
+                                MyFullCarBenefit = 9300
+                    End Select
+                End If
+                If MyCarScale <> 4 And MyCarScale <> 7 And CarAge >= 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 19250
+                            Select Case MyCarScale
+                                Case 1
+                                    MyFullCarBenefit = 1460
+                                Case 2, 5
+                                    MyFullCarBenefit = 1880
+                                Case 3, 6
+                                    MyFullCarBenefit = 2980
+                            End Select
+                        Case Is <= 29000
+                            MyFullCarBenefit = 3870
+                        Case Is > 29000
+                            MyFullCarBenefit = 6170
+                    End Select
+                End If
+                If (MyCarScale = 4 Or MyCarScale = 7) And CarAge < 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 5999
+                            MyFullCarBenefit = 2140
+                        Case Is <= 8499
+                            MyFullCarBenefit = 2770
+                        Case Is <= 19250
+                            MyFullCarBenefit = 4440
+                        Case Is <= 29000
+                            MyFullCarBenefit = 5750
+                        Case Is > 29000
+                            MyFullCarBenefit = 9300
+                    End Select
+                End If
+                If (MyCarScale = 4 Or MyCarScale = 7) And CarAge >= 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 5999
+                            MyFullCarBenefit = 1460
+                        Case Is <= 8499
+                            MyFullCarBenefit = 1880
+                        Case Is <= 19250
+                            MyFullCarBenefit = 2980
+                        Case Is <= 29000
+                            MyFullCarBenefit = 3870
+                        Case Is > 29000
+                            MyFullCarBenefit = 6170
+                    End Select
+                End If
+            Case 1993
+                If MyCarScale <> 4 And MyCarScale <> 7 And CarAge < 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 19250
+                            Select Case MyCarScale
+                                Case 1
+                                    MyFullCarBenefit = 2310
+                                Case 2, 5
+                                    MyFullCarBenefit = 2990
+                                Case 3, 6
+                                    MyFullCarBenefit = 4800
+                            End Select
+                        Case Is <= 29000
+                                MyFullCarBenefit = 6210
+                        Case Is > 29000
+                                MyFullCarBenefit = 10040
+                    End Select
+                End If
+                If MyCarScale <> 4 And MyCarScale <> 7 And CarAge >= 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 19250
+                            Select Case MyCarScale
+                                Case 1
+                                    MyFullCarBenefit = 1580
+                                Case 2, 5
+                                    MyFullCarBenefit = 2030
+                                Case 3, 6
+                                    MyFullCarBenefit = 3220
+                            End Select
+                        Case Is <= 29000
+                            MyFullCarBenefit = 4180
+                        Case Is > 29000
+                            MyFullCarBenefit = 6660
+                    End Select
+                End If
+                If (MyCarScale = 4 Or MyCarScale = 7) And CarAge < 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 5999
+                            MyFullCarBenefit = 2310
+                        Case Is <= 8499
+                            MyFullCarBenefit = 2990
+                        Case Is <= 19250
+                            MyFullCarBenefit = 4800
+                        Case Is <= 29000
+                            MyFullCarBenefit = 6210
+                        Case Is > 29000
+                            MyFullCarBenefit = 10040
+                    End Select
+                End If
+                If (MyCarScale = 4 Or MyCarScale = 7) And CarAge >= 4 Then
+                    Select Case Forms!frmClass1A!txtOMV
+                        Case Is <= 5999
+                            MyFullCarBenefit = 1580
+                        Case Is <= 8499
+                            MyFullCarBenefit = 2030
+                        Case Is <= 19250
+                            MyFullCarBenefit = 3220
+                        Case Is <= 29000
+                            MyFullCarBenefit = 4180
+                        Case Is > 29000
+                            MyFullCarBenefit = 6660
+                    End Select
+                End If
+        End Select
+        
+        Class1ACarScale = MyFullCarBenefit
+    End If
+'''''''''''
+' Stage 6 '
+'''''''''''
+    ' Only for 91, 92, 93
+    ' Low business mileage
+    If Forms!frmClass1A!cboTaxYear < 1994 Then
+        If Forms!frmClass1A!txtMilage <= LowerMileage Then
+            MyFullCarBenefit = MyFullCarBenefit + MyFullCarBenefit / 2
+            MyFullCarBenefit = Int(MyFullCarBenefit)
+        End If
+    End If
+    
+    Class1ALowMileage = MyFullCarBenefit
+
+    If IsNull(DaysUnavailable) Or DaysUnavailable = "" Then
+        DaysUnavailable = 0
+    End If
+
+    MyReducedCarBenefit = (MyFullCarBenefit - ((DaysUnavailable * MyFullCarBenefit) / 365))
+    MyReducedCarBenefit = Int(MyReducedCarBenefit)
+
+    Class1AReducedUnavailable = MyReducedCarBenefit
+
+'''''''''''
+' Stage 7 '
+'''''''''''
+    ' Only for 91, 92, 93
+    ' High business mileage
+    If Forms!frmClass1A!cboTaxYear < 1994 Then
+        If Forms!frmClass1A!txtMilage >= UpperMileage Then
+            MyReducedCarBenefit = MyReducedCarBenefit / 2
+            MyReducedCarBenefit = Int(MyReducedCarBenefit)
+        End If
+        
+        Class1AReducedMileage = MyReducedCarBenefit
+    
+    End If
+    
+    If IsNull(CarPrivateUse) Or CarPrivateUse = "" Then
+        CarPrivateUse = 0
+    End If
+    
+    MyNetCarBenefit = MyReducedCarBenefit - Int(CarPrivateUse)
+
+    
+    If MyNetCarBenefit <= 0 Then
+        MyNetCarBenefit = 0
+    End If
+
+    Class1AReducedPrivate = MyNetCarBenefit
+
+'''''''''''
+' Stage 8 '
+'''''''''''
+
+    If Forms!frmClass1A!cboTaxYear < 1999 Then
+        Set Class1ARecordSet = Class1ADB.OpenRecordset("SELECT DISTINCTROW [CLASS 1 RATE TABLE].[Above UEL (employer)] FROM [CLASS 1 RATE TABLE] WHERE (([CLASS 1 RATE TABLE].[Tax Yr]=""" & [Forms]![frmClass1A]![cboTaxYear] & """) AND ([CLASS 1 RATE TABLE].Cat=""" & ARate & """));")
+    
+        Class1ARecordSet.MoveFirst
+    
+        Class1AContrate = Class1ARecordSet![Above UEL (employer)]
+    
+        'MyClass1ADue = (MyNetCarBenefit * Class1AContrate)
+    
+        'curTemp = MyClass1ADue * 100
+        'If CCur((MyClass1ADue * 100) - Int(curTemp)) > .5 Then      RFC541I This did not work
+        '    roundedvalue = CCur(CLng(MyClass1ADue * 1000) / 1000)
+        '    MyClass1ADue = CCur((CLng(roundedvalue * 100)) / 100)
+        'Else
+        '    curTemp = MyClass1ADue * 100
+        '    MyClass1ADue = CCur(Int(curTemp) / 100)
+        'End If
+        
+        'GetClass1ACar = MyClass1ADue
+    
+        GetClass1ACar = curRound(MyNetCarBenefit * Class1AContrate)   'RFC541I
+
+    Else
+
+        Set Class1ARecordSet = Class1ADB.OpenRecordset("SELECT DISTINCTROW [tblClass1_1999].[ER_AboveUEL] FROM [tblClass1_1999] WHERE (([tblClass1_1999].[Tax Yr]=""" & [Forms]![frmClass1A]![cboTaxYear] & """) AND ([tblClass1_1999].Cat=""" & ARate & """));")
+    
+        Class1ARecordSet.MoveFirst
+    
+        Class1AContrate = Class1ARecordSet![ER_AboveUEL]
+
+        GetClass1ACar = curRound(MyNetCarBenefit * Class1AContrate)
+
+    End If
+
+
+Exit_GetClass1ACar:
+    Exit Function
+
+Err_GetClass1ACar:
+    MsgBox Error$
+    Resume Exit_GetClass1ACar
+
+End Function
+
+Function GetClass1AFuel(DaysUnavailable, FuelScale, CarPrivateUse, FuelPrivateUse) As Currency
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History
+' Author    : Mustaq Hussain
+' Date      : 4 March 1996
+' Reason    : LER 75 Global Database/Recordset causing inavlid operations in other calculations (Directors/SSP/SMP)
+' Author    : Mustaq Hussain
+' Date      : 19 July 1996
+' Reason    : RFC 412 : 91, 92 and 93 fuel scale rates added
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Reason    : RFC 381 : 96/97 fuel scale rates
+' Author    : Lisa Scothern
+' Date      : 24 July 1997
+' Reason    : RFC 711 : 97/98 fuel scale rates
+' Author    : Lisa Scothern
+' Date      : 28 July 1997
+' Reason    : RFC 711 : Correct 94/95 & 95/96 fuel scale rates
+' Author    : Lisa Scothern
+' Date      : 23 September 1997
+' Reason    : RFC 541I - round final amount with curRound(), so that exactly 0.5p is rounded down
+' Author    : Christopher Schuler
+' Date      : 23 May 1999
+' Reason    : 98/99 fuel scale rates
+' Author    : Christopher Schuler
+' Date      : 18 January 2000
+' Reason    : 99/00 fuel scale rates
+' Author    : Christopher Schuler
+' Date      : 11 December 2000
+' Reason    : 00/01 fuel scale rates
+' Author    : Christopher Schuler
+' Date      : 13 December 2001
+' Reason    : 01/02 fuel scale rates
+' Author    : Christopher Schuler
+' Date      : 13 December 2002
+' Reason    : 02/03 fuel scale rates
+
+
+    On Error GoTo Err_GetClass1AFuel
+
+    Dim MyTotalFuelBenefit As Currency
+    Dim MyFullFuelBenefit As Currency
+    Dim MyNetFuelBenefit As Currency
+    Dim MyClass1ADue As Currency
+    Dim MyFuelScale As Integer
+    Dim PrivateUse As Currency
+    Dim Class1AContrate As Currency
+    Dim ARate As String
+    Dim roundedvalue As Currency
+    Dim Class1ADB As Database
+
+    Dim LowerMileage As Integer
+    Dim UpperMileage As Integer
+
+    Dim Class1ARecordSet As DAO.Recordset
+
+
+    Set Class1ADB = CurrentDb()
+
+    ARate = "A"
+  
+    If Forms!frmClass1A!cboTaxYear = "" Or IsNull(Forms!frmClass1A!cboTaxYear) Then
+        Exit Function
+    End If
+
+    If IsNull(FuelScale) Or FuelScale = "" Then
+        GetClass1AFuel = 0
+        Exit Function
+    End If
+
+' Determine the Full Fuel Benefit
+
+'''''''''''
+' Stage 9 '
+'''''''''''
+
+    If Forms!frmClass1A!cboTaxYear = 1991 Or Forms!frmClass1A!cboPetrol = "Petrol" Then
+        Select Case FuelScale
+            Case "1400cc or less"
+                MyFuelScale = 1
+            Case "1401 - 2000cc"
+                MyFuelScale = 2
+            Case "Over 2000cc"
+                MyFuelScale = 3
+            Case Else
+                ' No Cylinder Capacity
+                MyFuelScale = 4
+        End Select
+    Else
+        Select Case FuelScale
+            Case "2000cc or less"
+                MyFuelScale = 5
+            Case "More than 2000cc"
+                MyFuelScale = 6
+            Case Else
+                ' No Cylinder Capacity
+                MyFuelScale = 7
+        End Select
+    End If
+
+    Select Case Forms!frmClass1A!cboTaxYear
+        Case 1991
+            If MyFuelScale <> 4 Then
+                Select Case MyFuelScale
+                    Case 1
+                        MyTotalFuelBenefit = 480
+                    Case 2, 5
+                        MyTotalFuelBenefit = 600
+                    Case 3, 6
+                        MyTotalFuelBenefit = 900
+                End Select
+            End If
+            If MyFuelScale = 4 Or MyFuelScale = 7 Then
+                Select Case Forms!frmClass1A!txtOMV
+                    Case Is < 6000
+                        MyTotalFuelBenefit = 480
+                    Case Is < 8500
+                        MyTotalFuelBenefit = 600
+                    Case Else
+                        MyTotalFuelBenefit = 900
+                End Select
+            End If
+        Case 1992
+            If MyFuelScale < 4 Then
+                Select Case MyFuelScale
+                    Case 1
+                        MyTotalFuelBenefit = 500
+                    Case 2
+                        MyTotalFuelBenefit = 630
+                    Case 3
+                        MyTotalFuelBenefit = 940
+                End Select
+            End If
+            If MyFuelScale = 4 Then
+                Select Case Forms!frmClass1A!txtOMV
+                    Case Is < 6000
+                        MyTotalFuelBenefit = 500
+                    Case Is < 8500
+                        MyTotalFuelBenefit = 630
+                    Case Else
+                        MyTotalFuelBenefit = 940
+                End Select
+            End If
+            If MyFuelScale > 4 Then
+                Select Case MyFuelScale
+                    Case 5
+                        MyTotalFuelBenefit = 460
+                    Case 6, 7
+                        MyTotalFuelBenefit = 590
+                End Select
+            End If
+        Case 1993
+            If MyFuelScale < 4 Then
+                Select Case MyFuelScale
+                    Case 1
+                        MyTotalFuelBenefit = 600
+                    Case 2
+                        MyTotalFuelBenefit = 760
+                    Case 3
+                        MyTotalFuelBenefit = 1130
+                End Select
+            End If
+            If MyFuelScale = 4 Then
+                Select Case Forms!frmClass1A!txtOMV
+                    Case Is < 6000
+                        MyTotalFuelBenefit = 600
+                    Case Is < 8500
+                        MyTotalFuelBenefit = 760
+                    Case Else
+                        MyTotalFuelBenefit = 1130
+                End Select
+            End If
+            If MyFuelScale > 4 Then
+                Select Case MyFuelScale
+                    Case 5
+                        MyTotalFuelBenefit = 550
+                    Case 6, 7
+                        MyTotalFuelBenefit = 710
+                End Select
+            End If
+
+        Case 1994
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 640
+                Case 2
+                    MyTotalFuelBenefit = 810
+                Case 3, 4, 7
+                    MyTotalFuelBenefit = 1200
+                Case 5
+                    MyTotalFuelBenefit = 580
+                Case 6
+                    MyTotalFuelBenefit = 750
+            End Select
+        Case 1995
+
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 670
+                Case 2
+                    MyTotalFuelBenefit = 850
+                Case 3, 4, 7
+                    MyTotalFuelBenefit = 1260
+                Case 5
+                    MyTotalFuelBenefit = 605
+                Case 6
+                    MyTotalFuelBenefit = 780
+            End Select
+        Case 1996
+
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 710
+                Case 2
+                    MyTotalFuelBenefit = 890
+                Case 3
+                    MyTotalFuelBenefit = 1320
+                Case 5
+                    MyTotalFuelBenefit = 640
+                Case 6
+                    MyTotalFuelBenefit = 820
+                Case 4, 7
+                    MyTotalFuelBenefit = 1320
+            End Select
+
+        Case 1997
+
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 800
+                Case 2
+                    MyTotalFuelBenefit = 1010
+                Case 3
+                    MyTotalFuelBenefit = 1490
+                Case 5
+                    MyTotalFuelBenefit = 740
+                Case 6
+                    MyTotalFuelBenefit = 940
+                Case 4, 7
+                    MyTotalFuelBenefit = 1490
+            End Select
+        
+        Case 1998
+
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 1010
+                Case 2, 5
+                    MyTotalFuelBenefit = 1280
+                Case 3, 4, 6, 7
+                    MyTotalFuelBenefit = 1890
+            End Select
+
+        Case 1999
+
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 1210
+                Case 2, 5
+                    MyTotalFuelBenefit = 1540
+                Case 3, 4, 6, 7
+                    MyTotalFuelBenefit = 2270
+            End Select
+
+        Case 2000
+
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 1700
+                Case 2, 5
+                    MyTotalFuelBenefit = 2170
+                Case 3, 4, 6, 7
+                    MyTotalFuelBenefit = 3200
+            End Select
+            
+        Case 2001
+
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 1930
+                Case 2, 5
+                    MyTotalFuelBenefit = 2460
+                Case 3, 4, 6, 7
+                    MyTotalFuelBenefit = 3620
+            End Select
+        
+        Case 2002
+
+            Select Case MyFuelScale
+                Case 1
+                    MyTotalFuelBenefit = 2240
+                Case 2, 5
+                    MyTotalFuelBenefit = 2850
+                Case 3, 4, 6, 7
+                    MyTotalFuelBenefit = 4200
+            End Select
+
+
+
+    End Select
+
+    Class1AFuelScale = MyTotalFuelBenefit
+
+
+''''''''''''
+' Stage 10 '
+''''''''''''
+
+    If IsNull(DaysUnavailable) Or DaysUnavailable = "" Then
+        DaysUnavailable = 0
+    End If
+
+    MyFullFuelBenefit = (MyTotalFuelBenefit - ((DaysUnavailable * MyTotalFuelBenefit) / 365))
+    MyFullFuelBenefit = Int(MyFullFuelBenefit)
+
+    Class1AUnavailableFuel = MyFullFuelBenefit
+
+
+''''''''''''
+' Stage 11 '
+''''''''''''
+    ' Only for 91, 92, 93
+    ' High business mileage
+    If Forms!frmClass1A!cboTaxYear < 1994 Then
+        If Forms!frmClass1A!cboTaxYear <> 1993 Or (Forms!frmClass1A!cboTaxYear = 1993 And Forms!frmClass1A!optClass1AFuelPaid = True) Then
+        
+            If DaysUnavailable > 0 Then
+                LowerMileage = Int(2500 - ((2500 / 365) * DaysUnavailable))
+                UpperMileage = Int(18000 - ((18000 / 365) * DaysUnavailable))
+            Else
+                LowerMileage = 2500
+                UpperMileage = 18000
+            End If
+            
+            If Forms!frmClass1A!txtMilage >= UpperMileage Then
+                MyFullFuelBenefit = MyFullFuelBenefit / 2
+                MyFullFuelBenefit = Int(MyFullFuelBenefit)
+            End If
+        End If
+        Class1AFuelReducedMileage = MyFullFuelBenefit
+    End If
+
+
+    If IsNull(FuelPrivateUse) Or FuelPrivateUse = "" Then
+        FuelPrivateUse = 0
+    End If
+    
+    If IsNull(Forms!frmClass1A!txtFuelProvided) Or Forms!frmClass1A!txtFuelProvided = "" Then
+        Forms!frmClass1A!txtFuelProvided = 0
+        GetClass1AFuel = 0
+        Exit Function
+    End If
+
+        PrivateUse = ((Forms!frmClass1A!txtFuelProvided) - FuelPrivateUse)
+        If PrivateUse > 0 Then
+            MyNetFuelBenefit = Int((MyFullFuelBenefit))
+        Else
+            MyNetFuelBenefit = 0
+        End If
+
+    Class1APrivateFuel = MyNetFuelBenefit
+
+''''''''''''
+' Stage 12 '
+''''''''''''
+    If Forms!frmClass1A!cboTaxYear < 1999 Then
+        Set Class1ARecordSet = Class1ADB.OpenRecordset("SELECT DISTINCTROW [CLASS 1 RATE TABLE].[Above UEL (employer)] FROM [CLASS 1 RATE TABLE] WHERE (([CLASS 1 RATE TABLE].[Tax Yr]=""" & [Forms]![frmClass1A]![cboTaxYear] & """) AND ([CLASS 1 RATE TABLE].Cat= """ & ARate & """));")
+    
+        Class1ARecordSet.MoveFirst
+    
+        Class1AContrate = Class1ARecordSet![Above UEL (employer)]
+        
+        'MyClass1ADue = (MyNetFuelBenefit * Class1AContrate)
+    
+        'If CCur((MyClass1ADue * 100) - Int(MyClass1ADue * 100)) > .5 Then
+        '    roundedvalue = CCur(CLng(MyClass1ADue * 1000) / 1000)
+        '    MyClass1ADue = CCur((CLng(roundedvalue * 100)) / 100)        RFC541I - didn't work
+        'Else
+        '    MyClass1ADue = CCur(Int(MyClass1ADue * 100) / 100)
+        'End If
+    
+        'GetClass1AFuel = MyClass1ADue
+    
+        GetClass1AFuel = curRound(MyNetFuelBenefit * Class1AContrate)
+
+    Else
+
+        Set Class1ARecordSet = Class1ADB.OpenRecordset("SELECT DISTINCTROW [tblClass1_1999].[ER_AboveUEL] FROM [tblClass1_1999] WHERE (([tblClass1_1999].[Tax Yr]=""" & [Forms]![frmClass1A]![cboTaxYear] & """) AND ([tblClass1_1999].Cat=""" & ARate & """));")
+    
+        Class1ARecordSet.MoveFirst
+    
+        Class1AContrate = Class1ARecordSet![ER_AboveUEL]
+
+        GetClass1AFuel = curRound(MyNetFuelBenefit * Class1AContrate)
+
+    End If
+
+
+Exit_GetClass1AFuel:
+    Exit Function
+
+Err_GetClass1AFuel:
+    MsgBox Error$
+    Resume Exit_GetClass1AFuel
+
+
+End Function

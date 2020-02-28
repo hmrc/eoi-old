@@ -1,0 +1,191 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Total_Conts_AfterUpdate()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Total_Conts_AfterUpdate
+
+Forms!frmOSCWeeks!SubOSCWeeks.Form.[Check Date] = Forms!frmOSCWeeks!SubOSCWeeks.Form.txtEndDate
+
+Forms!frmOSCWeeks.Recalc
+
+Exit_Total_Conts_AfterUpdate:
+    Exit Sub
+
+Err_Total_Conts_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Total_Conts_AfterUpdate
+
+End Sub
+
+Private Sub Total_Conts_GotFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Total_Conts_GotFocus
+
+    Dim InputDate As Variant
+    Dim DateDB As Database
+    Dim DateRecordSet As DAO.Recordset
+    Dim DateCount As Integer
+    Dim MyCount
+    Dim StartDate As Variant
+    Dim EndDate As Variant
+
+    Set DateDB = CurrentDb()
+    
+    DoCmd.DoMenuItem acFormBar, A_FILE, A_SAVERECORD, , A_MENU_VER20
+
+    Set DateRecordSet = DateDB.OpenRecordset("SELECT * FROM ContTotalTable;")
+
+    If DateRecordSet.Recordcount > 0 Then
+        DateRecordSet.MoveLast
+        DateCount = DateRecordSet.Recordcount
+    End If
+
+    If DateCount > 0 Then
+        DateRecordSet.MoveFirst
+        MyCount = 1
+    Else
+        Exit Sub
+    End If
+
+    Do Until MyCount = DateCount
+        
+        StartDate = CVDate(Forms!frmOSCWeeks!SubOSCWeeks.Form.txtStartDate)
+        EndDate = CVDate(Forms!frmOSCWeeks!SubOSCWeeks.Form.txtEndDate)
+
+        If StartDate > CVDate(DateRecordSet![Start Date]) And StartDate < CVDate(DateRecordSet![End Date]) Then
+            MsgBox "Dates overlaps with period already held.", 0 + 48, "Information"
+            'cancel = True
+            Forms!frmOSCWeeks!SubOSCWeeks.Form.txtStartDate.SetFocus
+            Exit Sub
+        End If
+        
+        If EndDate > CVDate(DateRecordSet![Start Date]) And EndDate < CVDate(DateRecordSet![End Date]) Then
+            MsgBox "Dates overlaps with period already held.", 0 + 48, "Information"
+            'cancel = True
+            Forms!frmOSCWeeks!SubOSCWeeks.Form.txtStartDate.SetFocus
+            Exit Sub
+        End If
+
+        If StartDate < CVDate(DateRecordSet![Start Date]) And EndDate > CVDate(DateRecordSet![End Date]) Then
+            MsgBox "Dates overlaps with period already held.", 0 + 48, "Information"
+            'cancel = True
+            Forms!frmOSCWeeks!SubOSCWeeks.Form.txtStartDate.SetFocus
+            Exit Sub
+        End If
+
+        MyCount = MyCount + 1
+
+    Loop
+
+InputDate = CVDate(Forms!frmOSCWeeks!SubOSCWeeks.Form.txtEndDate)
+
+If InputDate < MyStartDate Then
+    MsgBox "To Date must be later than " & MyStartDate - 1, 0 + 48, "Information"
+    Forms!frmOSCWeeks!SubOSCWeeks.Form.txtEndDate.SetFocus
+    Exit Sub
+End If
+
+If InputDate > MyEndDate Then
+    MsgBox "To Date must be before " & MyEndDate + 1, 0 + 48, "Information"
+    Forms!frmOSCWeeks!SubOSCWeeks.Form.txtEndDate.SetFocus
+    Exit Sub
+End If
+
+If IsNull(Forms!frmOSCWeeks!txtDateEnteredNI) Or (Forms!frmOSCWeeks!txtDateEnteredNI) = "" Then
+    Exit Sub
+End If
+
+If InputDate < MyDateEnteredNI Then
+    MsgBox "To Date is before Date Entered NI", 0 + 48, "Information"
+    Exit Sub
+End If
+
+
+Exit_Total_Conts_GotFocus:
+    Exit Sub
+
+Err_Total_Conts_GotFocus:
+    MsgBox Error$
+    Resume Exit_Total_Conts_GotFocus
+
+End Sub
+
+Private Sub txtEndDate_GotFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_txtEndDate_GotFocus
+
+Dim CompareDate As Variant
+Dim InputDate As Variant
+
+InputDate = CVDate(Forms!frmOSCWeeks!SubOSCWeeks.Form.txtStartDate)
+'CompareDate = CVDate(Forms!frmOSCWeeks!SubOSCWeeks.Form.[Check Date])
+
+
+If InputDate < MyStartDate Then
+    MsgBox "From Date must be later than " & MyStartDate - 1, 0 + 48, "Information"
+    Forms!frmOSCWeeks!SubOSCWeeks.Form.txtStartDate.SetFocus
+    Exit Sub
+End If
+
+If InputDate > MyEndDate Then
+    MsgBox "From Date must be before " & MyEndDate, 0 + 48, "Information"
+    Forms!frmOSCWeeks!SubOSCWeeks.Form.txtStartDate.SetFocus
+    Exit Sub
+End If
+
+
+Exit_txtEndDate_GotFocus:
+    Exit Sub
+
+Err_txtEndDate_GotFocus:
+    MsgBox Error$
+    Resume Exit_txtEndDate_GotFocus
+End Sub
+
+Private Sub txtStartDate_AfterUpdate()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_txtStartDate_AfterUpdate
+
+Dim InputDate As Variant
+
+InputDate = CVDate(Forms!frmOSCWeeks!SubOSCWeeks.Form.txtStartDate)
+
+
+If IsNull(Forms!frmOSCWeeks!txtDateEnteredNI) Or (Forms!frmOSCWeeks!txtDateEnteredNI) = "" Then
+    Exit Sub
+End If
+
+If InputDate < MyDateEnteredNI Then
+    MsgBox "From Date is before Date Entered NI", 0 + 48, "Information"
+    Exit Sub
+End If
+
+Exit_txtStartDate_AfterUpdate:
+    Exit Sub
+
+
+Err_txtStartDate_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_txtStartDate_AfterUpdate
+
+End Sub

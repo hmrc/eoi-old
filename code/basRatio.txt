@@ -1,0 +1,50 @@
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Sub ClearFrm()
+' Author        : Mustaq Hussain
+' Date          : 1 June 1996
+' Fuction Name  : ClearFrm
+' Purpose       : Clear form for another entry
+' History       : Jane Watson
+' Date          : 4 November 1997
+' Purpose       : To make common with Pacman
+' History       : Christopher Schuler
+' Date          : 16 March 2000
+' Purpose       : Cater for 1999 sub form
+
+    Dim bPass As Integer
+    Dim nMaxTaxYear As Integer
+
+    On Error GoTo Err_ClearFrm
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions]"
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions1999]"
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions2009]"
+   ' DoCmd.RunSQL "DELETE * FROM [tblRatioContributions2015]"
+    DoCmd.RunSQL "DELETE * FROM [tblRatioContributions2016]"
+        With Forms!frmRatioMain
+        ' Update Details section, no records
+        ![subRatioContributions].Form.Requery
+        !txtSurname.SetFocus
+    
+    
+        !txtSurname = Null
+        !txtRef = Null
+        !txtInitials = Null
+        !NIPrefix = Null
+        !NInumber = Null
+        !NIsuffix = Null
+    
+        !txtOverallTest = Null
+    End With
+Exit_ClearFrm:
+    Exit Sub
+    
+Err_ClearFrm:
+    MsgBox Error$
+    Resume Exit_ClearFrm
+
+End Sub

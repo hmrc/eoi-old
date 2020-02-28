@@ -1,0 +1,360 @@
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private Sub Clear_Screen_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 24 July 1996
+' Purpose       : RFC 413, Current tax year displayed if cleared
+'               :          Allow dates to be altered
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp', Name, NINO and Ref, and always run delete macro
+
+On Error GoTo err_Clear_Screen_Click
+DoCmd.Hourglass True
+
+With Forms!frmClass3MakeUp
+    ![Surname] = ""
+    ![Initial] = ""
+    ![NIsuffix] = ""
+    ![NInumber] = ""
+    ![NIPrefix] = ""
+    ![Ref] = ""
+    
+    ![Tax Year] = strCurrentTaxYear("CLASS 3 RATE TABLE")
+End With
+TaxYearClickAction
+
+Forms![frmClass3MakeUp]![Surname].SetFocus
+
+exit_Clear_Screen_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_Clear_Screen_Click:
+    MsgBox Error$
+    Resume exit_Clear_Screen_Click
+End Sub
+
+Private Sub Clear_Screen_GotFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp'
+
+On Error GoTo err_Clear_Screen_GotFocus
+Forms!frmClass3MakeUp![Calculate].Enabled = False
+Forms!frmClass3MakeUp![Surname].SetFocus
+exit_Clear_Screen_GotFocus:
+    Exit Sub
+err_Clear_Screen_GotFocus:
+    MsgBox Error$
+    Resume err_Clear_Screen_GotFocus
+End Sub
+
+Private Sub Exit_Click()
+' History
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp'
+
+On Error GoTo Err_Exit_Click
+
+If Forms!frmClass3MakeUp![Clear Screen].Enabled = False Then
+   DoCmd.Quit
+Else
+   DoCmd.RunMacro "delete"
+   DoCmd.Quit
+End If
+
+Exit_Exit_Click:
+    Exit Sub
+
+Err_Exit_Click:
+    MsgBox Error$
+    Resume Exit_Exit_Click
+    
+End Sub
+
+
+
+Private Sub Form_Close()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Form_Close
+Dim mytab As DAO.Recordset
+Dim DB As Database
+Dim rec As Integer
+
+DoCmd.Hourglass True
+Set DB = CurrentDb()
+Set mytab = DB.OpenRecordset("tblClass3MakeUpInput")
+rec = mytab.Recordcount
+If rec > 0 Then
+   DoCmd.RunMacro "delete"
+   DoCmd.Close
+Else
+   DoCmd.Close
+End If
+Exit_Form_Close:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_Form_Close:
+    MsgBox Error$
+    Resume Exit_Form_Close
+End Sub
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 25 July 1996
+' Purpose       : RFC 413, "input" record setup here, as in [Tax Year] click
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp', always run delete macro
+
+On Error GoTo err_Form_Load
+Dim Sname As String
+Dim Fname As String
+Dim worked As Integer
+
+DoCmd.Maximize
+'Obtain user details via two functions making
+'API calls to User.INI file
+Sname = getsurname()
+Fname = getinitials()
+Forms![frmClass3MakeUp]![UserDetails] = Fname & " " & Sname
+
+
+'
+' duplicate of [Tax Year].Click
+'
+
+With Forms!frmClass3MakeUp
+    Forms![frmClass3MakeUp]![Tax Year] = (Left$([Tax Year], 4))
+    
+    ![Total2].Visible = False
+    ![Rate2].Visible = False
+    ![No Conts2].Visible = False
+    ![AT].Visible = False
+    ![Equals].Visible = False
+    ![grandtotal].Visible = False
+    
+    ![Date of Enquiry].Locked = False
+    ![Total Conts Paid].Locked = False
+End With
+' duplicate of [Tax Year].Click
+'
+
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+
+ 
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If [Tax Year] > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                [Tax Year].SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If [Tax Year] > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                [Tax Year].SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                [Tax Year].SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub No_Conts_GotFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp'
+
+On Error GoTo err_No_Conts_GotFocus
+Forms!frmClass3MakeUp![Tax Year].SetFocus
+exit_No_Conts_GotFocus:
+    Exit Sub
+err_No_Conts_GotFocus:
+    MsgBox Error$
+    Resume exit_No_Conts_GotFocus
+End Sub
+
+Private Sub Print_Report_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Print_Report_Click
+
+    Dim DocName As String
+
+    DocName = "rptClass3MakeUp"
+    DoCmd.OpenReport DocName, A_NORMAL
+
+Exit_Print_Report_Click:
+    Exit Sub
+
+Err_Print_Report_Click:
+    MsgBox Error$
+    Resume Exit_Print_Report_Click
+    
+End Sub
+
+Private Sub Quit_Click()
+
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 25 July 1996
+' Purpose       : RFC 413, 'DoCmd RunMacro "delete"' removed, so that it does not cause focus problems
+' Author        : Ian Pilkington
+' Date          : 13/03/98
+' Purpose       : RFC 917 Year 2000, removed code that referenced working tables
+
+On Error GoTo Err_Quit_Click
+
+   DoCmd.Close
+
+
+Exit_Quit_Click:
+    Exit Sub
+
+Err_Quit_Click:
+    MsgBox Error$
+    Resume Exit_Quit_Click
+    
+End Sub
+
+
+
+Private Sub Tax_Year_AfterUpdate()
+NIsuffix_AfterUpdate
+End Sub
+
+Private Sub Tax_Year_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 20 August 1996
+' Purpose       : Functionality moved to TaxYearClickAction, so it can be shared
+
+    On Error GoTo Err_Tax_Year_Click
+
+    TaxYearClickAction
+
+Exit_Tax_Year_Click:
+    Exit Sub
+Err_Tax_Year_Click:
+    MsgBox Error$
+    Resume Exit_Tax_Year_Click
+End Sub
+
+
+Private Sub Total_Conts_Paid_GotFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp'
+
+On Error GoTo err_Total_Conts_Paid_GotFocus
+DoCmd.Hourglass True
+Forms!frmClass3MakeUp!Flash.Visible = True
+Dim testnull As Variant
+testnull = Forms!frmClass3MakeUp![Tax Year]
+
+If IsNull(testnull) Then
+   MsgBox "You must enter a Tax Year", 48, "Information"
+   Forms!frmClass3MakeUp![Tax Year].SetFocus
+Else
+   Forms!frmClass3MakeUp![Calculate].Enabled = True
+End If
+exit_Total_Conts_Paid_GotFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+err_Total_Conts_Paid_GotFocus:
+    MsgBox Error$
+    Resume exit_Total_Conts_Paid_GotFocus
+End Sub
+
+Private Sub Total_Conts_Paid_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp'
+
+On Error GoTo err_Total_Conts_Paid_LostFocus
+DoCmd.Hourglass True
+Forms!frmClass3MakeUp!Flash.Visible = False
+exit_Total_Conts_Paid_LostFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+err_Total_Conts_Paid_LostFocus:
+    MsgBox Error$
+    Resume err_Total_Conts_Paid_LostFocus
+End Sub

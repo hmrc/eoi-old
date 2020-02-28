@@ -1,0 +1,475 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Function bValidInterestLateCalculation() As Integer
+' Author        : Mustaq Hussain
+' Date          : 30 January 1996
+' Fuction Name  : bValidInterestLateCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' History
+' Author        : Mustaq Hussain
+' Date          : 5 March 1997
+' Purpose       : RFC 506 : Interest rate table check
+' Author        : Christopher Schuler
+' Date          : 6 April 2000
+' Purpose       : CCA 4985 "Date Payment Paid" field added
+
+
+    Dim curTotalDebt As Currency, curTotalInterest As Currency
+    Dim perUnsed As Double
+    Dim bCorrectValidation As Integer
+    
+    Const gcINTEREST_UNPAID_DEBT = 1
+    Const gcINTEREST_LATE_PAID_REFUNDS = 2
+
+    Dim myDB As Database, mySet As DAO.Recordset, MyLookUp As DAO.Recordset
+    Dim SQLQuery
+
+    On Error GoTo Err_bValidInterestLateCalculation
+
+    DoCmd.Hourglass True
+
+    
+    ' Assume correct
+    bValidInterestLateCalculation = True
+    bCorrectValidation = True
+                
+
+    ' Check record validation
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset("tblInterestLatePaidRefunds")
+    
+        ' Calculate only if entries exist
+        If Not mySet.EOF Then
+            mySet.MoveFirst
+            
+            ' Loop through each tax year entry
+            Do Until mySet.EOF
+                              'subform differs for pre 1999
+                If mySet![TaxYearFor] < 1999 Then
+
+                    If IsNull(mySet![TaxYearFor]) Or IsNull(mySet![TaxYearPaid]) Then
+                        Beep
+                        MsgBox ("Both tax years must be set")
+                        bCorrectValidation = False
+                        Exit Do
+                    End If
+                    If mySet![TaxYearFor] > mySet![TaxYearPaid] Then
+                        Beep
+                        MsgBox ("Tax Year Refund For must not be after Tax Year Amount Paid")
+                        bCorrectValidation = False
+                        Exit Do
+                    End If
+                Else
+                    If IsNull(mySet![TaxYearFor]) Or IsNull(mySet![DatePaid]) Then
+                        Beep
+                        MsgBox ("Tax Years Refund For and Date Payment Made must be set")
+                        bCorrectValidation = False
+                        Exit Do
+                    End If
+                    
+                        
+                    If CVDate(Format$("06/04/" + Format$(mySet![TaxYearFor] + 1), "dd/mm/yyyy")) > mySet![DatePaid] Then
+
+                        Beep
+                        MsgBox ("Date Payment Made must be after Tax Year Refund For")
+                        bCorrectValidation = False
+                        Exit Do
+                    End If
+                End If
+                If mySet![Amount] > 1000000 Then
+                    Beep
+                    MsgBox ("Amount For Refund must be between : £0.00 (inclusive) and £1,000,000.00 (exclusive)")
+                    bCorrectValidation = False
+                    Exit Do
+                End If
+                mySet.MoveNext
+            Loop
+    
+        Else
+            Beep
+            MsgBox ("No entries in table to carry out  calculation")
+            bCorrectValidation = False
+        End If
+    
+    ' Check dates valid
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset("Class 1 Interest Charges Refunds")
+    
+        ' Calculate only if entries exist
+        If Not mySet.EOF Then
+            mySet.MoveFirst
+
+            Dim dtmPrevious
+            dtmPrevious = mySet![Interest Start Date]
+            mySet.MoveNext
+
+            ' Loop through each entry
+            Do Until mySet.EOF
+                If IsNull(mySet![Interest Start Date]) Then
+                    Beep
+                    MsgBox ("Start of interest rate not set")
+                    bCorrectValidation = False
+                    Exit Do
+                End If
+                If mySet![Interest Start Date] <= dtmPrevious Then
+                    Beep
+                    MsgBox ("From dates must increase")
+                    bCorrectValidation = False
+                    Exit Do
+                End If
+                dtmPrevious = mySet![Interest Start Date]
+                mySet.MoveNext
+            Loop
+    
+        Else
+            Beep
+            MsgBox ("No entries in table to carry out  calculation")
+            bCorrectValidation = False
+        End If
+    
+        mySet.Close
+        myDB.Close
+    
+    ' Miss calculation if incorrect validation
+    If bCorrectValidation = False Then
+        bValidInterestLateCalculation = False
+        GoTo Exit_bValidInterestLateCalculation
+    End If
+
+
+
+    ' Assume true
+    bValidInterestLateCalculation = True
+    If bCalculateInterest("frmInterestLatePaidRefundsMain", "tblInterestLatePaidRefunds", gcINTEREST_LATE_PAID_REFUNDS, txtDateOfAssessment, IIf(IsNull(txtNoOfBankHolidays), 0, txtNoOfBankHolidays), curTotalDebt, curTotalInterest, perUnsed) = True Then
+        ' Calculation correct
+        ' Update fields
+    
+        txtTotalDebt = curTotalDebt
+        txtTotalInterest = curTotalInterest
+        txtTotalDebtAndInterest = txtTotalDebt + txtTotalInterest
+        Requery
+    Else
+        ' Calculation incorrect
+        bValidInterestLateCalculation = False
+    End If
+
+
+Exit_bValidInterestLateCalculation:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidInterestLateCalculation:
+    MsgBox Error$
+    Resume Exit_bValidInterestLateCalculation
+
+End Function
+
+Private Sub ClearForm()
+' Author        : Mustaq Hussain
+' Date          : 31 January 1996
+' Fuction Name  : ClearForm
+' Purpose       : Clear the calculation
+' History       : Jane Mullen
+' Date          : 10 February 1997
+' Purpose       : Clear added Initial and NINO fields
+
+    On Error GoTo Err_ClearForm
+
+    'Clear down any records
+    DoCmd.SetWarnings False
+
+    DoCmd.RunSQL "DELETE * FROM [tblInterestLatePaidRefunds]"
+    DoCmd.RunSQL "DELETE * FROM [tblInterestLatePaidRefundsReport]"
+    With Forms![frmInterestLatePaidRefundsMain]
+        !subRefunds.Form.Requery
+    
+        ![txtDateOfAssessment] = Date
+        ![txtNoOfBankHolidays] = Null
+        ![txtEmployeeName] = Null
+        ![txtEmployerName] = Null
+        ![Initial] = Null
+        ![NIPrefix] = Null
+        ![NInumber] = Null
+        ![NIsuffix] = Null
+        ![txtReference] = Null
+        ![txtEmployeeName].SetFocus
+    
+        ![txtTotalDebt] = Null
+        ![txtTotalInterest] = Null
+        ![txtTotalDebtAndInterest] = Null
+    End With
+
+Exit_ClearForm:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_ClearForm:
+    MsgBox Error$
+    Resume Exit_ClearForm
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 31 January 1996
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear the calculation
+
+    On Error GoTo Err_cmdClear_Click
+
+    ClearForm
+
+Exit_cmdClear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 5 March 1997
+' Purpose       : RFC 506 : Interest rate table check, ensure incorrect dates removed
+
+
+    Dim myDB As Database, mySet As DAO.Recordset, MyLookUp As DAO.Recordset
+
+    On Error GoTo Err_close_Click
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        
+
+    ' Delete 'bad' dates
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset("Class 1 Interest Charges Refunds")
+    
+        ' Calculate only if entries exist
+        If Not mySet.EOF Then
+            mySet.MoveFirst
+            Dim dtmPrevious
+
+            dtmPrevious = mySet![Interest Start Date]
+            mySet.MoveNext
+
+            ' Loop through each entry
+            Do Until mySet.EOF
+                ' Remove if before
+                If mySet![Interest Start Date] <= dtmPrevious Then
+                    mySet.Edit
+                    mySet.Delete
+                Else
+                    dtmPrevious = mySet![Interest Start Date]
+                End If
+                mySet.MoveNext
+            Loop
+    
+        End If
+
+        mySet.Close
+
+    DoCmd.SetWarnings False
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+End Sub
+
+Private Sub cmdLate_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 December 1995
+' Fuction Name  : cmdLate_Click
+' Purpose       : Close Unpaid and open Late
+
+    On Error GoTo Err_cmdLate_Click
+
+    DoCmd.OpenForm "frmInterestL/ULateMain"
+    DoCmd.Close acForm, "frmInterestL/UUnpaidMaine"
+
+
+Exit_cmdLate_Click:
+    Exit Sub
+
+Err_cmdLate_Click:
+    MsgBox Error$
+    Resume Exit_cmdLate_Click
+    
+End Sub
+
+Private Sub cmdNext_Click()
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 5 March 1997
+' Purpose       : RFC 506 : Interest rate table check, ensure incorrect dates removed
+
+
+    Dim myDB As Database, mySet As DAO.Recordset, MyLookUp As DAO.Recordset
+
+    On Error GoTo err_cmdNext_Click
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        
+
+    ' Delete 'bad' dates
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset("Class 1 Interest Charges Refunds")
+    
+        ' Calculate only if entries exist
+        If Not mySet.EOF Then
+            mySet.MoveFirst
+            Dim dtmPrevious
+
+            dtmPrevious = mySet![Interest Start Date]
+            mySet.MoveNext
+
+            ' Loop through each entry
+            Do Until mySet.EOF
+                ' Remove if before
+                If mySet![Interest Start Date] <= dtmPrevious Then
+                    mySet.Edit
+                    mySet.Delete
+                Else
+                    dtmPrevious = mySet![Interest Start Date]
+                End If
+                mySet.MoveNext
+            Loop
+    
+        End If
+
+        mySet.Close
+    
+    DoCmd.OpenForm "frmRepayInterestMain", A_NORMAL
+    DoCmd.Close acForm, "frminterestLatePaidRefundsMain"
+
+exit_cmdNext_Click:
+    Exit Sub
+err_cmdNext_Click:
+    MsgBox Error$
+    Resume exit_cmdNext_Click
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 31 January 1996
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Calculate then print
+
+    On Error GoTo Err_cmdPrint_Click
+
+    If bValidInterestLateCalculation() = True Then
+        DoCmd.OpenReport "rptInterestLatePaidRefunds", A_NORMAL
+    End If
+
+
+Exit_cmdPrint_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+End Sub
+
+Private Sub cmdUnpaid_Click()
+' Author        : Mustaq Hussain
+' Date          : 30 January 1996
+' Fuction Name  : cmdUnpaid_Click
+' Purpose       : Close Unpaid and open Late
+
+    On Error GoTo Err_cmdUnpaid_Click
+
+    DoCmd.OpenForm "frmInterestL/UUnpaidMain"
+    DoCmd.Close acForm, "frmInterestL/ULateMain"
+
+
+Exit_cmdUnpaid_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_cmdUnpaid_Click:
+    MsgBox Error$
+    Resume Exit_cmdUnpaid_Click
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 30 January 1996
+' Fuction Name  : Form_Load
+' Purpose       : Close Unpaid and open Late
+
+    On Error GoTo err_Form_Load
+
+    DoCmd.Hourglass True
+    DoCmd.Maximize
+    
+    'Populate appropriate field
+    Forms![frmInterestLatePaidRefundsMain]![txtPrepared By] = getinitials() & " " & getsurname()
+    
+    ClearForm
+
+exit_Form_Load:
+    DoCmd.Hourglass False
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+        Case "F", "M"
+        
+            If MsgBox("Is the calculation for a tax year before 2005?", vbYesNo, "Tax year?") = vbNo Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Initial.SetFocus
+                NIsuffix.SetFocus
+             End If
+        Case Else
+        
+            If MsgBox("Is the calculation for a tax year before 2005?", vbYesNo, "Tax year?") = vbYes Then
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Initial.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Initial.SetFocus
+                NIsuffix.SetFocus
+            End If
+            
+    End Select
+
+End If
+End Sub

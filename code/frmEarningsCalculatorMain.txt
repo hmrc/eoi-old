@@ -1,0 +1,498 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub category_AfterUpdate()
+        
+'Author     Jane Watson
+'Date       21 July 1997
+'Purpose    To disenable C/O Contributions if Category is A or B
+
+On Error GoTo Err_Category_AfterUpdate
+
+    If Category = Null Then
+        MsgBox "You must select a category from the list"
+        Category.SetFocus
+    Else
+        If (Category = "A" Or Category = "A HMF" Or (Category = "E" And Taxyear < 1991) Or (Category = "E HMF" And Taxyear < 1991)) Then
+           COConts.Enabled = False
+           COContsLabel.ForeColor = 12632256
+        Else
+           COConts.Enabled = True
+           COContsLabel.ForeColor = 0
+        End If
+    End If
+        
+
+Exit_Category_AfterUpdate:
+    Exit Sub
+
+Err_Category_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Category_AfterUpdate
+
+End Sub
+
+Private Sub Category_Change()
+    
+'Author     Jane Watson
+'Date       21 July 1997
+'Purpose    If on change of circumstance Category equals A or B disenable C/O Contributions
+
+On Error GoTo Err_Category_Change
+    
+    If Category = Null Then
+        MsgBox "You must select a category from the list"
+        Category.SetFocus
+    Else
+        If (Category = "A" Or Category = "A HMF" Or (Category = "E" And Taxyear < 1991) Or (Category = "E HMF" And Taxyear < 1991)) Then
+           COConts.Enabled = False
+           COContsLabel.ForeColor = 12632256
+        Else
+           COConts.Enabled = True
+           COContsLabel.ForeColor = 0
+        End If
+    End If
+    
+Exit_Category_Change:
+    Exit Sub
+
+Err_Category_Change:
+    MsgBox Error$
+    Resume Exit_Category_Change
+
+End Sub
+
+Private Sub Category_GotFocus()
+
+'Author        Jane Watson
+'Date          8 July 1997
+'Purpose       To allow only valid categories for relevant years
+
+On Error GoTo Err_Category_GotFocus
+    
+        Dim strCatStd As String, strCatRest As String, strCatHMF As String
+
+        strCatStd = "A;D;E"
+        strCatRest = ";F;G"
+        strCatHMF = ";A HMF; D HMF; E HMF"
+
+        If Forms!frmEarningsCalculatorMain!Taxyear > 1996 Then
+            Category.RowSource = strCatStd & strCatRest
+        ElseIf Forms!frmEarningsCalculatorMain!Taxyear <= 1995 Then
+            Category.RowSource = strCatStd & strCatHMF
+        Else
+            Category.RowSource = strCatStd
+        End If
+
+Exit_Category_GotFocus:
+    Exit Sub
+
+Err_Category_GotFocus:
+    MsgBox Error$
+    Resume Exit_Category_GotFocus
+
+End Sub
+
+Private Sub Category_LostFocus()
+
+'Author     Jane Watson
+'Date       10 July 1997
+'Purpose    On validation of Category and Tax Year, if incompatiable, category set to Null
+
+On Error GoTo Err_Category_LostFocus
+
+    'Prevent exit of category field if empty
+  
+    If Category = Null Then
+        MsgBox "You must select a category from the list"
+        Category.SetFocus
+    Else
+        If (Category = "A" Or Category = "A HMF" Or (Category = "E" And Taxyear < 1991) Or (Category = "E HMF" And Taxyear < 1991)) Then
+           COConts.Enabled = False
+           COContsLabel.ForeColor = 12632256
+        Else
+           COConts.Enabled = True
+           COContsLabel.ForeColor = 0
+        End If
+    End If
+  
+
+Exit_Category_LostFocus:
+    Exit Sub
+
+Err_Category_LostFocus:
+    MsgBox Error$
+    Resume Exit_Category_LostFocus
+
+End Sub
+
+Private Sub Clear_Form()
+    
+'Author     Jane Mullen
+'Date       8 July 1997
+'Purpose    To clear form
+
+On Error GoTo Err_Clear_Form
+
+    Dim iTaxYear As Integer
+
+    Forms!frmEarningsCalculatorMain![Category] = "A"
+
+    Forms!frmEarningsCalculatorMain![COConts].Enabled = False
+    Forms!frmEarningsCalculatorMain![COContsLabel].ForeColor = 12632256
+    
+    TotalConts = Null
+    EmployeeConts = Null
+    COConts = Null
+    Earnings = Null
+    TConts = Null
+    EEConts = Null
+    COEarnings = Null
+    CONI = Null
+
+    Forms!frmEarningsCalculatorMain![Taxyear].SetFocus
+
+Exit_Clear_Form:
+    Exit Sub
+
+Err_Clear_Form:
+    MsgBox Error$
+    Resume Exit_Clear_Form
+
+End Sub
+
+Private Sub cmdCalculate_Click()
+
+'Author     Jane Watson
+'Date       14 July 1997
+'Purpose    To Calculate Earnings figure
+
+On Error GoTo Err_cmdCalculate_Click
+
+    Dim InvalidInput As Integer
+
+    'Assume validation correct
+    If ValidateFields() = False Then
+        Exit Sub
+    End If
+
+    InvalidInput = False
+
+    ' Perform Calculation
+If Forms!frmEarningsCalculatorMain![Taxyear] < 1999 Then
+    
+    If CalculateEarnings(InvalidInput) = False Then
+        If InvalidInput = True Then
+            COEarnings = Null
+            CONI = Null
+            Earnings = Null
+            TConts = Null
+            EEConts = Null
+            Exit Sub
+        End If
+        Clear_Form
+        Exit Sub
+    End If
+
+Else
+
+    If CalculateEarnings1999(InvalidInput) = False Then
+        If InvalidInput = True Then
+            COEarnings = Null
+            CONI = Null
+            Earnings = Null
+            TConts = Null
+            EEConts = Null
+            Exit Sub
+        End If
+        Clear_Form
+        Exit Sub
+    End If
+
+End If
+
+
+Exit_cmdCalculate_Click:
+    Exit Sub
+
+Err_cmdCalculate_Click:
+    MsgBox Error$
+    Resume Exit_cmdCalculate_Click
+End Sub
+
+Private Sub cmdClear_Click()
+
+'Author     Jane Watson
+'Date       8 July 1997
+'Purpose    To clear form
+
+
+On Error GoTo Err_cmdClear_Click
+
+
+Clear_Form
+
+
+Exit_cmdClear_Click:
+    Exit Sub
+    
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+
+' Author        : Jane Watson
+' Date          : 17 June 1997
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes form, back to main menu
+
+On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub Form_Load()
+
+' Author        : Jane Watson
+' Date          : 17 June 1997
+' Fuction Name  : Form_Load
+' Purpose       : Load the form Maximise and clear down any unwanted fields
+
+    On Error GoTo err_Form_Load
+
+    DoCmd.Maximize
+
+    Clear_Form
+    
+If Me.OpenArgs <> "" Then
+    Taxyear = OpenArgs
+Else
+    Taxyear = 1999
+End If
+
+    taxyear_AfterUpdate
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub taxyear_AfterUpdate()
+
+'Author     Jane Watson
+'Date       9 July 1997
+'Purpose    Validation of TaxYear and Category
+'Author     Christopher Schuler
+'Date       6 December 1999
+'Purpose    Screen changes for 1999
+'Author     Peter Morton
+'Date       29/11/00
+'Purpose    Switch form if year 2000
+
+
+On Error GoTo Err_Taxyear_AfterUpdate
+Application.Echo False
+
+If Taxyear = 2000 Then
+    DoCmd.OpenForm "frmEarningsCalculatorMain2000"
+    DoCmd.Close acForm, "frmEarningsCalculatorMain"
+    GoTo Exit_Taxyear_AfterUpdate
+End If
+    With Forms!frmEarningsCalculatorMain
+        If Taxyear < 1999 Then
+    
+            Dim myDB As Database
+            Dim MyRecs As DAO.Recordset
+            Dim SQLString As String
+        
+        
+            Set myDB = DBEngine.Workspaces(0).Databases(0)
+        
+            SQLString = "SELECT [CLASS 1 RATE TABLE].[Cat] FROM [CLASS 1 RATE TABLE] WHERE"
+            SQLString = SQLString & " [CLASS 1 RATE TABLE].[Tax Yr] = '" & Right$(Str$([Taxyear]), 4)
+            SQLString = SQLString & "' AND [CLASS 1 RATE TABLE].[Cat] = '" & [Category] & "'"
+        
+            
+            Set MyRecs = myDB.OpenRecordset(SQLString)
+        
+            If (MyRecs.Recordcount = 0) Then
+                Beep
+                MsgBox "This category is not appropriate for this tax year", 48, "Warning"
+                Category = Null
+                Category.SetFocus
+            End If
+        
+            MyRecs.Close
+    
+            !EarningsLabel.Caption = "Earnings:"
+            !Text42.Caption = "Total Conts:"
+            !Text44.Caption = "EE Conts:"
+            !Text46.Caption = "C/O Earnings:"
+            ![C/ONILabel].Caption = "C/O NI:"
+            !COContsLabel.Visible = True
+            !COConts.Visible = True
+            !Text51.Visible = False
+            !Text52.Visible = False
+            !Earnings.DecimalPlaces = 0
+            !COEarnings.DecimalPlaces = 0
+    
+        Else
+            
+            Category = "A"
+            !EarningsLabel.Caption = "= LEL"
+            !Text42.Caption = "LEL - ET"
+            !Text44.Caption = "ET - UEL"
+            !Text46.Caption = "Total Conts"
+            ![C/ONILabel].Caption = "Employee Conts"
+            !COContsLabel.Visible = False
+            !COConts.Visible = False
+            !Text51.Visible = True
+            !Text52.Visible = True
+            !Earnings.DecimalPlaces = 2
+            !COEarnings.DecimalPlaces = 2
+    
+        End If
+    End With
+Clear_Form
+
+
+Exit_Taxyear_AfterUpdate:
+    Application.Echo True
+    Exit Sub
+
+Err_Taxyear_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Taxyear_AfterUpdate
+
+End Sub
+
+Private Function ValidateFields() As Integer
+
+'Author     Jane Watson
+'Date       21 July 1997
+'Purpose    To validate mandatory fields
+
+On Error GoTo Err_ValidateFields
+
+    Dim WeekEarnLEL, WeekEENI As Currency
+    Dim EEWeekRate As Double
+    Dim SQLQuery As String
+    Dim SQLString As String
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim Yourset As DAO.Recordset
+
+    If Taxyear < 1999 Then
+
+    'SQL statement to determine which year's data to use on BAND TABLE
+    SQLQuery = "SELECT [Wk Band 1] FROM [BAND TABLE] WHERE [Tax Yr] = '" & Right$(Str$([Taxyear]), 4) & "'"
+    
+    'SQL statement to determine which year's data and category to use from CLASS 1 RATE TABLE
+    SQLString = "SELECT * FROM [CLASS 1 RATE TABLE] WHERE"
+    SQLString = SQLString & " [CLASS 1 RATE TABLE].[Tax Yr] = '" & Right$(Str$([Taxyear]), 4)
+    SQLString = SQLString & "' AND [CLASS 1 RATE TABLE].[Cat] = '" & [Category] & "'"
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+    Set Yourset = myDB.OpenRecordset(SQLString)
+
+    'Defining Weekly band rate
+    WeekEarnLEL = mySet![Wk Band 1]
+
+    'Defining Weekly rates
+    EEWeekRate = Yourset![Up to LEL1 (employee)]
+    
+    'Define NI Due on Weelkly LEL
+    WeekEENI = EEWeekRate * WeekEarnLEL
+    
+
+
+    'Validate COConts field
+    If (COConts.Enabled = True) And IsNull(COConts) Then
+        Beep
+        MsgBox "You must enter a valid amount for C/O Contributions"
+        ValidateFields = False
+        COConts.SetFocus
+        Exit Function
+    ElseIf COConts >= 1000000 Then
+        Beep
+        MsgBox "The C/O Contributions must be less than £1,000,000.00"
+        ValidateFields = False
+        COConts.SetFocus
+        Exit Function
+    ElseIf COConts >= EmployeeConts Then
+        Beep
+        MsgBox "The C/O Contributions must be less than Total Primary"
+        ValidateFields = False
+        COConts.SetFocus
+        Exit Function
+    End If
+
+
+    mySet.Close
+    Yourset.Close
+
+End If
+
+    ' Validate total contribution field
+    If IsNull(TotalConts) Then
+        Beep
+        MsgBox "You must enter a valid amount for Total Contributions"
+        ValidateFields = False
+        TotalConts.SetFocus
+        Exit Function
+    ElseIf TotalConts >= 1000000 Then
+        Beep
+        MsgBox "The Total Contributions must be less than £1,000,000.00"
+        ValidateFields = False
+        TotalConts.SetFocus
+        Exit Function
+    End If
+
+    ' Validate employee contribution field
+    If IsNull(EmployeeConts) Then
+        Beep
+        MsgBox "You must enter a valid amount for Employee Contributions"
+        ValidateFields = False
+        EmployeeConts.SetFocus
+        Exit Function
+    ElseIf (EmployeeConts >= 1000000) Or (EmployeeConts > TotalConts) Then
+        Beep
+        MsgBox "The Employee Contributions must be less than £1,000,000.00 and not greater than the Total Contributions"
+        ValidateFields = False
+        EmployeeConts.SetFocus
+        Exit Function
+    End If
+
+
+ValidateFields = True
+
+
+
+Exit_ValidateFields:
+    Exit Function
+
+Err_ValidateFields:
+    MsgBox Error$
+    Resume Exit_ValidateFields
+    
+End Function

@@ -1,0 +1,187 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private Sub cboTaxYear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cboTaxYear_Click
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    Dim RecordTotal As Integer
+    Dim Message1 As String, Message2 As String, Message3 As String, Message4 As String
+    Dim Message5 As String, Message6 As String, Message7  As String
+
+    DoCmd.SetWarnings False
+
+    Set myDB = CurrentDb()
+
+    Message1 = "Employees do not pay contributions on earnings above UEL"
+    Message2 = "5.4% on earnings between £35.00 and £265.00 and 9.5% thereafter"
+    Message3 = "5.4% on earnings between £38.00 and £285.00 and 9.5% thereafter"
+    Message4 = "5.4% on earnings between £39.00 and £295.00 and 9.5% thereafter"
+    Message5 = "Employers do not pay contributions on earnings above UEL"
+    Message6 = "5.8% on earnings between £41.00 and £305.00 and 9.5% thereafter"
+    Message7 = "5.95% on earnings between £43.00 and £325.00 and 9.75% thereafter"
+    With Forms![frmAppendix2]![subAppendix2].Form
+        .[Message1].Caption = ""
+        .[Message2].Caption = ""
+    
+        If .cboTaxYear = "1985" Then
+            .[Message1].Caption = Message1
+            .[Message2].Caption = Message2
+        End If
+        
+        If .cboTaxYear = "1986" Then
+            .[Message1].Caption = Message3
+        End If
+    
+        If .cboTaxYear = "1987" Then
+            .[Message1].Caption = Message4
+        End If
+        
+        If .cboTaxYear > "1987" And .cboTaxYear < "1990" Then
+            .[Message1].Caption = Message5
+        End If
+    
+        If .cboTaxYear = "1988" Then
+            .[Message2].Caption = Message6
+        End If
+        
+        If .cboTaxYear = "1989" Then
+            .[Message2].Caption = Message7
+        End If
+    
+        If .cboTaxYear > "1985" Then
+            .[Primary Not C/O upto LEL].Height = 900
+            .[Primary C/O LEL to UEL].Height = 900
+            .[Reduced Rate].Height = 900
+            .[Secondary Not C/O upto LEL].Height = 900
+            .[Secondary C/O LEL to UEL].Height = 900
+            .[Weekly Earnings].Height = 900
+            .[Primary Not C/O upto LEL2].Height = 900
+            .[Primary C/O LEL to UEL2].Height = 900
+            .[Reduced Rate2].Height = 900
+            .[Secondary Not C/O upto LEL2].Height = 900
+            .[Secondary C/O LEL to UEL2].Height = 900
+            .[Weekly Earnings2].Height = 900
+        Else
+            If .cboTaxYear = "1985" Then
+                .[Primary Not C/O upto LEL].Height = 225
+                .[Primary C/O LEL to UEL].Height = 225
+                .[Reduced Rate].Height = 225
+                .[Secondary Not C/O upto LEL].Height = 225
+                .[Secondary C/O LEL to UEL].Height = 225
+                .[Weekly Earnings].Height = 225
+                .[Primary Not C/O upto LEL2].Height = 900
+                .[Primary C/O LEL to UEL2].Height = 900
+                .[Reduced Rate2].Height = 900
+                .[Secondary Not C/O upto LEL2].Height = 900
+                .[Secondary C/O LEL to UEL2].Height = 900
+                .[Weekly Earnings2].Height = 900
+            Else
+                .[Primary Not C/O upto LEL].Height = 225
+                .[Primary C/O LEL to UEL].Height = 225
+                .[Reduced Rate].Height = 225
+                .[Secondary Not C/O upto LEL].Height = 225
+                .[Secondary C/O LEL to UEL].Height = 225
+                .[Weekly Earnings].Height = 225
+                .[Primary Not C/O upto LEL2].Height = 225
+                .[Primary C/O LEL to UEL2].Height = 225
+                .[Reduced Rate2].Height = 225
+                .[Secondary Not C/O upto LEL2].Height = 225
+                .[Secondary C/O LEL to UEL2].Height = 225
+                .[Weekly Earnings2].Height = 225
+            End If
+        End If
+    
+    
+        .[Primary Not C/O upto LEL2].Visible = False
+        .[Primary C/O LEL to UEL2].Visible = False
+        .[Reduced Rate2].Visible = False
+        .[Secondary Not C/O upto LEL2].Visible = False
+        .[Secondary C/O LEL to UEL2].Visible = False
+        .[Weekly Earnings2].Visible = False
+        .[Split Date].Visible = False
+        .[Split Date2].Visible = False
+    
+        Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Class 1 C/O Contributions (HMF)] WHERE [Tax Year] = """ & .cboTaxYear & """;")
+    
+        MyRecordSet.MoveLast
+        
+        RecordTotal = MyRecordSet.Recordcount
+        
+        MyRecordSet.MoveFirst
+    
+        .[Primary Not C/O upto LEL] = MyRecordSet![Primary Not C/O upto LEL]
+        .[Primary C/O LEL to UEL] = MyRecordSet![Primary C/O LEL to UEL]
+        .[Reduced Rate] = MyRecordSet![Reduced Rate]
+        .[Secondary Not C/O upto LEL] = MyRecordSet![Secondary Not C/O upto LEL]
+        .[Secondary C/O LEL to UEL] = MyRecordSet![Secondary C/O LEL to UEL]
+        .[Weekly Earnings] = MyRecordSet![Weekly Earnings]
+    
+    
+        If RecordTotal > 1 Then
+    
+            .[Split Date].Caption = MyRecordSet![Split Date]
+            
+            MyRecordSet.MoveLast
+            
+            .[Primary Not C/O upto LEL2] = MyRecordSet![Primary Not C/O upto LEL]
+            .[Primary C/O LEL to UEL2] = MyRecordSet![Primary C/O LEL to UEL]
+            .[Reduced Rate2] = MyRecordSet![Reduced Rate]
+            .[Secondary Not C/O upto LEL2] = MyRecordSet![Secondary Not C/O upto LEL]
+            .[Secondary C/O LEL to UEL2] = MyRecordSet![Secondary C/O LEL to UEL]
+            .[Weekly Earnings2] = MyRecordSet![Weekly Earnings]
+            .[Split Date2].Caption = MyRecordSet![Split Date]
+        
+            .[Primary Not C/O upto LEL2].Visible = True
+            .[Primary C/O LEL to UEL2].Visible = True
+            .[Reduced Rate2].Visible = True
+            .[Secondary Not C/O upto LEL2].Visible = True
+            .[Secondary C/O LEL to UEL2].Visible = True
+            .[Weekly Earnings2].Visible = True
+            .[Split Date].Visible = True
+            .[Split Date2].Visible = True
+        
+        End If
+    End With
+Exit_cboTaxYear_Click:
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub Form_Load()
+' Modification History
+' Author    : Mustaq Hussain
+' Date      : 14 February 1996
+' Reason    : For tax year 96/97 onwards, this form is not applicable
+' History
+' Author : Mustaq Hussain
+' Date   : 4 November 1996
+' Reason : Default tax year set
+
+    On Error GoTo err_Form_Load
+
+    Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = 1995
+
+    cboTaxYear_Click
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub

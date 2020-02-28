@@ -1,0 +1,200 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+' Author        : Christopher Schuler
+' Date          : 20 January 2000
+' Purpose       : Form Ratio Contributions 1999
+
+Option Explicit
+
+Private Sub Cat_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 29 August 1996
+' Fuction Name  : Cat_AfterUpdate
+' Purpose       : Blank entries if cat changed
+
+    Dim nTaxYear As Integer
+
+    On Error GoTo Err_Cat_AfterUpdate
+    
+    nTaxYear = Forms!frmRatioMain.cboTaxYear
+
+
+    ClearResults
+
+Exit_Cat_AfterUpdate:
+    Exit Sub
+
+Err_Cat_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Cat_AfterUpdate
+
+End Sub
+
+' Author    : Lisa Scothern
+' Date      : 16/05/97
+' Purpose   : Control list of available categories for the user to chose, RFC 642H
+' Author    : Christopher Schuler
+' Date      : 15 Feb 2002
+' Purpose   : Cats C, X and Y added
+' Author    : Christopher Schuler
+' Date      : 24 Dec 2003
+' Purpose   : Cats amended for 2003
+' Author    : Christopher Sneddon
+' Date      : 10 October 2011
+' Purpose   : Cats amended for 2012
+
+Private Sub Cat_GotFocus()
+
+    On Error GoTo Err_Cat_GotFocus
+
+    Dim strCatStd As String, strCatRest As String, strCat2001 As String, strCat2003 As String, strCat2012 As String
+
+    strCatStd = "A;B;D;E"
+    strCatRest = ";F;G"
+    strCat2001 = "A;B;C;D;E;F;G;X;Y"
+    strCat2003 = "A;B;C;D;E;F;G;J;L;S;X"
+    strCat2012 = "A;B;C;D;E;J;L;X"
+    
+    
+    Select Case Forms!frmRatioMain!cboTaxYear
+    
+        Case Is < 1997
+        
+            Cat.RowSource = strCatStd
+            
+        Case Is < 2001
+        
+            Cat.RowSource = strCatStd & strCatRest
+        
+        Case Is < 2003
+        
+            Cat.RowSource = strCat2001
+            
+        Case Is > 2011
+        
+             Cat.RowSource = strCat2012
+        
+        Case Else
+        
+            Cat.RowSource = strCat2003
+        
+    End Select
+
+
+Exit_Cat_GotFocus:
+    Exit Sub
+
+Err_Cat_GotFocus:
+    MsgBox Error$
+    Resume Exit_Cat_GotFocus
+
+End Sub
+
+Private Sub ClearResults()
+' Author        : Mustaq Hussain
+' Date          : 3 September 1996
+' Fuction Name  : ClearResults
+' Purpose       : Blank entries if cat changed
+
+    On Error GoTo Err_ClearResults
+
+    [Comment] = "Press Calculate"
+    [Pass] = "No"
+    Forms!frmRatioMain.txtOverallTest = Null
+
+Exit_ClearResults:
+    Exit Sub
+
+Err_ClearResults:
+    MsgBox Error$
+    Resume Exit_ClearResults
+
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 9 September 1996
+' Fuction Name  : Form_BeforeUpdate
+' Purpose       : Blank entries if cat changed
+
+    Dim nTaxYear As Integer
+
+    On Error GoTo Err_Form_BeforeUpdate
+    
+    nTaxYear = Forms!frmRatioMain.cboTaxYear
+
+
+Exit_Form_BeforeUpdate:
+    Exit Sub
+
+Err_Form_BeforeUpdate:
+    MsgBox Error$
+    Resume Exit_Form_BeforeUpdate
+End Sub
+
+Private Sub NIEarnings_Change()
+' Author        : Mustaq Hussain
+' Date          : 3 September 1996
+' Fuction Name  : NIEarnings_Change
+' Purpose       : Blank entries if cat changed
+
+    On Error GoTo Err_NIEarnings_Change
+    
+    ClearResults
+
+Exit_NIEarnings_Change:
+    Exit Sub
+
+Err_NIEarnings_Change:
+    MsgBox Error$
+    Resume Exit_NIEarnings_Change
+
+End Sub
+
+Private Sub Primary_Change()
+' Author        : Mustaq Hussain
+' Date          : 3 September 1996
+' Fuction Name  : Primary_Change
+' Purpose       : Blank entries if cat changed
+
+    On Error GoTo Err_Primary_Change
+    
+    ClearResults
+
+Exit_Primary_Change:
+    Exit Sub
+
+Err_Primary_Change:
+    MsgBox Error$
+    Resume Exit_Primary_Change
+
+End Sub
+
+Private Sub R_AfterUpdate()
+If [Rebate] <> "R" And Not IsNull([Rebate]) Then
+    MsgBox "The value in the rebate column can only be 'R' or left blank", vbOKOnly, "Calculation Support"
+    [Rebate] = Null
+End If
+End Sub
+
+Private Sub Total_Cont_Change()
+' Author        : Mustaq Hussain
+' Date          : 29 August 1996
+' Fuction Name  : Total_Cont_Change
+' Purpose       : Blank entries if cat changed
+
+    On Error GoTo Err_Total_Cont_Change
+    
+    ClearResults
+
+Exit_Total_Cont_Change:
+    Exit Sub
+
+Err_Total_Cont_Change:
+    MsgBox Error$
+    Resume Exit_Total_Cont_Change
+
+End Sub

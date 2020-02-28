@@ -1,0 +1,150 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+Private Sub Button2_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+DoCmd.OpenForm "Form2", A_NORMAL
+End Sub
+
+Private Sub Button59_GotFocus()
+
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+DoCmd.OpenForm "FORM2", A_NORMAL
+End Sub
+
+Private Sub Class_2_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History       : Christopher Schuler
+' Date          : 24 November 2000
+' Purpose       : Recoding of Class234 removing need for input table and macros
+
+
+On Error GoTo Err_Class_2_Click
+Application.Echo False
+
+
+DoCmd.OpenForm "Form2"
+DoCmd.Close acForm, "Form4"
+
+Exit_Class_2_Click:
+    Application.Echo True
+    Exit Sub
+
+Err_Class_2_Click:
+    MsgBox Error$
+    Resume Exit_Class_2_Click
+    
+End Sub
+
+Private Sub Class_3_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History       : Christopher Schuler
+' Date          : 24 November 2000
+' Purpose       : Recoding of Class234 removing need for input table and macros
+
+
+On Error GoTo Err_Class_3_Click
+Application.Echo False
+
+
+DoCmd.OpenForm "Form3"
+DoCmd.Close acForm, "Form4"
+
+Exit_Class_3_Click:
+    Application.Echo True
+    Exit Sub
+
+Err_Class_3_Click:
+    MsgBox Error$
+    Resume Exit_Class_3_Click
+    
+End Sub
+
+Private Sub Exit_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Exit_Click
+
+   DoCmd.Close
+
+Exit_Exit_Click:
+    Exit Sub
+
+Err_Exit_Click:
+    MsgBox Error$
+    Resume Exit_Exit_Click
+    
+End Sub
+
+
+
+Private Sub Form_Load()
+
+' Author        : Jane Mullen
+' Date          : 28 February 1997
+' Fuction Name  : Form_Load
+' Purpose       : RFC 515 : Sets default tax year
+' History       : Christopher Schuler
+' Date          : 24 November 2000
+' Purpose       : Recoding of Class234 removing need for input table and macros
+
+
+    On Error GoTo err_Form_Load
+    
+    DoCmd.Maximize
+    
+    Forms!Form4![Tax Year] = strCurrentTaxYear("CLASS 4 RATE TABLE")
+    Requery
+    
+    
+    
+exit_Form_Load:
+    Exit Sub
+    
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+
+
+End Sub
+
+Private Sub Tax_Year_AfterUpdate()
+Requery
+    If Forms!Form4![Tax Year] > 2002 Then
+    
+        txtRateAboveUPL.Visible = True
+        lblBetween.Visible = True
+        lblAbove.Visible = True
+        lblANNLEL.Caption = "Annual LPL:"
+        lblANNUEL.Caption = "Annual UPL:"
+    Else
+    
+        txtRateAboveUPL.Visible = False
+        lblBetween.Visible = False
+        lblAbove.Visible = False
+        lblANNLEL.Caption = "Annual LEL:"
+        lblANNUEL.Caption = "Annual UEL:"
+    End If
+End Sub

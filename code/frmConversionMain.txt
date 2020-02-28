@@ -1,0 +1,231 @@
+
+
+Option Compare Database   'Use database order for string comparisons
+
+' Author        : Mustaq Hussain
+' Date          : 18 February 1997
+
+Option Explicit
+
+
+Private Sub ClearForm()
+' Author        : Mustaq Hussain
+' Date          : 11 February 1997
+' Fuction Name  : ClearForm
+' Purpose       : Clear form for another entry
+            
+
+    On Error GoTo Err_ClearForm
+
+    ' Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblConversionFrom]"
+    DoCmd.RunSQL "DELETE * FROM [tblConversionTo]"
+    
+    ' Update Details section, no records
+    Forms![frmConversionMain]![subConversionFrom].Form.Requery
+    Forms![frmConversionMain]![SubConversionTo].Form.Requery
+
+
+    txtSurname = Null
+    txtRef = Null
+    txtInitials = Null
+    NIPrefix = Null
+    NInumber = Null
+    NIsuffix = Null
+
+
+    Forms![frmConversionMain]!nTotalContributions = Null
+    Forms![frmConversionMain]!nTotalEEContributions = Null
+    Forms![frmConversionMain]!nTotalERContributions = Null
+
+    Forms![frmConversionMain]!nNITotalPaid = Null
+    Forms![frmConversionMain]!nEENITotalPaid = Null
+    Forms![frmConversionMain]!nERNITotalPaid = Null
+    
+    ' Underpayment/Overpayment
+    Forms![frmConversionMain]!nNITotalUnderpayment = Null
+    Forms![frmConversionMain]!nNITotalOverpayment = Forms![frmConversionMain]!nNITotalPaid - Forms![frmConversionMain]!nTotalContributions
+    
+    Forms![frmConversionMain]!nEENIUnderpayment = Null
+    Forms![frmConversionMain]!nEENIOverpayment = Null
+    
+    Forms![frmConversionMain]!nERNIUnderpayment = Null
+    Forms![frmConversionMain]!nERNIOverpayment = Null
+    
+    To_FirstLine = True
+
+
+Exit_ClearForm:
+    Exit Sub
+    
+Err_ClearForm:
+    MsgBox Error$
+    Resume Exit_ClearForm
+
+End Sub
+
+Private Sub cmdCalculate_Click()
+' Author        : Mustaq Hussain
+' Date          : 9 October 1995
+' Fuction Name  : cmdCalculate_Click
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' History       : Jane Mullen
+' Date          : 23 May 1997
+' Purpose       : To support categories F and G
+
+    Dim bValid As Integer
+
+    On Error GoTo Err_cmdCalculate_Click
+
+    bValid = bValidConversionCalculation()
+    
+Exit_cmdCalculate_Click:
+    Exit Sub
+    
+Err_cmdCalculate_Click:
+    MsgBox Error$
+    Resume Exit_cmdCalculate_Click
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 18 February 1997
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear the entry form, ready for new data
+            
+
+    On Error GoTo Err_cmdClear_Click
+    
+    ' Call to clear the form
+   ClearForm
+    
+Exit_cmdClear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 17 May 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 18 February 1997
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Run the report
+
+    Dim bValid As Integer
+    
+    On Error GoTo Err_cmdPrint_Enter
+
+    If bValidConversionCalculation() = True Then
+        DoCmd.OpenReport "rptConversion", A_NORMAL
+    End If
+
+Exit_cmdPrint_Enter:
+    Exit Sub
+
+Err_cmdPrint_Enter:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Enter
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 18 February 1997
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+
+    On Error GoTo err_Form_Load
+    
+    DoCmd.SetWarnings False
+    
+    Dim Sname As String
+    Dim Fname As String
+    
+    DoCmd.Maximize
+                                 
+    ' Set the prepared by field
+    Forms![frmConversionMain]!txtPreparedBy.Enabled = True
+    
+    Forms![frmConversionMain]!txtPreparedBy = getinitials() & " " & getsurname()
+    Forms![frmConversionMain]!txtPreparedBy.Enabled = False
+    
+    ' Clear the entry form
+    ClearForm
+
+    Recalc
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub subConversionFrom_Exit(Cancel As Integer)
+
+'Author     : Jane Mullen
+'Date       : 25 September 1997
+'Purpose    : To cope with multiple entries
+
+Dim myDB As Database
+Dim FromSet As DAO.Recordset
+Dim ToSet As DAO.Recordset
+
+Set myDB = DBEngine.Workspaces(0).Databases(0)
+Set FromSet = myDB.OpenRecordset("tblConversionFrom")
+Set ToSet = myDB.OpenRecordset("tblConversionTo")
+
+If FromSet.EOF Then
+    FromSet.Close
+    Exit Sub
+End If
+
+FromSet.MoveFirst
+
+DoCmd.RunSQL "DELETE * FROM [tblConversionTo]"
+
+Do Until FromSet.EOF
+
+    ToSet.AddNew
+    ToSet![Taxyear] = FromSet![Taxyear]
+    ToSet![5/10Pre] = FromSet![5/10Pre]
+    ToSet![NoOfWeeks] = FromSet![NoOfWeeks]
+    ToSet![TotalEarnings] = FromSet![TotalEarnings]
+    ToSet.Update
+
+    FromSet.MoveNext
+Loop
+
+    FromSet.Close
+    ToSet.Close
+
+    Forms![frmConversionMain]![SubConversionTo].Form.Requery
+
+End Sub

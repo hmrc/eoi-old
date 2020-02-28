@@ -1,0 +1,57 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub BtnClose_Click()
+On Error GoTo Err_BtnClose_Click
+
+
+    DoCmd.Close
+
+Exit_BtnClose_Click:
+    Exit Sub
+
+Err_BtnClose_Click:
+    MsgBox Error$
+    Resume Exit_BtnClose_Click
+    
+End Sub
+
+Private Sub BtnMonthly_Click()
+On Error GoTo Err_BtnMonthly_Click
+
+    DoCmd.OpenForm "frmMonthlyCalendar"
+    DoCmd.Close acForm, "frmWeeklyCalendar"
+
+
+Exit_BtnMonthly_Click:
+    Exit Sub
+
+Err_BtnMonthly_Click:
+    MsgBox Error$
+    Resume Exit_BtnMonthly_Click
+    
+End Sub
+
+Private Sub BtnWeekly_Click()
+On Error GoTo Err_BtnWeekly_Click
+
+    DoCmd.OpenForm "frmWeeklyCalendar"
+    DoCmd.Close acForm, "frmMonthlyCalendar"
+
+
+Exit_BtnWeekly_Click:
+    Exit Sub
+
+Err_BtnWeekly_Click:
+    MsgBox Error$
+    Resume Exit_BtnWeekly_Click
+    
+End Sub
+
+Private Sub Form_Load()
+    DoCmd.Maximize
+    
+End Sub

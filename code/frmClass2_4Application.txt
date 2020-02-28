@@ -1,0 +1,76 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private Sub cboTaxYear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cboTaxYear_Click
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+
+    Set myDB = CurrentDb()
+
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Class 2/4 Application] WHERE [Tax Year] = """ & Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear & """;")
+    With Forms![frmAppendix2]![subAppendix2].Form
+        .[SEE Limit] = MyRecordSet![SEE Limit]
+        .[Disregard Limit] = MyRecordSet![Disregard Limit]
+        .[Class 1 Income Limit] = MyRecordSet![Class 1 Income Limit]
+        .[Class 2/4] = MyRecordSet![Class 2/4]
+        .[Class 4 Man] = MyRecordSet![Class 4 Man]
+        .[Class 4 Woman] = MyRecordSet![Class 4 Woman]
+    End With
+    DoCmd.SetWarnings False
+
+If cboTaxYear > 2014 Then
+    Text10.Caption = "SEE/SPT Limit"
+    
+Else
+    Text10.Caption = "SEE Limit"
+End If
+    
+    
+Exit_cboTaxYear_Click:
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+End Sub
+
+Private Sub Form_Load()
+' History
+' Author : Mustaq Hussain
+' Date   : 4 November 1996
+' Reason : Default tax year set
+
+    On Error GoTo err_Form_Load
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    
+    Set myDB = CurrentDb()
+                
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Class 2/4 Application];")
+
+    MyRecordSet.MoveLast
+    
+    Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = MyRecordSet![Tax Year]
+
+    cboTaxYear_Click
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+
+End Sub

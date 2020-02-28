@@ -1,0 +1,365 @@
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Private Sub btnClear_Click()
+' Author        : Christopher Sneddon
+' Date          : 09 May 2012
+' Fuction Name  : btnClear_Click
+' Purpose       : Clear the form
+
+    On Error GoTo err_btnClear_Click
+    
+    DoCmd.SetWarnings False
+
+    txtDOB = Null
+    txtPensionDate = Null
+    txtComment = Null
+
+exit_btnClear_Click:
+    Exit Sub
+
+err_btnClear_Click:
+    MsgBox Error$
+    Resume exit_btnClear_Click
+End Sub
+
+Private Sub chkFEMALE_Click()
+ 'Test to see if client is male or female
+ 
+   If Forms!frmSPAWomen!chkFEMALE.value = True Then
+   Forms!frmSPAWomen!chkMALE.value = False
+   txtSEX = "FEMALE"
+   Exit Sub
+   End If
+End Sub
+
+Private Sub chkMALE_Click()
+ 'Test to see if client is male or female
+      
+   If Forms!frmSPAWomen!chkMALE.value = True Then
+   Forms!frmSPAWomen!chkFEMALE.value = False
+   txtSEX = "MALE"
+   Exit Sub
+   End If
+      
+   
+End Sub
+
+Private Sub cmdCalculate_Click()
+
+' Author        : Chris Sneddon
+' Date          : 07 April 2008
+' Function Name : N/A
+' Purpose       : New Calculation for pension date
+
+' Author        : Chris Sneddon
+' Date          : 04 May 2012
+' Function Name : 84BV (Needs to be reactivated for R31)
+' Purpose       : Alterations to equalisation within pensions dates
+
+    
+    Dim nDOBMonth As Integer, nMonths As Integer, nMonth As Integer, nYear As Integer
+    Dim txtAdjustedDOB
+    Dim SQLQuery
+    Dim myDB As Database
+    Dim mySet As DAO.Recordset
+    Dim txtMonth
+    Dim txtYear
+    Dim txtday
+    
+    
+    On Error GoTo Err_cmdCalculate_Click
+       
+    If txtSEX = "" Or IsNull(txtSEX) Then
+        Beep
+        MsgBox ("Please Select a Male or Female")
+    Exit Sub
+    End If
+    
+    If IsNull(txtDOB) Then
+        Beep
+        MsgBox ("DOB not set")
+        txtPensionDate = Null
+        txtComment = Null
+        txtDOB.SetFocus
+        GoTo Exit_cmdCalculate_Click
+    End If
+    
+    If CVDate(Format$(txtDOB, "dd/mm/yyyy")) < CVDate(Format$("6/4/1945", "dd/mm/yyyy")) Then
+        Beep
+        MsgBox ("DOB must be after 5/4/1945")
+        txtPensionDate = Null
+        txtComment = Null
+        txtDOB.SetFocus
+        GoTo Exit_cmdCalculate_Click
+    End If
+    
+    Select Case CVDate(Format$(txtDOB, "dd/mm/yyyy"))
+    
+        
+    'start processing Equalisation from 1950 onwards!
+        
+        Case Is <= CVDate("05/04/1950"):
+     
+            If txtSEX = "MALE" Then
+                txtPensionDate = DateSerial(DatePart("yyyy", txtDOB) + 65, DatePart("m", txtDOB), DatePart("d", txtDOB))
+                txtComment = "Retirement Age at 65"
+            Else
+                txtPensionDate = DateSerial(DatePart("yyyy", txtDOB) + 60, DatePart("m", txtDOB), DatePart("d", txtDOB))
+                txtComment = "Retirement Age at 60"
+            End If
+            
+         Case Is < CVDate("06/12/1953"): 'Addition  for EARS20346282
+            If txtSEX = "MALE" Then
+               txtPensionDate = DateSerial(DatePart("yyyy", txtDOB) + 65, DatePart("m", txtDOB), DatePart("d", txtDOB))
+                txtComment = "Retirement Age at 65"
+            Else
+                            If (DatePart("d", txtDOB)) > 5 Then
+                     
+                    txtAdjustedDOB = DateSerial(DatePart("yyyy", txtDOB), DatePart("m", txtDOB), 6)
+                Else
+                    txtAdjustedDOB = DateSerial(DatePart("yyyy", txtDOB), DatePart("m", txtDOB), 5)
+                    
+                End If
+                
+                    'SQL Query for SPA
+                    SQLQuery = "SELECT [SPADate] FROM [EQUALSPA] WHERE [DOB] =  #" + Format$(txtAdjustedDOB, "mm/dd/yyyy") + "#"
+                    'open recordset
+                    Set myDB = DBEngine.Workspaces(0).Databases(0)
+                    Set mySet = myDB.OpenRecordset(SQLQuery)
+                    
+                    txtPensionDate = mySet![SPADate]
+                    txtMonth = DatePart("m", txtPensionDate) - DatePart("m", txtDOB)
+                        If txtMonth < 0 Then
+                            txtMonth = txtMonth + 12
+                            txtYear = (DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtDOB))
+                            txtYear = txtYear - 1
+                        Else
+                        txtYear = (DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtDOB))
+                        End If
+                        If txtMonth = 12 Then
+                            txtMonth = 0
+                        End If
+                    
+
+                    txtComment = "Retirement Age at " & txtYear & " years and " & txtMonth & " Months"
+                                
+                                                            
+                mySet.Close
+
+            End If
+         
+            
+    ' 06/09/1954 Equalisation of Men/Women Ends (Years/Months from 1950-54)
+    
+         Case Is <= CVDate("06/04/1954"): '84BV date reduced by 1 year
+           ' If txtSEX = "MALE" Then
+           '     txtPensionDate = DateSerial(DatePart("yyyy", txtDOB) + 65, DatePart("m", txtDOB), DatePart("d", txtDOB))
+           '     txtComment = "Retirement Age at 65"
+           ' Else
+                If (DatePart("d", txtDOB)) > 5 Then
+                     
+                    txtAdjustedDOB = DateSerial(DatePart("yyyy", txtDOB), DatePart("m", txtDOB), 6)
+                Else
+                    txtAdjustedDOB = DateSerial(DatePart("yyyy", txtDOB), DatePart("m", txtDOB), 5)
+                    
+                End If
+                
+                    'SQL Query for SPA
+                    SQLQuery = "SELECT [SPADate] FROM [EQUALSPA] WHERE [DOB] =  #" + Format$(txtAdjustedDOB, "mm/dd/yyyy") + "#"
+                    'open recordset
+                    Set myDB = DBEngine.Workspaces(0).Databases(0)
+                    Set mySet = myDB.OpenRecordset(SQLQuery)
+                    
+                    txtPensionDate = mySet![SPADate]
+                    'txtComment = "Retirement Age at " & DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtAdjustedDOB)
+                    ' Additional checks for 84BV SPA changes
+                    txtMonth = DatePart("m", txtPensionDate) - DatePart("m", txtDOB)
+                        If txtMonth < 0 Then
+                            txtMonth = txtMonth + 12
+                            txtYear = (DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtDOB))
+                            txtYear = txtYear - 1
+                        Else
+                        txtYear = (DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtDOB))
+                        End If
+                        If txtMonth = 12 Then
+                            txtMonth = 0
+                        End If
+                    
+
+                    txtComment = "Retirement Age at " & txtYear & " years and " & txtMonth & " Months"
+                                
+                                                            
+                mySet.Close
+
+            'End If
+
+    ' 06/10/1954 to 05/04/1968 Customer attains SPA on 66th Birthday
+    
+        Case Is <= CVDate("05/04/1968"):
+            txtPensionDate = DateSerial(DatePart("yyyy", txtDOB) + 66, DatePart("m", txtDOB), DatePart("d", txtDOB))
+            txtComment = "Retirement Age at 66"
+    
+    
+    ' 05/05/1968 to 05/04/1969 Customer attains SPA on (Years/Months)
+    
+        Case Is <= CVDate("05/04/1969"): '84BV removed to change ranges
+
+                If (DatePart("d", txtDOB)) > 5 Then
+   
+                    txtAdjustedDOB = DateSerial(DatePart("yyyy", txtDOB), DatePart("m", txtDOB), 6)
+                Else
+                    txtAdjustedDOB = DateSerial(DatePart("yyyy", txtDOB), DatePart("m", txtDOB), 5)
+   
+                End If
+   
+                    'SQL Query for SPA
+                    SQLQuery = "SELECT [SPADate] FROM [tblSPA67] WHERE [DOB] =  #" + Format$(txtAdjustedDOB, "mm/dd/yyyy") + "#"
+                    'open recordset
+                    Set myDB = DBEngine.Workspaces(0).Databases(0)
+                    Set mySet = myDB.OpenRecordset(SQLQuery)
+   
+                     txtPensionDate = mySet![SPADate]
+                
+                                    txtMonth = DatePart("m", txtPensionDate) - DatePart("m", txtDOB)
+                        If txtMonth < 0 Then
+                            txtMonth = txtMonth + 12
+                            txtYear = (DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtDOB))
+                            txtYear = txtYear - 1
+                        Else
+                        txtYear = (DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtDOB))
+                        End If
+                        If txtMonth = 12 Then
+                            txtMonth = 0
+                        End If
+                    
+                    txtComment = "Retirement Age at " & txtYear & " years and " & txtMonth & " Months"
+                
+                
+                mySet.Close
+    
+    
+    ' 06/04/1969 to 05/04/1977 Customer attains SPA on 67th Birthday
+    
+        Case Is <= CVDate("05/04/1977"):
+            txtPensionDate = DateSerial(DatePart("yyyy", txtDOB) + 67, DatePart("m", txtDOB), DatePart("d", txtDOB))
+            txtComment = "Retirement Age at 67"
+    
+    ' 05/05/1977 to 05/04/1978 Customer attains SPA on (Years/Months)
+    
+        Case Is <= CVDate("05/04/1978"):
+                If (DatePart("d", txtDOB)) > 5 Then
+
+                    txtAdjustedDOB = DateSerial(DatePart("yyyy", txtDOB), DatePart("m", txtDOB), 6)
+                Else
+                    txtAdjustedDOB = DateSerial(DatePart("yyyy", txtDOB), DatePart("m", txtDOB), 5)
+
+                End If
+                    'SQL Query for SPA
+                    SQLQuery = "SELECT [SPADate] FROM [tblSPA68] WHERE [DOB] =  #" + Format$(txtAdjustedDOB, "mm/dd/yyyy") + "#"
+                    'open recordset
+                    Set myDB = DBEngine.Workspaces(0).Databases(0)
+                    Set mySet = myDB.OpenRecordset(SQLQuery)
+     
+                    txtPensionDate = mySet![SPADate]
+                    'txtComment = "Retirement Age at " & DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtAdjustedDOB)
+    
+    
+                            txtMonth = DatePart("m", txtPensionDate) - DatePart("m", txtDOB)
+                        If txtMonth < 0 Then
+                            txtMonth = txtMonth + 12
+                            txtYear = (DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtDOB))
+                            txtYear = txtYear - 1
+                        Else
+                        txtYear = (DatePart("yyyy", txtPensionDate) - DatePart("yyyy", txtDOB))
+                        End If
+                        If txtMonth = 12 Then
+                            txtMonth = 0
+                        End If
+                    
+
+                    txtComment = "Retirement Age at " & txtYear & " years and " & txtMonth & " Months"
+                    
+                mySet.Close
+    
+    
+    ' 06/04/1978 or later Customer attain SPA on 68th Birthday
+     
+    Case Is >= CVDate("06/04/1978"):
+            txtPensionDate = DateSerial(DatePart("yyyy", txtDOB) + 68, DatePart("m", txtDOB), DatePart("d", txtDOB))
+            txtComment = "Retirement Age at 68"
+    
+    End Select
+        
+        
+Exit_cmdCalculate_Click:
+    Exit Sub
+
+Err_cmdCalculate_Click:
+    MsgBox Error$
+    Resume Exit_cmdCalculate_Click
+    
+End Sub
+
+Private Sub cmdClose_Click()
+' Author        : Mustaq Hussain
+' Date          : 16 january 1995
+' Fuction Name  : cmdClose_Click
+' Purpose       : Run a macro which closes the form, back to main menu
+
+    On Error GoTo Err_close_Click
+    
+    DoCmd.Close
+
+Exit_close_Click:
+    Exit Sub
+
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 16 January 1996
+' Fuction Name  : Form_Load
+' Purpose       : Load the form
+
+    On Error GoTo err_Form_Load
+    
+    DoCmd.SetWarnings False
+    DoCmd.Maximize
+    
+    txtDOB = Null
+    txtPensionDate = Null
+    txtComment = Null
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub Option305_Click()
+
+End Sub
+Private Sub Command314_Click()
+On Error GoTo Err_Command314_Click
+
+
+    Screen.PreviousControl.SetFocus
+    DoCmd.FindNext
+
+Exit_Command314_Click:
+    Exit Sub
+
+Err_Command314_Click:
+    MsgBox Err.Description
+    Resume Exit_Command314_Click
+    
+End Sub

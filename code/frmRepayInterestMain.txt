@@ -1,0 +1,214 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cmdCalculate_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cmdCalculate_Click
+DoCmd.Hourglass True
+Set REFUNDDB = CurrentDb()
+Set RepayCalculatedRecords = REFUNDDB.OpenRecordset("Repayment of Interest Holding Table", DB_OPEN_TABLE)
+If repay.Form![Late Paid Contributions] > 99999999 Then
+    MsgBox "Each late paid contribution entered must be less than £100,000,000 - Please reinput", 0 + 48, "Warning"
+    Forms!frmRepayInterestMain!repay.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+If repay.Form![Contributions Refund] > 99999999 Then
+    MsgBox "Each contribution refund entered must be less than £100,000,000 - Please reinput", 0 + 48, "Warning"
+    Forms!frmRepayInterestMain!repay.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+If repay.Form![Interest Charged] > 999999 Then
+    MsgBox "Each amount of interest charged entered must be less than £1,000,000 - Please reinput", 0 + 48, "Warning"
+    Forms!frmRepayInterestMain!repay.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+If RepayCalculatedRecords.BOF And RepayCalculatedRecords.EOF Then
+    MsgBox "You have not entered a record", 0 + 48, "Warning"
+    Forms!frmRepayInterestMain!repay.SetFocus
+Else
+    Recalc
+    Forms!frmRepayInterestMain!txtTotalIncorrect = repay.Form!txtSumII
+    Forms!frmRepayInterestMain!txtTotalIncorrect.Visible = True
+    Forms!frmRepayInterestMain![cmdPrint].Enabled = True
+End If
+Exit_cmdCalculate_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdCalculate_Click:
+    MsgBox Error$
+    Resume Exit_cmdCalculate_Click
+End Sub
+
+Private Sub cmdClear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History   : Jane Mullen
+' Date      : 10 February 1997
+' Reason    : Clear added fields Initial and NINO
+' History   : Jane Mullen
+' Date      : 25 February 1997
+' Reason    : to allow clear to work if only optional fields completed.
+
+On Error GoTo Err_cmdClear_Click
+DoCmd.Hourglass True
+DoCmd.SetWarnings False
+Set REFUNDDB = CurrentDb()
+Set RepayCalculatedRecords = REFUNDDB.OpenRecordset("Repayment of Interest Holding Table", DB_OPEN_TABLE)
+'If RepayCalculatedRecords.BOF And RepayCalculatedRecords.EOF Then
+ '   MsgBox "You have not entered a record", 0 + 48, "Warning"
+    Forms!frmRepayInterestMain!repay.SetFocus
+'Else
+    'Delete all records on subform datasheet
+    DoCmd.RunSQL "DELETE * FROM [Repayment of Interest Holding Table]"
+    With Forms!frmRepayInterestMain
+        !txtName = ""
+        !Initial = ""
+        !NIPrefix = ""
+        !NInumber = ""
+        !NIsuffix = ""
+        !txtReference = ""
+        !txtTotalIncorrect.Visible = False
+        Recalc
+        ![cmdPrint].Enabled = False
+        !txtName.SetFocus
+    End With
+'End If
+Exit_cmdClear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+End Sub
+
+Private Sub cmdClose_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cmdClose_Click
+    DoCmd.Hourglass True
+    DoCmd.Close
+Exit_cmdClose_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdClose_Click:
+    MsgBox Error$
+    Resume Exit_cmdClose_Click
+End Sub
+
+Private Sub cmdNext_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' Modification History
+' Author    : Mustaq Hussain
+' Date      : 16 February 1996
+' Reason    : Side effects : database not allowed to be closed, resolved by not calling  OpenRefundRefTables()
+
+
+On Error GoTo err_cmdNext_Click
+    DoCmd.OpenForm "frmInterestLatePaidRefundsMain", A_NORMAL
+    DoCmd.Close acForm, "frmRepayInterestMain"
+exit_cmdNext_Click:
+    Exit Sub
+err_cmdNext_Click:
+    MsgBox Error$
+    Resume exit_cmdNext_Click
+End Sub
+ 
+
+Private Sub cmdPrint_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cmdPrint_Click
+DoCmd.Hourglass True
+Set RepayCalculatedRecords = REFUNDDB.OpenRecordset("Repayment of Interest Holding Table", DB_OPEN_TABLE)
+If RepayCalculatedRecords.BOF And RepayCalculatedRecords.EOF Then
+    MsgBox "You have not entered a record", 0 + 48, "Warning"
+    Forms!frmRepayInterestMain!repay.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+Else
+    Dim DocName As String
+    'Recalculate to ensure calculation is current
+    Recalc
+    DocName = "rptRepayInterest"
+    DoCmd.OpenReport DocName, A_NORMAL
+End If
+Exit_cmdPrint_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+End Sub
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_Form_Load
+
+Dim Sname As String
+Dim Fname As String
+
+DoCmd.Maximize
+'Obtain surname from function
+Sname = getsurname()
+'Obtain initials from function
+Fname = getinitials()
+'Populate appropriate field
+Forms![frmRepayInterestMain]![txtPrepared By] = Fname & " " & Sname
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Form_Unload
+DoCmd.Hourglass True
+DoCmd.SetWarnings False
+Set REFUNDDB = CurrentDb()
+Set RepayCalculatedRecords = REFUNDDB.OpenRecordset("Repayment of Interest Holding Table", DB_OPEN_TABLE)
+If RepayCalculatedRecords.BOF And RepayCalculatedRecords.EOF Then
+    DoCmd.Hourglass False
+Else
+    'Delete all records on subform datasheet
+    DoCmd.RunSQL "DELETE * FROM [Repayment of Interest Holding Table]"
+    Recalc
+End If
+    RepayCalculatedRecords.Close
+Exit_Form_Unload:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_Form_Unload:
+    MsgBox Error$
+    Resume Exit_Form_Unload
+End Sub

@@ -1,0 +1,298 @@
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+Declare Function getprivateprofilestring Lib "Kernel" (ByVal lpApplicationName As String, lpKeyName As Any, ByVal lpDefault As String, ByVal lpReturnedString As String, ByVal nSize As Integer, ByVal lpFileName As String) As Integer
+
+Function CALCMOD()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 25 July 1996
+' Purpose       : RFC 413, Allow Dates to be altered, "Final Payment Date for this tax year has expired." no delete of records
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp', eport 'TempTable' to 'tblClass3MakeUpResults', Report 'input' to 'tblClass3MakeUpInput'
+' Author        : Ian Pilkington
+' Date          : 12 March 1998
+' Purpose       : Year 2000 changes, as well as a full rewrite of the way the code works.
+'                 It will no longer need tables to store screen input or the results.
+' Author        : Chris Schuler
+' Date          : 8 January 2007
+' Purpose       : EARS 5212594 - assigning null to a date variable produced error
+
+On Error GoTo err_CALCMOD
+
+DoCmd.Hourglass True
+
+    Dim DB As Database                    'declare objects used within module
+    Dim NoContsCreditsDue As Single
+    Dim NoConts As Single
+    Dim Half As Single
+    Dim yeartax As Variant
+    Dim firstyear As Variant
+    
+    Dim frmCl3 As Form
+    Dim strSQL As String
+    Dim rstResults As DAO.Recordset
+    Dim rstCLData2 As DAO.Recordset
+    Dim check As Integer
+    
+    Dim EF As Currency
+    Dim LEL As Currency
+    Dim HRP As Date
+    Dim Final As Date
+    Dim Firstrate As Currency
+    Dim secondrate As Currency
+    Dim lowrate As Currency
+    Dim highrate As Currency
+    Dim Secondhalf As Currency
+    Dim taxday As Integer
+    Dim taxmonth As Integer
+    Dim taxyears As Integer
+    
+    
+    Set DB = CurrentDb()                  'set database
+    Set frmCl3 = Forms!frmClass3MakeUp    ' sets a variable to the form
+
+    frmCl3![Date of Enquiry].Locked = True
+    frmCl3![Total Conts Paid].Locked = True
+    frmCl3![Total2].Visible = False
+    frmCl3![Rate2].Visible = False
+    frmCl3![No Conts2].Visible = False
+    frmCl3![AT].Visible = False
+    frmCl3![Equals].Visible = False
+    frmCl3![grandtotal].Visible = False
+
+    strSQL = "Select [Wk Rte], LEL, [EF Qual Year], [Dte HRP Apply], [Fnl Dte For Pen] "
+    strSQL = strSQL & "FROM [CLASS 3 RATE TABLE] "
+    strSQL = strSQL & "WHERE [Tax Yr] ='" & frmCl3![Tax Year] & "'"
+
+    Set rstResults = DB.OpenRecordset(strSQL)
+
+    check = rstResults.Recordcount         'count number of records returned
+
+    EF = rstResults![EF Qual Year]             'give fields a local name
+    LEL = rstResults!LEL
+    
+    'EARS 5212594
+    If Not IsNull(rstResults![Dte HRP Apply]) Then
+        HRP = rstResults![Dte HRP Apply]
+    End If
+    
+    Final = rstResults![Fnl Dte For Pen]
+
+'   check amount paid is not greater than required
+    If frmCl3![Total Conts Paid] > EF Then
+        MsgBox "Total exceeds Earnings Factor required to attain a Qualifying Year.", 48, "Information"
+        TaxYearClickAction
+        GoTo EndPara
+    End If
+
+    If check > 1 Then                       'give second rate a local name if exists
+        rstResults.MoveFirst
+        Firstrate = rstResults![Wk Rte]
+        rstResults.MoveNext
+        secondrate = rstResults![Wk Rte]
+    Else
+        Firstrate = rstResults![Wk Rte]
+    End If
+
+    If Firstrate > secondrate Then           'ensures first rate paid is the lowest for split years
+        lowrate = secondrate
+        highrate = Firstrate
+    Else
+        lowrate = Firstrate
+        highrate = secondrate
+    End If
+
+''''''''''''''''''''
+' Main Calculation '
+''''''''''''''''''''
+
+    NoContsCreditsDue = ((EF - (frmCl3![Total Conts Paid])) / LEL)
+
+    If (NoContsCreditsDue - Int(NoContsCreditsDue) > 0) Then
+        NoContsCreditsDue = Int(NoContsCreditsDue) + 1
+        'NoContsCreditsDue = Int(NoContsCreditsDue)
+    End If
+
+
+    If frmCl3![Tax Year] > 1981 Then        'pre 82 cases paid at true rate
+'       This was a goto Para82 which it will do anyway
+    ElseIf (frmCl3![Date of Enquiry] <= Final) Then
+        frmCl3![No Conts] = NoContsCreditsDue
+        frmCl3!Rate = Firstrate
+        frmCl3!Total = (Firstrate * NoContsCreditsDue)
+        frmCl3![Final Payment] = Final
+        GoTo DisplayEnd
+    Else
+        MsgBox "Final Payment Date for this tax year has expired.", 48, "Information"
+        rstResults.Close
+        GoTo EndPara
+    End If
+
+Para82:
+
+    If (frmCl3![Date of Enquiry] < HRP) Then
+        If check > 1 Then                                        'check for split year
+            NoConts = (EF - (frmCl3![Total Conts Paid]))
+            Half = (EF / 2)
+            Secondhalf = ((NoConts - Half) / LEL)
+            If (Secondhalf - Int(Secondhalf) > 0) Then
+                Secondhalf = Int(Secondhalf) + 1
+            End If
+            If NoConts > Half Then
+                frmCl3![No Conts] = 26
+                frmCl3!Rate = lowrate
+                frmCl3!Total = (lowrate * 26)
+                frmCl3![Date HRP applies] = HRP
+                frmCl3![Final Payment] = Final
+                frmCl3![No Conts2].Visible = True        'show hidden split year fields on form
+                frmCl3!Rate2.Visible = True
+                frmCl3!Total2.Visible = True
+                frmCl3!AT.Visible = True
+                frmCl3!Equals.Visible = True
+                frmCl3!grandtotal.Visible = True
+                frmCl3![No Conts2] = Secondhalf
+                frmCl3!Rate2 = highrate
+                frmCl3!Total2 = (highrate * Secondhalf)
+                frmCl3!grandtotal = ((lowrate * 26) + (highrate * Secondhalf))
+                GoTo DisplayEnd
+            Else
+                frmCl3![No Conts] = NoContsCreditsDue
+                frmCl3!Rate = lowrate
+                frmCl3!Total = (lowrate * NoContsCreditsDue)
+                frmCl3![Date HRP applies] = HRP
+                frmCl3![Final Payment] = Final
+                GoTo DisplayEnd
+            End If
+        Else
+            frmCl3![No Conts] = NoContsCreditsDue
+            frmCl3!Rate = Firstrate
+            frmCl3!Total = (Firstrate * NoContsCreditsDue)
+            frmCl3![Date HRP applies] = HRP
+            frmCl3![Final Payment] = Final
+            GoTo DisplayEnd
+        End If
+    ElseIf (frmCl3![Date of Enquiry] <= Final) Then      'determine the higher rate to be applied
+        taxday = DatePart("d", frmCl3![Date of Enquiry])
+        taxmonth = DatePart("m", frmCl3![Date of Enquiry])
+        taxyears = DatePart("yyyy", frmCl3![Date of Enquiry])
+        If ((taxmonth = 4) And (taxday < 6)) Or (taxmonth < 4) Then
+            yeartax = (taxyears - 1)
+        Else
+            yeartax = taxyears
+        End If
+    Else
+        MsgBox "Final Payment Date for this tax year has expired.", 48, "Information"
+        rstResults.Close
+        GoTo EndPara
+    End If
+
+
+DisplayData:
+    
+    firstyear = frmCl3![Tax Year]
+    
+    strSQL = "SELECT Max([Wk Rte]) AS [Max3Rte] "
+    strSQL = strSQL & "FROM [CLASS 3 RATE TABLE] WHERE [Tax Yr] "
+    strSQL = strSQL & "Between """ & firstyear & """ And """ & yeartax & """ "
+
+    Set rstCLData2 = DB.OpenRecordset(strSQL)
+    
+    highrate = rstCLData2![Max3Rte]
+    frmCl3![No Conts] = NoContsCreditsDue
+    frmCl3!Rate = highrate
+    frmCl3!Total = (highrate * NoContsCreditsDue)
+    frmCl3![Date HRP applies] = HRP
+    frmCl3![Final Payment] = Final
+    
+    rstCLData2.Close
+
+DisplayEnd:
+
+
+    rstResults.Close
+
+EndPara:
+
+exit_CALCMOD:
+
+    Set frmCl3 = Nothing
+    
+    DoCmd.Hourglass False
+    Exit Function
+
+err_CALCMOD:
+    MsgBox Error$
+    Resume exit_CALCMOD
+
+End Function
+
+Sub TaxYearClickAction()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 20 August 1996
+' Purpose       : This used to be in event Tax_Year_Click. Moved here so action can be shared
+
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : RFC 515 : Form renamed from 'Main' to 'frmClass3MakeUp',
+'                 Report 'input' to 'tblClass3MakeUpInput'
+
+' Author        : Ian Pilkington
+' Date          : 13 March 1998
+' Purpose       : RFC 917 : changed to remove references to working tables that have been removed
+
+    On Error GoTo err_TaxYearClickAction
+    
+    DoCmd.Hourglass True
+    
+    Dim frmCl3 As Form
+    Set frmCl3 = Forms!frmClass3MakeUp
+    
+    frmCl3![Date of Enquiry] = Date
+    frmCl3![Total Conts Paid] = "£0.00"
+    
+    frmCl3![No Conts] = Null
+    frmCl3![Rate] = Null
+    frmCl3![Total] = Null
+    
+    frmCl3![No Conts2] = Null
+    frmCl3![Rate2] = Null
+    frmCl3![Total2] = Null
+    
+    frmCl3![grandtotal] = Null
+    frmCl3![Date HRP applies] = Null
+    frmCl3![Final Payment] = Null
+
+    frmCl3![Total2].Visible = False
+    frmCl3![Rate2].Visible = False
+    frmCl3![No Conts2].Visible = False
+    frmCl3![AT].Visible = False
+    frmCl3![Equals].Visible = False
+    frmCl3![grandtotal].Visible = False
+    
+    frmCl3![Date of Enquiry].Locked = False
+    frmCl3![Total Conts Paid].Locked = False
+
+exit_TaxYearClickAction:
+    DoCmd.Hourglass False
+    Exit Sub
+
+err_TaxYearClickAction:
+    MsgBox Error$
+    Resume exit_TaxYearClickAction
+
+End Sub

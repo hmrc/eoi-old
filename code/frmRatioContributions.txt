@@ -1,0 +1,187 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+' Author        : Mustaq Hussain
+' Date          : 28 August 1996
+' Purpose       : Form Ratio Contributions
+
+Option Explicit
+
+Private Sub Cat_AfterUpdate()
+' Author        : Mustaq Hussain
+' Date          : 29 August 1996
+' Fuction Name  : Cat_AfterUpdate
+' Purpose       : Blank entries if cat changed
+
+    Dim nTaxYear As Integer
+
+    On Error GoTo Err_Cat_AfterUpdate
+    
+    nTaxYear = Forms!frmRatioMain.cboTaxYear
+
+    If [Cat] = "A" Or [Cat] = "B" Then
+        [COEarnings] = Null
+        [COElement] = Null
+    Else
+        If (nTaxYear >= 1987 And [Cat] = "D") Or nTaxYear >= 1991 Then
+            [COEarnings] = 0
+        Else
+            [COEarnings] = Null
+        End If
+        If (nTaxYear >= 1975 And [Cat] = "D") Or nTaxYear >= 1991 Then
+            [COElement] = 0
+        Else
+            [COElement] = Null
+        End If
+    End If
+
+    ClearResults
+
+Exit_Cat_AfterUpdate:
+    Exit Sub
+
+Err_Cat_AfterUpdate:
+    MsgBox Error$
+    Resume Exit_Cat_AfterUpdate
+
+End Sub
+
+' Author    : Lisa Scothern
+' Date      : 16/05/97
+' Purpose   : Control list of available categories for the user to chose, RFC 642H
+Private Sub Cat_GotFocus()
+
+    On Error GoTo Err_Cat_GotFocus
+
+    Dim strCatStd As String, strCatRest As String
+
+    strCatStd = "A;B;D;E"
+    strCatRest = ";F;G"
+
+    If Forms!frmRatioMain!cboTaxYear > 1996 Then
+        Cat.RowSource = strCatStd & strCatRest
+    Else
+        Cat.RowSource = strCatStd
+    End If
+
+
+Exit_Cat_GotFocus:
+    Exit Sub
+
+Err_Cat_GotFocus:
+    MsgBox Error$
+    Resume Exit_Cat_GotFocus
+
+End Sub
+
+Private Sub ClearResults()
+' Author        : Mustaq Hussain
+' Date          : 3 September 1996
+' Fuction Name  : ClearResults
+' Purpose       : Blank entries if cat changed
+
+    On Error GoTo Err_ClearResults
+
+    [Comment] = "Press Calculate"
+    [Pass] = "No"
+    Forms!frmRatioMain.txtOverallTest = Null
+
+Exit_ClearResults:
+    Exit Sub
+
+Err_ClearResults:
+    MsgBox Error$
+    Resume Exit_ClearResults
+
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 9 September 1996
+' Fuction Name  : Form_BeforeUpdate
+' Purpose       : Blank entries if cat changed
+
+    Dim nTaxYear As Integer
+
+    On Error GoTo Err_Form_BeforeUpdate
+    
+    nTaxYear = Forms!frmRatioMain.cboTaxYear
+
+    If [Cat] = "A" Or [Cat] = "B" Then
+        [COEarnings] = Null
+        [COElement] = Null
+    Else
+        If (nTaxYear >= 1975 And [Cat] = "D") Or (nTaxYear >= 1991 And [Cat] = "E") Or (nTaxYear >= 1997 And [Cat] = "G") Or (nTaxYear >= 1997 And [Cat] = "F") Then
+            ' [COElement] unchanged
+        Else
+            [COEarnings] = Null
+            [COElement] = Null
+        End If
+    End If
+
+Exit_Form_BeforeUpdate:
+    Exit Sub
+
+Err_Form_BeforeUpdate:
+    MsgBox Error$
+    Resume Exit_Form_BeforeUpdate
+End Sub
+
+Private Sub NIEarnings_Change()
+' Author        : Mustaq Hussain
+' Date          : 3 September 1996
+' Fuction Name  : NIEarnings_Change
+' Purpose       : Blank entries if cat changed
+
+    On Error GoTo Err_NIEarnings_Change
+    
+    ClearResults
+
+Exit_NIEarnings_Change:
+    Exit Sub
+
+Err_NIEarnings_Change:
+    MsgBox Error$
+    Resume Exit_NIEarnings_Change
+
+End Sub
+
+Private Sub Primary_Change()
+' Author        : Mustaq Hussain
+' Date          : 3 September 1996
+' Fuction Name  : Primary_Change
+' Purpose       : Blank entries if cat changed
+
+    On Error GoTo Err_Primary_Change
+    
+    ClearResults
+
+Exit_Primary_Change:
+    Exit Sub
+
+Err_Primary_Change:
+    MsgBox Error$
+    Resume Exit_Primary_Change
+
+End Sub
+
+Private Sub Total_Cont_Change()
+' Author        : Mustaq Hussain
+' Date          : 29 August 1996
+' Fuction Name  : Total_Cont_Change
+' Purpose       : Blank entries if cat changed
+
+    On Error GoTo Err_Total_Cont_Change
+    
+    ClearResults
+
+Exit_Total_Cont_Change:
+    Exit Sub
+
+Err_Total_Cont_Change:
+    MsgBox Error$
+    Resume Exit_Total_Cont_Change
+
+End Sub

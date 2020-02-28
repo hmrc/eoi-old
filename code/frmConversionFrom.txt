@@ -1,0 +1,104 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub Cat_GotFocus()
+
+' Author        : Jane Mullen
+' Date          : 21 May 1997
+' Purpose       : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+
+
+On Error GoTo Err_Cat_GotFocus
+
+    If [Year] > 1996 Then
+        [Cat].RowSource = "A;B;C;D;E;F;G;S"
+    ElseIf [Year] > 1977 Then
+        [Cat].RowSource = "A;B;C;D;E"
+    Else
+        [Cat].RowSource = "A;B;C"
+    End If
+
+Exit_Cat_GotFocus:
+    Exit Sub
+
+Err_Cat_GotFocus:
+    MsgBox Error$
+    Resume Exit_Cat_GotFocus
+
+
+End Sub
+
+Private Sub Form_BeforeUpdate(Cancel As Integer)
+' Author        : Mustaq Hussain
+' Date          : 19 February 1997
+' Fuction Name  : Form_BeforeUpdate
+' Purpose       : Blank entries if cat changed
+
+    Dim nTaxYear As Integer
+
+    On Error GoTo Err_Form_BeforeUpdate
+    
+    nTaxYear = [Year]
+
+    If [Cat] = "A" Or [Cat] = "B" Or [Cat] = "C" Then
+        [_Earnings] = Null
+        [NI] = Null
+    Else
+        If (nTaxYear >= 1987 And [Cat] = "D") Or (nTaxYear >= 1991 And [Cat] = "E") Or (nTaxYear >= 1996 And [Cat] = "F") Or (nTaxYear >= 1996 And [Cat] = "G") Then
+            ' [_Earnings] unchanged
+        Else
+            [_Earnings] = Null
+        End If
+        If (nTaxYear >= 1975 And [Cat] = "D") Or (nTaxYear >= 1991 And [Cat] = "E") Or (nTaxYear >= 1996 And [Cat] = "F") Or (nTaxYear >= 1996 And [Cat] = "G") Then
+            ' [NI] unchanged
+        Else
+            '[_Earnings] = Null
+            [NI] = Null
+        End If
+
+    End If
+
+Exit_Form_BeforeUpdate:
+    Exit Sub
+
+Err_Form_BeforeUpdate:
+    ' Will jump to here if no entry
+    Resume Exit_Form_BeforeUpdate
+End Sub
+
+Private Sub Year_Click()
+' Author        : Jane Mullen
+' Date          : 23 May 1997
+' Purpose       : RFC 642E
+
+    To_FirstLine = True
+
+End Sub
+
+Private Sub Year_Gotfocus()
+' Author        : Jane Mullen
+' Date          : 21 May 1997
+' Purpose       : RFC 642B - Add F,G and S C/O categories to form, for 97 onwards
+
+
+On Error GoTo Err_Year_GotFocus
+
+    If [Year] > 1996 Then
+        [Cat].RowSource = "A;B;C;D;E;F;G;S"
+    ElseIf [Year] > 1977 Then
+        [Cat].RowSource = "A;B;C;D;E"
+    Else
+        [Cat].RowSource = "A;B;C"
+    End If
+
+Exit_Year_GotFocus:
+    Exit Sub
+
+Err_Year_GotFocus:
+    MsgBox Error$
+    Resume Exit_Year_GotFocus
+
+End Sub

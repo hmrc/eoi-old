@@ -1,0 +1,51 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private Sub Close_91_92_Reckoner_Click()
+
+            ''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : SANDRA REED - C.A. 1994 '
+            ''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Close_91_92_Reckoner_Click
+
+
+    DoCmd.Close
+
+Exit_Close_91_92_Reckoner_Click:
+    Exit Sub
+
+Err_Close_91_92_Reckoner_Click:
+    MsgBox Error$
+    Resume Exit_Close_91_92_Reckoner_Click
+    
+End Sub
+
+Private Sub Form_Open(Cancel As Integer)
+' Author    : Mustaq Hussain
+' Date      : 10 February 1997
+' Function  : Form_Open
+' Reason    : Use this form to show all the demand data for passed year
+
+    On Error GoTo Err_Form_Open
+
+    Dim args
+    
+    ' Passed argument, the year
+    args = Forms!frmCalendarReckoner.OpenArgs
+    
+    ' Setup form
+    Forms!frmCalendarReckoner.RecordSource = "Class 2/3 Reckoner " + args
+    Forms!frmCalendarReckoner.txtLabel = "Class 2/3 Reckoner " + args
+    DoCmd.Maximize
+    
+Exit_Form_Open:
+    Exit Sub
+
+Err_Form_Open:
+    MsgBox Error$
+    Resume Exit_Form_Open
+    
+End Sub

@@ -1,0 +1,756 @@
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+Global myDB As Database
+Global DataTableDB As Database
+Global stepincrement
+
+Global NIRateBandTable As DAO.Recordset
+Global Class1RateTable As DAO.Recordset
+
+'   Author  :   Ben Stephenson
+'   Date    :   17/06/2011
+'   Project :   CCA10512
+'   Desc    :   Commonly used constants in CCA10512
+'   Author  :   Chris Sneddon
+'   Date    :   11/10/2011
+'   Project :   01BR Phase 2
+'   Desc    :   Additional Constants for Changes in categories for 2012
+
+'Categories 2012 onwards
+Global Const cCatStandardClass1 As String = "A;B;C;D;E;F;G;J;L;S;"
+Global Const cCat2012Class1 As String = "A;B;C;D;E;J;L"
+Global Const cCat2015Class1 As String = "A;B;C;D;E;J;L;M;I;K;Z;"
+Global Const cCat2016Class1 As String = "A;B;C;J;M;H;Z;"
+
+
+' Class 1 NIC Calc
+Global Const cPre2011ThrshTitle  As String = "                LEL- |    ET-    |    UAP-"
+Global Const cPost2010ThrshTitle As String = "                LEL- |    PT-    |    UAP-"
+Global Const cPost2016ThrshTitle As String = "                 LEL-    |    PT-"
+
+Global Const cPre2011Thrsh  As String = "ET"
+Global Const cPost2010Thrsh As String = "PT"
+
+Global Const cPre2011LEL_ET As String = "LEL - ET"
+Global Const cPre2011ET_UAP As String = "ET - UAP"
+
+Global Const cPost2010LEL_ET As String = "LEL - PT"
+Global Const cPost2010ET_UAP As String = "PT - UAP"
+Global Const cPost2016ET_UEL As String = "PT - UEL"
+
+' Class 1 Directors Calc
+Global Const cPre2011EERebate As String = "NIC Rebate 1 (LEL - ET)"
+Global Const cPre2011ERRebate As String = "NIC Rebate 2 (LEL - ET)"
+
+Global Const cPost2010EERebate As String = "Employee NIC Rebate"
+Global Const cPost2010ERRebate As String = "Employer NIC Rebate"
+
+' Unofficial Deferment
+Global Const cPost2010Step1 As String = "Step 1: ((UAP - UEL) + (UAP - PT)) x 53 weeks"
+Global Const cPost2010Step3 As String = "Step 3: Sum of earnings (PT-UAP) and (UAP-UEL)"
+
+Global Const cPre2011Step1 As String = "Step 1: ((UAP - UEL) + (UAP - ET)) x 53 weeks"
+Global Const cPre2011Step3 As String = "Step 3: Sum of earnings (ET-UAP) and (UAP-UEL)"
+
+Global Const cEmployee As Integer = 0
+Global Const cEmployer As Integer = 1
+
+Global Const cNoTable As String = "No"
+Global Const cWeek As String = "W"
+'----------------------------------------------------------------------
+
+Private Declare Function getprivateprofilestring Lib "kernel32" Alias "GetPrivateProfileStringA" _
+  (ByVal lpApplicationName As String, ByVal lpKeyName As Any, ByVal lpDefault As String, _
+  ByVal lpReturnedString As String, ByVal nSize As Long, ByVal lpFileName As String) As Long
+
+Function autoexec()
+
+
+On Error GoTo Err_autoexec
+
+ Dim Form_Load_DB As Database
+
+    Set Form_Load_DB = CurrentDb()
+    If IsItMDE(Form_Load_DB) = True Then
+    'If IsItMDE = True Then
+    'now set up things for only compiled version
+        
+        'set the options of access (under Tools)
+        Application.SetOption "ShowWindowsInTaskbar", False
+        Application.SetOption "Show System Objects", False
+        Application.SetOption "Show Hidden Objects", False
+        
+        
+        'and now all the setting in the startup dialog
+        If CreateUserProperty("StartupShowDBWindow", "boolean", "FALSE") = False Then
+            'there was an error creating the application
+            MsgBox ("Error setting AllowShortcutMenus")
+        End If
+        
+        If CreateUserProperty("AllowShortcutMenus", "boolean", "FALSE") = False Then
+            'there was an error creating the application
+            MsgBox ("Error setting AllowShortcutMenus")
+        End If
+        
+        If CreateUserProperty("AllowFullMenus", "boolean", "FALSE") = False Then
+            'there was an error creating the application
+            MsgBox ("Error setting AllowFullMenus")
+        End If
+        
+        If CreateUserProperty("AllowBuiltInToolbars", "boolean", "FALSE") = False Then
+            'there was an error creating the application
+            MsgBox ("Error setting AllowBuiltInToolbars")
+        End If
+        
+        If CreateUserProperty("AllowToolbarChanges", "boolean", "FALSE") = False Then
+            'there was an error creating the application
+            MsgBox ("Error setting AllowToolbarChanges")
+        End If
+        
+        
+        If CreateUserProperty("AllowSpecialKeys", "boolean", "FALSE") = False Then
+            'there was an error creating the application
+            MsgBox ("Error setting AllowSpecialKeys")
+        End If
+        
+        If CreateUserProperty("StartupMenuBar", "STRING", "Calculation Support Close") = False Then
+            'there was an error creating the application
+            MsgBox ("Error setting StartupMenuBar")
+        End If
+
+        DoCmd.OpenForm "Calcmain"
+        
+    End If
+    
+Exit_autoexec:
+    
+    Exit Function
+    
+Err_autoexec:
+    MsgBox Error$
+    Resume Exit_autoexec
+
+End Function
+Public Function CreateUserProperty(strProperty As String, strType As String, strValue As String) As Boolean
+On Error GoTo ERROR_CreateUserProperty
+    Dim prop As Object
+
+    Const conPropNotFound = 3270
+    
+    Select Case UCase(strType)
+    Case "STRING"
+        CurrentDb.Properties(strProperty) = strValue
+    Case "INT"
+        CurrentDb.Properties(strProperty) = CInt(strValue)
+    Case "BOOLEAN"
+        CurrentDb.Properties(strProperty) = CBool(strValue)
+    Case Else
+        MsgBox "Invalid type.  Valid types for creating your own properties are: 'INT', 'STRING' and 'BOOLEAN'."
+        CreateUserProperty = False
+        Resume EXIT_CreateUserProperty
+    End Select
+    
+    CreateUserProperty = True
+EXIT_CreateUserProperty:
+On Error Resume Next
+
+    Exit Function
+ERROR_CreateUserProperty:
+    If Err = conPropNotFound Then
+    Select Case UCase(strType)
+    Case "STRING"
+        'Set prop = CurrentDb.CreateProperty(strProperty, dbText, strProperty & " not set yet")
+        Set prop = CurrentDb.CreateProperty(strProperty, dbText, strValue)
+
+    Case "INT"
+        Set prop = CurrentDb.CreateProperty(strProperty, dbInteger, 0)
+    Case "BOOLEAN"
+        Set prop = CurrentDb.CreateProperty(strProperty, dbBoolean, False)
+    Case Else
+        MsgBox "Invalid type.  Valid types for creating your own properties are: 'INT', 'STRING' and 'BOOLEAN'."
+        CreateUserProperty = False
+        Resume EXIT_CreateUserProperty
+    End Select
+    
+        CurrentDb.Properties.Append prop
+        Resume Next
+    Else
+        MsgBox "Setting " & strProperty & " did not complete successfully"
+        CreateUserProperty = False
+        GoTo EXIT_CreateUserProperty
+    End If
+End Function
+Public Function sGetINI(sINIFile As String, sSection As String, sKey As String, sDefault As String) As String
+ 
+Dim sTemp As String * 256
+Dim nLength As Integer
+ 
+sTemp = Space$(256)
+nLength = getprivateprofilestring(sSection, sKey, sDefault, sTemp, 255, sINIFile)
+sGetINI = Left(sTemp, nLength)
+ 
+End Function
+
+Function curRdPounds(ByVal cAmount As Currency) As Currency
+
+'Author     :Jane Watson
+'Date       :10 November 1997
+'Purpose    :To round to whole pounds
+
+On Error GoTo Err_curRdPounds
+
+Dim NewAmount As Currency
+Dim Amount As Currency
+
+    'Obtain Integer value
+    NewAmount = Int(cAmount)
+
+    'Subtract new amount from old amount
+    Amount = cAmount - NewAmount
+
+    If Amount >= 0.5 Then
+        cAmount = NewAmount + 1
+    Else
+        cAmount = NewAmount
+    End If
+
+    curRdPounds = cAmount
+
+Exit_curRdPounds:
+    Exit Function
+    
+Err_curRdPounds:
+    MsgBox Error$
+    Resume Exit_curRdPounds
+
+
+End Function
+
+Function curRound(ByVal curAmount As Double) As Double
+' Author        : Mustaq Hussain
+' Date          : 18 February 1997
+' Fuction Name  : curRound
+' Purpose       : Standard CA Rounding: £50.125 = £50.12  and £50.1251 = £50.13
+' History       :
+' Author        : Lisa Scothern
+' Date          : 04 September 1997
+' Purpose       : Previous version was incorrect (round at £0.006 and above, instead of above £0.005)
+'               : Re-written and now takes account of negative values. RFC 541
+' Author        : Chris Schuler
+' Date          : 26 May 2006
+' Purpose       : CCA9659 - Apply Social Security (Contributions) Regulations 2001 rounding - £50.1259 = £50.12  and £50.1260 = £50.13
+            
+    Dim shiftCurAmount As Currency, shiftRoundAmount As Currency
+
+    shiftCurAmount = curAmount * 100
+    shiftRoundAmount = Fix(shiftCurAmount)
+
+    'If (Abs(shiftCurAmount - shiftRoundAmount) > 0.5) Then
+    If (Abs(shiftCurAmount - shiftRoundAmount) >= 0.6) Then
+        shiftRoundAmount = IIf(curAmount < 0, shiftRoundAmount - 1, shiftRoundAmount + 1)
+    End If
+
+    curRound = shiftRoundAmount / 100
+
+Exit_curRound:
+    Exit Function
+    
+Err_curRound:
+    MsgBox Error$
+    Resume Exit_curRound
+
+End Function
+
+Function curRoundUp(ByVal curAmount As Currency) As Currency
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : curRoundUp
+' Purpose       : Round up to next penny
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 4 January 1996
+' Purpose       : Rounding done in two processes: pounds and pence
+' Author        : Mustaq Hussain
+' Date          : 13 September 1996
+' Purpose       : Compare to two decimal places, in iif()
+' Author        : Lisa Scothern
+' Date          : 04 September 1997
+' Purpose       : Rounding not working correctly. Re-written and now deals with -ve numbers (RFC541)
+
+    Dim shiftCurAmount As Currency, shiftRoundAmount As Currency
+
+    shiftCurAmount = curAmount * 100
+    shiftRoundAmount = Fix(shiftCurAmount)
+
+    If (Abs(shiftCurAmount - shiftRoundAmount) > 0) Then
+        shiftRoundAmount = IIf(curAmount < 0, shiftRoundAmount - 1, shiftRoundAmount + 1)
+    End If
+
+    curRoundUp = shiftRoundAmount / 100
+            
+
+Exit_curRoundUp:
+    Exit Function
+    
+Err_curRoundUp:
+    MsgBox Error$
+    Resume Exit_curRoundUp
+
+End Function
+
+Function curTruncate(ByVal curAmount As Currency) As Currency
+' Author        : Mustaq Hussain
+' Date          : 18 August 1996
+' Fuction Name  : curRoundUp
+' Purpose       : Truncate to nearest penny
+' History
+' Author        : Mustaq Hussain
+' Date          : 13 September 1996
+' Purpose       : Negative numbers, rounded down using Fix - instead of Int
+
+    On Error GoTo Err_curTruncate
+
+    curTruncate = Fix(curAmount * 100) / 100
+
+Exit_curTruncate:
+    Exit Function
+    
+Err_curTruncate:
+    MsgBox Error$
+    Resume Exit_curTruncate
+
+End Function
+
+Function getinitials()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_getinitials
+
+'Dim retVal As String, worked  As Integer
+'    retVal = String$(255, 0)
+'    worked = GetPrivateProfileStringA(ByVal "User Details", ByVal "Initials", "", retVal, Len(retVal), "c:\windows\eoiuser.ini")
+'   If worked = 0 Then
+'        getinitials = "unknown"
+'    Else
+'        getinitials = Left(retVal, worked)
+'   End If
+        
+        getinitials = ""
+
+Exit_getinitials:
+    Exit Function
+
+Err_getinitials:
+    MsgBox Error$
+    Resume Exit_getinitials
+
+End Function
+
+Function getsurname()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' Author        : Peter Morton
+' Date          : 17 Jan 2001
+' Purpose       : function keeps same name but now returns details from the registry
+
+On Error GoTo Err_getsurname
+Dim strInitials As String
+Dim strSurname As String
+
+ 
+'Dim retVal As String, worked  As Integer
+'    retVal = String$(255, 0)
+'    worked = GetPrivateProfileStringA(ByVal "User Details", ByVal "Surname", "", retVal, Len(retVal), "c:\windows\eoiuser.ini")
+'    If worked = 0 Then
+'        getsurname = "unknown"
+'    Else
+'        getsurname = Left(retVal, worked)
+'    End If
+
+'get Initials & Surname - combine for Username
+strInitials = GetSetting(appname:="NIRS", Section:="EOI\LandF", _
+            Key:="Initials")
+strSurname = GetSetting(appname:="NIRS", Section:="EOI\LandF", _
+            Key:="Surname")
+
+getsurname = strInitials & " " & strSurname
+ 
+Exit_getsurname:
+    Exit Function
+
+Err_getsurname:
+    MsgBox Error$
+    Resume Exit_getsurname
+
+End Function
+
+Function nTaxYear(ByVal dtmDate) As Integer
+' Author        : Mustaq Hussain
+' Date          : 30 November 1995
+' Fuction Name  : nTaxTear
+' Purpose       : return the tax year of date entered
+            
+    Dim nYear As Integer
+    On Error GoTo Err_nTaxTear
+
+    ' Get the Tax Year
+    nYear = Year(dtmDate)
+    If (CVDate(dtmDate) < CVDate(Format$("6/4/" + Format(nYear), "dd/mm/yyyy"))) Or (CVDate(dtmDate) > CVDate(Format$("6/4/" + Format(nYear + 1), "dd/mm/yyyy"))) Then
+        nYear = nYear - 1
+    End If
+
+    nTaxYear = nYear
+
+Exit_nTaxTear:
+    Exit Function
+    
+Err_nTaxTear:
+    MsgBox Error$
+    Resume Exit_nTaxTear
+
+End Function
+
+Function strCurrentTaxYear(strClassTable As String) As String
+' Author        : Mustaq Hussain
+' Date          : 24 July 1996
+' Fuction Name  : strCurrentTaxYear
+' Purpose       : Return string tax year (as two digits)
+
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim SQLQuery As String
+    Dim strReturnedValue As String
+
+    On Error GoTo Err_strCurrentTaxYear
+
+    ' Query to get max tax year
+    SQLQuery = "SELECT Max([Tax Yr]) FROM [" + strClassTable + "] ; "
+    
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(SQLQuery)
+
+    mySet.MoveFirst
+        
+    ' Ensure NULL treated as 0
+    strReturnedValue = mySet.Fields(0).value
+    strCurrentTaxYear = IIf(IsNull(strReturnedValue), 0, strReturnedValue)
+    
+    mySet.Close
+
+Exit_strCurrentTaxYear:
+    Exit Function
+    
+Err_strCurrentTaxYear:
+    MsgBox Error$
+    Resume Exit_strCurrentTaxYear
+
+End Function
+
+Function strTaxYearFormatted(strFormName As String, strTaxYear As String)
+' Author        : Mustaq Hussain
+' Date          : 2 August 1996
+' Fuction Name  : TaxYear
+' Purpose       : RFC 413 ( ensure tax/tax+1 shown ) Populate with tax year
+' History
+' Author        : Mustaq Hussain
+' Date          : 24 January 1997
+' Purpose       : Copied to here to allow all forms access to this routine
+'               : Allowed tax year to be passed in as a string
+            
+    Dim nTaxYear As Integer
+    Dim X As Control
+    
+    On Error GoTo Err_strTaxYearFormatted
+
+    Set X = Forms(strFormName)(strTaxYear)
+    
+    nTaxYear = X
+
+    If nTaxYear = 1999 Then
+        ' Turn of the millennium
+        strTaxYearFormatted = Format(nTaxYear) + "/" + Format$(0, "nn")
+    Else
+        strTaxYearFormatted = Format(nTaxYear) + "/" + Format$(nTaxYear + 1)
+    End If
+
+
+Exit_strTaxYearFormatted:
+    Exit Function
+    
+Err_strTaxYearFormatted:
+    MsgBox Error$
+    Resume Exit_strTaxYearFormatted
+
+End Function
+
+Function vRoundUp(ByVal vValue) As Variant
+' Author        : Mustaq Hussain
+' Date          : 9 November 1995
+' Fuction Name  : vRoundUp
+' Purpose       : Round up to integer
+' History       :
+' Author        : Mustaq Hussain
+' Date          : 4 January 1996
+' Reason        : LER 79 : Rounding errors! Modify to work to 6 dp
+            
+    Dim nValue As Integer
+    Dim vNum
+
+    On Error GoTo Err_vRoundUp
+    
+    nValue = Int(vValue)
+
+    ' Absolute difference
+    vNum = nValue - vValue
+    If vNum < 0 Then
+        vNum = vNum * -1
+    End If
+    
+    vRoundUp = IIf(vNum < 0.000005, nValue, nValue + 1)
+
+Exit_vRoundUp:
+    Exit Function
+    
+Err_vRoundUp:
+    MsgBox Error$
+    Resume Exit_vRoundUp
+
+End Function
+
+Public Function LastWorkDayOfMonth(StartDate As String) As String
+
+If Not IsDate(StartDate) Then Exit Function
+
+Dim DateToView As Date
+Dim MonthToView As Integer
+Dim YearToView As Integer
+Dim Days As Integer
+Dim CheckDay As Integer
+
+DateToView = StartDate
+MonthToView = Month(DateToView)
+YearToView = Year(DateToView)
+If MonthToView = 13 Then
+    MonthToView = 1
+    YearToView = YearToView + 1
+End If
+Select Case MonthToView
+Case 1
+Days = 31
+Case 2
+If IsLeapYear("01/02/" & YearToView) Then
+Days = 29
+Else
+Days = 28
+End If
+Case 3
+Days = 31
+Case 4
+Days = 30
+Case 5
+Days = 31
+Case 6
+Days = 30
+Case 7
+Days = 31
+Case 8
+Days = 31
+Case 9
+Days = 30
+Case 10
+Days = 31
+Case 11
+Days = 30
+Case 12
+Days = 31
+End Select
+
+For CheckDay = 1 To Days
+
+
+If Weekday(CheckDay & "/" & MonthToView & "/" & _
+  YearToView) <> 1 And Weekday(CheckDay & "/" & MonthToView _
+  & "/" & YearToView) <> 7 Then
+
+' This is a not a Saturday or Sunday so choose it (unless
+'we find another elsewhere in the loop)
+LastWorkDayOfMonth = CheckDay & "/" & MonthToView & "/" & YearToView
+End If
+
+Next CheckDay
+'use of cdate ensures compatibility
+'with regional date settings
+'LastWorkDayOfNextMonth = CStr(CDate(LastWorkDayOfNextMonth))
+LastWorkDayOfMonth = CStr(CDate(LastWorkDayOfMonth))
+'MsgBox LastWorkDayOfNextMonth
+End Function
+
+Function IsLeapYear(ByVal SomeValue As Variant) As Boolean
+
+On Error GoTo LocalError
+Dim intYear As Integer
+'The trick here is make sure that we get an integer
+'The 3 Golden rules are:
+'True if it is divisible by 4
+'False if it is divisible by 100
+'TRUE if it is divisble by 400
+If IsDate(SomeValue) Then
+intYear = CInt(Year(SomeValue))
+Else
+'try and get an integer from the parse
+'does not matter if we get an error
+'because the error trap will catch it
+intYear = CInt(SomeValue)
+End If
+If TypeName(intYear) = "Integer" Then
+IsLeapYear = ((intYear Mod 4 = 0) And _
+(intYear Mod 100 <> 0) Or (intYear Mod 400 = 0))
+End If
+Exit Function
+LocalError:
+IsLeapYear = False
+
+End Function
+
+Function LastDayOfMonth(Which_Day As Integer, Which_Date As String) As Date
+Dim i As Integer
+Dim iDay As Integer
+Dim iDaysInMonth As Integer
+Dim FullDateNew As Date
+
+Which_Date = CDate(Which_Date)
+  
+
+    iDay = Which_Day
+    
+    iDaysInMonth = Day(DateAdd("d", -1, DateSerial _
+        (Year(Which_Date), Month(Which_Date) + 1, 1)))
+       
+    FullDateNew = DateSerial(Year(Which_Date), Month(Which_Date), iDaysInMonth)
+   
+    For i = 0 To iDaysInMonth
+        If Weekday(FullDateNew - i) = iDay Then
+            LastDayOfMonth = FullDateNew - i
+            Exit For
+        End If
+    Next i
+
+End Function
+
+Public Sub OpenReferenceTables()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_OpenReferenceTables
+
+' Open database.
+Set DataTableDB = CurrentDb()
+
+' Open the NI rate band table.
+Set NIRateBandTable = DataTableDB.OpenRecordset("Band Table", DB_OPEN_TABLE, DB_READONLY)
+
+' Open the class 1 rate table.
+Set Class1RateTable = DataTableDB.OpenRecordset("Class 1 Rate Table", DB_OPEN_TABLE, DB_READONLY)
+
+Exit_OpenReferenceTables:
+    Exit Sub
+
+Err_OpenReferenceTables:
+    MsgBox Error$
+    Resume Exit_OpenReferenceTables
+
+End Sub
+
+Public Sub OpenReferenceTables1999()
+
+On Error GoTo Err_OpenReferenceTables1999
+
+' Open database.
+Set DataTableDB = CurrentDb()
+
+' Open the NI rate band table.
+Set NIRateBandTable = DataTableDB.OpenRecordset("tblBandLimits1999", DB_OPEN_TABLE, DB_READONLY)
+
+' Open the class 1 rate table.
+Set Class1RateTable = DataTableDB.OpenRecordset("tblClass1_1999", DB_OPEN_TABLE, DB_READONLY)
+
+Exit_OpenReferenceTables1999:
+    Exit Sub
+
+Err_OpenReferenceTables1999:
+    MsgBox Error$
+    Resume Exit_OpenReferenceTables1999
+
+
+End Sub
+
+Sub CloseReferenceTables()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_CloseReferenceTables
+
+' Close the reference tables.
+NIRateBandTable.Close
+Class1RateTable.Close
+
+' Close database.
+DataTableDB.Close
+
+Exit_CloseReferenceTables:
+    Exit Sub
+
+Err_CloseReferenceTables:
+    MsgBox Error$
+    Resume Exit_CloseReferenceTables
+
+End Sub
+
+Public Function strNumWeeksFinalQuarter(ByVal strQtrCovered As String) As String
+
+    Dim strQtrStart As String, strQtrEnd As String
+    Dim StartDate As Variant, EndDate As Variant, NumWeeks As Variant
+
+    On Error GoTo Err_strNumWeeksFinalQuarter
+
+    strQtrStart = Left$(strQtrCovered, 10)
+    strQtrEnd = Right$(strQtrCovered, 10)
+    StartDate = DateValue(strQtrStart)
+    EndDate = DateValue(strQtrEnd)
+    
+    NumWeeks = DateDiff("ww", StartDate, EndDate) + 1
+
+    If (NumWeeks < 2) Then
+        Error 1
+    End If
+
+    If ((NumWeeks < 13) Or (NumWeeks > 14)) Then
+        MsgBox "Final Quarter must cover a period of either 13 or 14 weeks", 0 + 48, "Warning"
+    End If
+
+    strNumWeeksFinalQuarter = Str$(NumWeeks)
+
+
+Exit_strNumWeeksFinalQuarter:
+    Exit Function
+
+Err_strNumWeeksFinalQuarter:
+    strNumWeeksFinalQuarter = "0"
+    MsgBox "Invalid date(s) defined for final quarter of this tax year", 0 + 16, "Warning"
+    Resume Exit_strNumWeeksFinalQuarter
+
+End Function

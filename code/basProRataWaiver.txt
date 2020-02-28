@@ -1,0 +1,311 @@
+' Author        : Mustaq Hussain
+' Date          : 26 December 1995
+' Purpose       : Global functions
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+Function bValidProRataWaiverCalculation() As Integer
+' Author        : Mustaq Hussain
+' Date          : 26 December 1995
+' Fuction Name  : bValidProRataWaiverCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' History       : Jane Mullen
+' Date          : 17 February 1997
+' Purpose       : RFC 515 - Screen changes, removal of error messages, name and NINO
+                                             
+
+    Dim myDB As Database, mySet As DAO.Recordset
+    Dim MyLookUp As DAO.Recordset
+    Dim SQLQuery
+    Dim nYear As Integer
+    Dim strTaxPeriod As String
+    Dim nDay As Integer, nDaysToSaturday As Integer
+    Dim dtmStartDate, dtmEndDate
+    Dim dtmPeriodDate
+    Dim N As Integer
+    
+    Dim bFirstYear As Integer
+
+    Dim dtmDateFrom
+    Dim dtmSaturdayAfter, dtmSundayAfter
+    Dim curProRataFirstYear As Currency
+    Dim curProRataSecondYear As Currency
+
+    On Error GoTo Err_bValidProRataWaiverCalculation
+
+    DoCmd.Hourglass True
+    
+    ' Assume validation correct
+    bValidProRataWaiverCalculation = True
+
+
+    
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset("tblProRataWaiverContributions")
+
+    ' Calculate amount only if entries exist
+    If Not mySet.EOF Then
+
+        ' Check multiple of 2 records
+        mySet.MoveLast
+        If mySet.Recordcount Mod 2 <> 0 Then
+            Beep
+            MsgBox ("There must be a multiple of 2 entries")
+            ' Validation was incorrect
+            bValidProRataWaiverCalculation = False
+        Else
+
+            bFirstYear = True
+            mySet.MoveFirst
+            Do Until mySet.EOF
+                    
+                    ' Check first row
+                    If bFirstYear = True Then
+                        
+                        ' Check Cont Year set
+                        If IsNull(mySet![ContYear]) Then
+                            Beep
+                            MsgBox ("Cont Year not set")
+                            bValidProRataWaiverCalculation = False
+                            Exit Do
+                        End If
+                        
+                        nYear = mySet![ContYear]
+                        
+                        ' Check end of first trading year set
+                        If IsNull(mySet!EndOfTradingYears) Then
+                            Beep
+                            MsgBox ("End Of First Trading Year not set")
+                            bValidProRataWaiverCalculation = False
+                            Exit Do
+                        End If
+                    
+                        ' Check range of contributions
+                            ' Get range of Cont Year
+                            SQLQuery = "SELECT DISTINCTROW [Period Start Date],[Period End Date] FROM [Contribution Period Table] "
+                            SQLQuery = SQLQuery + " WHERE [TaxYear] ='" + Format$(nYear) + "';"
+                            
+                            Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                            
+                            dtmStartDate = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+                            dtmEndDate = IIf(IsNull(MyLookUp.Fields(1)), 0, MyLookUp.Fields(1))
+            
+                            MyLookUp.Close
+
+                            ' Check contribution year within range
+                            If mySet!EndOfTradingYears < dtmStartDate Or mySet!EndOfTradingYears > dtmEndDate Then
+                                Beep
+                                MsgBox ("End Of First Trading Year not within Cont Year")
+                                bValidProRataWaiverCalculation = False
+                                Exit Do
+                            End If
+                    
+                    End If
+                    
+                    ' Check second row
+                    If bFirstYear = False Then
+                        
+                        ' Check end of second trading year set
+                        If IsNull(mySet!EndOfTradingYears) Then
+                            Beep
+                            MsgBox ("End Of Second Trading Year not set")
+                            bValidProRataWaiverCalculation = False
+                            Exit Do
+                        End If
+                    
+                        ' Check range of contributions
+                            ' Get range of Cont Year + 1
+                            SQLQuery = "SELECT DISTINCTROW [Period Start Date],[Period End Date] FROM [Contribution Period Table] "
+                            SQLQuery = SQLQuery + " WHERE [TaxYear] ='" + Format$(nYear + 1) + "';"
+                            
+                            Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                            
+                            dtmStartDate = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+                            dtmEndDate = IIf(IsNull(MyLookUp.Fields(1)), 0, MyLookUp.Fields(1))
+            
+                            MyLookUp.Close
+
+                            ' Check contribution year within range
+                            If mySet!EndOfTradingYears < dtmStartDate Or mySet!EndOfTradingYears > dtmEndDate Then
+                                Beep
+                                MsgBox ("End Of Second Trading Year not within Cont Year + 1")
+                                bValidProRataWaiverCalculation = False
+                                Exit Do
+                            End If
+                    
+                    End If
+                    
+                    
+                    ' Update records
+                    mySet.Edit
+                    
+                    If bFirstYear = True Then
+                        mySet![rptContYear] = Format$(nYear, "0000") + "/" + Format$(nYear + 1, "0000")
+                        
+                        mySet![SEELevel] = Null
+                        
+                        ' Set the Saturday date
+                            ' Day
+                            nDay = Weekday(mySet!EndOfTradingYears)
+                        
+                            ' Days to Sat
+                            nDaysToSaturday = Switch(nDay = 1, 6, nDay = 2, 5, nDay = 3, 4, nDay = 4, 3, nDay = 5, 2, nDay = 6, 1, nDay > 6, 0)
+                                        
+                            dtmSaturdayAfter = mySet!EndOfTradingYears + nDaysToSaturday
+                            mySet!AfterEndOfFirstTradingYears = dtmSaturdayAfter
+                    
+                    
+                        ' No of contribution
+                            ' Get the start of contribution date
+                                SQLQuery = "SELECT DISTINCTROW [Period Start Date] FROM [Contribution Period Table] "
+                                SQLQuery = SQLQuery + " WHERE [TaxYear] ='" + Format$(nYear) + "';"
+                                
+                                Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                                
+                                dtmPeriodDate = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+                
+                                MyLookUp.Close
+    
+                            For N = 0 To 53
+                                If dtmPeriodDate + N * 7 > dtmSaturdayAfter Then
+                                    mySet!NoOfContWeeks = N
+                                    Exit For
+                                End If
+                            Next
+                    
+                        
+                        ' Pro-rata profit for second year
+                        curProRataFirstYear = Int(mySet!NetProfitTradingYears * mySet!NoOfContWeeks / 53 * 10000) / 10000
+                        mySet![Pro-RataProfitTradingYears] = curProRataFirstYear
+                    
+                    End If
+                    
+
+                    If bFirstYear = False Then
+                        mySet![rptContYear] = Null
+                        mySet![ContYear] = Null
+    
+                        ' Set the SEE Level
+                            SQLQuery = "SELECT DISTINCTROW [SEE Limit] FROM [CLASS 2 RATE TABLE] "
+                            SQLQuery = SQLQuery + " WHERE [Tax Yr] ='" + Format$(nYear) + "';"
+                            
+                            Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                            
+                            mySet![SEELevel] = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+            
+                            MyLookUp.Close
+        
+                        
+                        ' Set the Sunday date
+                        dtmSundayAfter = dtmSaturdayAfter + 1
+                        mySet!AfterEndOfFirstTradingYears = dtmSundayAfter
+        
+                        ' No of contributions
+                            ' Get the end of contribution date
+                                SQLQuery = "SELECT DISTINCTROW [Period End Date] FROM [Contribution Period Table] "
+                                SQLQuery = SQLQuery + " WHERE [TaxYear] ='" + Format$(nYear) + "';"
+                                
+                                Set MyLookUp = myDB.OpenRecordset(SQLQuery)
+                                
+                                dtmPeriodDate = IIf(IsNull(MyLookUp.Fields(0)), 0, MyLookUp.Fields(0))
+                
+                                MyLookUp.Close
+    
+                            For N = 0 To 53
+                                If dtmSundayAfter + N * 7 > dtmPeriodDate Then
+                                    mySet!NoOfContWeeks = N
+                                    Exit For
+                                End If
+                            Next
+        
+
+                        ' Pro-rata profit for second year
+                        curProRataSecondYear = Int(mySet!NetProfitTradingYears * mySet!NoOfContWeeks / 53 * 10000) / 10000
+                        mySet![Pro-RataProfitTradingYears] = curProRataSecondYear
+                End If
+    
+    
+                ' Pro-rata profit contribution year
+                If bFirstYear = False Then
+                    mySet![Pro-RataProfitForContYear] = Int(curProRataFirstYear + curProRataSecondYear)
+                Else
+                    mySet![Pro-RataProfitForContYear] = Null
+                End If
+                    
+
+                mySet.Update
+                mySet.MoveNext
+
+                bFirstYear = IIf(bFirstYear = True, False, True)
+
+            Loop
+        End If
+    Else
+        Beep
+        MsgBox ("No entries")
+        ' Validation was incorrect
+        bValidProRataWaiverCalculation = False
+    End If
+    
+    ' Update Details section, to reflect database
+    Forms![frmProRataWaiver]![subProRataWaiverContributions].Form.Requery
+
+    mySet.Close
+    myDB.Close
+
+
+Exit_bValidProRataWaiverCalculation:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidProRataWaiverCalculation:
+    MsgBox Error$
+    Resume Exit_bValidProRataWaiverCalculation
+
+End Function
+
+Sub ClearProRataWaiver()
+' Author        : Mustaq Hussain
+' Date          : 26 December 1995
+' Fuction Name  : ClearSMPRecoverable
+' Purpose       : Clear the ProRataWaiver's entry form, ready for new data
+' History       : Jane Mullen
+' Date          : 11 February 1997
+' Purpose       : Clear the new Initials field
+            
+
+    On Error GoTo Err_ClearProRataWaiver
+    
+    DoCmd.SetWarnings False
+    DoCmd.Hourglass True
+    
+    'Runs the required SQL to delete all of the data input on the subforms
+    DoCmd.RunSQL "DELETE * FROM [tblProRataWaiverContributions]"
+    
+    ' Update Details section, no records
+    Forms![frmProRataWaiver]![subProRataWaiverContributions].Form.Requery
+
+    'Re-initialises all of the input fields and set focus back to first input field
+    
+    ' Clear information only fields
+    Forms!frmProRataWaiver.txtName = Null
+    Forms!frmProRataWaiver.txtRef = Null
+    Forms!frmProRataWaiver!NIPrefix = Null
+    Forms!frmProRataWaiver!NInumber = Null
+    Forms!frmProRataWaiver!NIsuffix = Null
+    Forms!frmProRataWaiver!txtInitial = Null
+
+    ' Set focus
+    Forms!frmProRataWaiver.txtName.SetFocus
+    
+Exit_ClearProRataWaiver:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_ClearProRataWaiver:
+    MsgBox Error$
+    Resume Exit_ClearProRataWaiver
+
+End Sub

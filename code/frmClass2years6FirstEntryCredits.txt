@@ -1,0 +1,56 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+
+Private Sub cmdOK_Click()
+' Author    : Mustaq Hussain
+' Date      : 17 July 1996
+' Module    : cmdOK_Click
+' Purpose   : LER 95 : Number of credits not taken into account for 1st civil proceedings
+
+    On Error GoTo Err_cmdOK_Click
+    Dim X As Integer
+    
+    DoCmd.RunSQL ("DELETE * FROM [Class 2 Civil Breakdown Table]")
+    
+    n1stEntryNoCredits = [No Credits]
+    
+    X = Class2_6years()
+    
+    Forms!frmClass2years6.Requery
+    
+    DoCmd.Close
+
+Exit_cmdOK_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_cmdOK_Click:
+    MsgBox Error$
+    Resume Exit_cmdOK_Click
+End Sub
+
+Private Sub Form_Load()
+' Author    : Mustaq Hussain
+' Date      : 17 July 1996
+' Module    : Form_Load
+' Purpose   : LER 95 : Number of credits not taken into account for 1st civil proceedings
+
+    On Error GoTo err_Form_Load
+
+    [Tax Year] = n1stEntryTaxYear
+    [From] = n1stEntryFrom
+    [To] = n1stEntryTo
+    
+    [No Credits] = "0"
+    
+    [MaxNoCredits] = n1stEntryMaxNoCredits
+    [MaxNoConts] = n1stEntryMaxNoConts
+    
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub

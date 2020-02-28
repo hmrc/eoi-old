@@ -1,0 +1,146 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+Private Sub cboTaxYear_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_cboTaxYear_Click
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    Dim RecordTotal As Integer
+
+    DoCmd.SetWarnings False
+
+    Set myDB = CurrentDb()
+
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Maxima For Class 2/4 Review Of Liability] WHERE [Tax Year] = """ & Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear & """;")
+
+    MyRecordSet.MoveFirst
+    With Forms![frmAppendix2]![subAppendix2].Form
+        .[Weeks In Year2].Visible = False
+        .[Class 2 Weekly Rate2].Visible = False
+        .[Class 2 Monthly Rate2].Visible = False
+        .[Annual Total (Monthly)2].Visible = False
+        .[Annual Total (Weekly)2].Visible = False
+        .[Class 1/2 Maximum2].Visible = False
+        .[Class 2/4 Maximum (Man)2].Visible = False
+        .[Class 2/4 Maximum (Woman)2].Visible = False
+        .[Weekly Lower Earnings Limit2].Visible = False
+        .[Weekly Upper Earnings Limit2].Visible = False
+        .[lblMaximum].Visible = False
+
+        .[Weeks In Year] = MyRecordSet![Weeks In Year]
+        .[Class 2 Weekly Rate] = MyRecordSet![Class 2 Weekly Rate]
+        .[Class 2 Monthly Rate] = MyRecordSet![Class 2 Monthly Rate]
+        .[Annual Total (Monthly)] = MyRecordSet![Annual Total (Monthly)]
+        .[Annual Total (Weekly)] = MyRecordSet![Annual Total (Weekly)]
+        .[Class 1/2 Maximum] = MyRecordSet![Class 1/2 Maximum]
+        .[Class 2/4 Maximum (Man)] = MyRecordSet![Class 2/4 Maximum (Man)]
+        .[Class 2/4 Maximum (Woman)] = MyRecordSet![Class 2/4 Maximum (Woman)]
+        .[Weekly Lower Earnings Limit] = MyRecordSet![Weekly Lower Earnings Limit]
+        .[Weekly Upper Earnings Limit] = MyRecordSet![Weekly Upper Earnings Limit]
+    
+        MyRecordSet.MoveLast
+        
+        RecordTotal = MyRecordSet.Recordcount
+    
+        If RecordTotal > 1 Then
+            
+            .[Weeks In Year2] = MyRecordSet![Weeks In Year]
+            .[Class 2 Weekly Rate2] = MyRecordSet![Class 2 Weekly Rate]
+            '.[Class 2 Monthly Rate2] = MyRecordSet![Class 2 Monthly Rate]
+            .[Annual Total (Monthly)2] = MyRecordSet![Annual Total (Monthly)]
+            '.[Annual Total (Weekly)2] = MyRecordSet![Annual Total (Weekly)]
+            .[Class 1/2 Maximum2] = MyRecordSet![Class 1/2 Maximum]
+            .[Class 2/4 Maximum (Man)2] = MyRecordSet![Class 2/4 Maximum (Man)]
+            .[Class 2/4 Maximum (Woman)2] = MyRecordSet![Class 2/4 Maximum (Woman)]
+            .[Weekly Lower Earnings Limit2] = MyRecordSet![Weekly Lower Earnings Limit]
+            .[Weekly Upper Earnings Limit2] = MyRecordSet![Weekly Upper Earnings Limit]
+        
+            .[Weeks In Year2].Visible = True
+            .[Class 2 Weekly Rate2].Visible = True
+            '.[Class 2 Monthly Rate2].visible = True
+            .[Annual Total (Monthly)2].Visible = True
+            '.[Annual Total (Weekly)2].visible = True
+            .[Class 1/2 Maximum2].Visible = True
+            .[Class 2/4 Maximum (Man)2].Visible = True
+            .[Class 2/4 Maximum (Woman)2].Visible = True
+            .[Weekly Lower Earnings Limit2].Visible = True
+            .[Weekly Upper Earnings Limit2].Visible = True
+            .[lblMaximum].Visible = True
+    
+        End If
+    
+        If Forms!frmAppendix2!subAppendix2.Form.cboTaxYear > 1977 Then
+            .[Annual Total (Weekly)].Visible = False
+            .[Class 2 Monthly Rate].Visible = False
+            .[Weekly Woman].Visible = False
+            .[Annual Woman].Visible = False
+            .[Weekly Man].Caption = "Rate"
+            .[Annual Man].Caption = "Total"
+        Else
+            .[Annual Total (Weekly)].Visible = True
+            .[Class 2 Monthly Rate].Visible = True
+            .[Weekly Woman].Visible = True
+            .[Annual Woman].Visible = True
+            .[Weekly Man].Caption = "  Rate  (Man)"
+            .[Annual Man].Caption = "   Total   (Man)"
+        End If
+    End With
+    
+Exit_cboTaxYear_Click:
+    Exit Sub
+
+Err_cboTaxYear_Click:
+    MsgBox Error$
+    Resume Exit_cboTaxYear_Click
+
+End Sub
+
+Private Sub Form_Load()
+' History
+' Author : Mustaq Hussain
+' Date   : 5 November 1996
+' Reason : Set default year
+
+On Error GoTo err_Form_Load
+
+    Dim myDB As Database
+    Dim MyRecordSet As DAO.Recordset
+    With Forms![frmAppendix2]![subAppendix2].Form
+        .[Weeks In Year2].Visible = False
+        .[Class 2 Weekly Rate2].Visible = False
+        .[Class 2 Monthly Rate2].Visible = False
+        .[Annual Total (Monthly)2].Visible = False
+        .[Annual Total (Weekly)2].Visible = False
+        .[Class 2/4 Maximum (Man)2].Visible = False
+        .[Class 2/4 Maximum (Woman)2].Visible = False
+        .[Weekly Lower Earnings Limit2].Visible = False
+        .[Weekly Upper Earnings Limit2].Visible = False
+    End With
+    
+    Set myDB = CurrentDb()
+                
+    Set MyRecordSet = myDB.OpenRecordset("SELECT * FROM [Maxima For Class 2/4 Review Of Liability];")
+
+    MyRecordSet.MoveLast
+
+    Forms![frmAppendix2]![subAppendix2].Form.cboTaxYear = MyRecordSet![Tax Year]
+
+    cboTaxYear_Click
+
+
+exit_Form_Load:
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub

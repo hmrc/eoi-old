@@ -1,0 +1,190 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+Private Sub Class_4_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History       : Christopher Schuler
+' Date          : 24 November 2000
+' Purpose       : Recoding of Class234 removing need for input table and macros
+
+
+On Error GoTo Err_Class_4_Click
+Application.Echo False
+
+DoCmd.OpenForm "Form4"
+DoCmd.Close acForm, "Form2"
+
+Exit_Class_4_Click:
+    Application.Echo True
+    Exit Sub
+
+Err_Class_4_Click:
+    MsgBox Error$
+    Resume Exit_Class_4_Click
+    
+End Sub
+
+Private Sub Class3_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History       : Christopher Schuler
+' Date          : 24 November 2000
+' Purpose       : Recoding of Class234 removing need for input table and macros
+
+
+On Error GoTo Err_Class3_Click
+
+Application.Echo False
+
+DoCmd.OpenForm "Form3"
+
+DoCmd.Close acForm, "Form2"
+
+Exit_Class3_Click:
+    Application.Echo True
+    Exit Sub
+
+Err_Class3_Click:
+    MsgBox Error$
+    Resume Exit_Class3_Click
+    
+End Sub
+
+
+
+
+
+Private Sub Exit_Click()
+On Error GoTo Err_Exit_Click
+
+   DoCmd.Close
+
+Exit_Exit_Click:
+    Exit Sub
+
+Err_Exit_Click:
+    MsgBox Error$
+    Resume Exit_Exit_Click
+    
+End Sub
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 28 February 1997
+' Fuction Name  : Form_Load
+' Purpose       : RFC 515 : Sets default tax year
+' History       : Christopher Schuler
+' Date          : 24 November 2000
+' Purpose       : Recoding of Class234 removing need for input table and macros
+
+
+    On Error GoTo err_Form_Load
+
+    DoCmd.Maximize
+    
+    Forms!Form2![Tax Year] = strCurrentTaxYear("CLASS 2 RATE TABLE")
+
+    Tax_Year_Click
+
+exit_Form_Load:
+    Exit Sub
+    
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+
+End Sub
+
+Private Sub Tax_Year_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+' History       : Christopher Schuler
+' Date          : 24 November 2000
+' Purpose       : Add tax year 2001 and recoding of Class234 removing need for input table and macros
+
+On Error GoTo Err_Tax_Year_Click
+
+DoCmd.Hourglass True
+
+With Forms!Form2
+
+    !txtWeek.value = 1
+
+    
+    If ![Tax Year] > 1977 Then
+       
+       ![Men Rate].Visible = False
+       ![txtMenTotal].Visible = False
+       ![Men Wk Rte].Visible = False
+       
+       ![Women Rate].Visible = False
+       ![Women Total].Visible = False
+       ![Wk Rte].Visible = True
+       ![Rate Total].Visible = True
+       
+    Else
+       ![Men Rate].Visible = True
+       ![txtMenTotal].Visible = True
+       ![Men Wk Rte].Visible = True
+       
+       ![txtRateTotal].Visible = True
+    
+       ![Women Rate].Visible = True
+       ![Women Total].Visible = True
+       ![Wk Rte].Visible = False
+       ![Rate Total].Visible = False
+       
+    End If
+
+    Requery
+    
+    If ![Tax Year] > 1977 Then
+        ![txtRateTotal] = [Men Wk Rte] * [No of Wks]
+    Else
+        ![txtMenTotal] = [Men Wk Rte] * [No of Wks]
+        ![txtRateTotal] = [Women Wk Rte] * [No of Wks]
+    End If
+
+    ![txtVDWTotal] = [VDW Wk Rte] * [No of Wks]
+    
+    If ![Tax Year] > 2014 Then
+        Text33.Caption = "SEE/SPT"
+    Else
+        Text33.Caption = "SEE"
+    End If
+
+End With
+
+Exit_Tax_Year_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_Tax_Year_Click:
+    MsgBox Error$
+    Resume Exit_Tax_Year_Click
+
+End Sub
+
+
+
+Private Sub txtWeek_AfterUpdate()
+Forms!Form2.Requery
+End Sub
+
+Private Sub txtWeek_GotFocus()
+
+Refresh
+
+End Sub

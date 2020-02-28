@@ -1,0 +1,678 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Option Explicit
+
+
+Private Function bRemissionPeriodsCorrect() As Integer
+' Author        : Mustaq Hussain
+' Date          : 4 June 1996
+' Fuction Name  : bRemissionPeriodsCorrect
+' Purpose       : Check to see if any Remission Periods exist, and multiple periods do not over-lap
+' History
+' Author        : Mustaq Hussain
+' Date          : 25 June 1996
+' Purpose       : Srirs fixed, error message modified
+' Author        : Lisa Scothern
+' Date          : 15 October 1997
+' Purpose       : RFC526 - Addition of remission tax year to validation code. Decide which table to interrogate
+
+            
+    Dim myDB As Database, mySet As DAO.Recordset, MyStart As DAO.Recordset, MyDebt As DAO.Recordset
+    Dim i As Integer
+    Dim iStartYear As Integer, iDebtYear As Integer, iNumRecs As Integer, iTaxYear As Integer, iDummyTaxYear As Integer
+    Dim aRemTaxYear() As Integer, aLastEndDate() As Variant
+    Dim strTableName As String, strSelect As String, strMessage As String
+    Dim bStandard As Integer 'use as boolean
+
+    On Error GoTo Err_bRemissionPeriodsCorrect
+            
+    If [RemPrdMode] = 1 Then
+        strTableName = "tblInterestLateUnpaidClass1RemissionStandard"
+        bStandard = True
+    Else
+        strTableName = "tblInterestLateUnpaidClass1RemissionSpecific"
+        bStandard = False
+    End If
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+    Set mySet = myDB.OpenRecordset(strTableName)
+
+    ' Assume dates correct
+    bRemissionPeriodsCorrect = True
+
+    iDummyTaxYear = 1977
+    
+    ' Check dates only if Periods entries exist
+    If Not mySet.EOF Then
+
+        iNumRecs = 0
+        mySet.MoveFirst
+        Do Until mySet.EOF
+            iNumRecs = iNumRecs + 1   ' This is the most reliable way to count num records
+            mySet.MoveNext
+        Loop
+
+        ReDim aRemTaxYear(iNumRecs)
+        ReDim aLastEndDate(iNumRecs)
+        
+        For i = 1 To (iNumRecs - 1)
+            If bStandard Then
+                aRemTaxYear(i) = iDummyTaxYear         'Initialise with dummy tax year
+            Else
+                aRemTaxYear(i) = -1                    'Initialise to indicate empty
+            End If
+        Next
+
+        
+        mySet.MoveFirst
+        
+        ' Loop through each Period
+        Do Until mySet.EOF
+
+            ' Ensure both populated
+            If bStandard Then
+                If IsNull(mySet![Start]) Or IsNull(mySet![End]) Then
+                    Beep
+                    MsgBox ("Both Start and End Remission Periods must be filled in")
+                    bRemissionPeriodsCorrect = False
+                    GoTo Exit_Record_Check
+                End If
+            Else
+
+                If IsNull(mySet![Start]) Or IsNull(mySet![End]) Or IsNull(mySet![RemTaxYear]) Then
+                    Beep
+                    MsgBox ("Both Start and End Remission Periods must be filled" & Chr$(13) & "in, along with the Tax Year to which they apply")
+                    bRemissionPeriodsCorrect = False
+                    GoTo Exit_Record_Check
+                End If
+            End If
+
+
+            ' Start date validation
+            If CVDate(mySet![Start]) < CVDate(Format$("22/11/1993", "dd/mm/yyyy")) Then
+                Beep
+                MsgBox ("Remission Start date must not be before 22/11/1993")
+                bRemissionPeriodsCorrect = False
+                GoTo Exit_Record_Check
+            End If
+
+             
+            ' End date validation
+            If mySet![End] < mySet![Start] Then
+                Beep
+                MsgBox ("Remission Start date must not be after the End date")
+                bRemissionPeriodsCorrect = False
+                GoTo Exit_Record_Check
+            End If
+             
+            ' End date must not be after DateOfAssessment
+            If mySet![End] > Forms!frmInterestLateUnpaidClass1Main!txtDateOfAssessment Then
+                Beep
+                MsgBox ("Remission Period must not be after Date of Assessment")
+                bRemissionPeriodsCorrect = False
+                GoTo Exit_Record_Check
+            End If
+
+
+            'Check Remission Period not before Debt period   - Re-written for RFC526
+            
+            If Not bStandard Then
+                iStartYear = nTaxYear(mySet![Start])
+                iDebtYear = mySet![RemTaxYear] + 1
+            
+                If iStartYear < iDebtYear Then
+                    GoTo Err_MinDebtYear
+                End If
+            End If
+
+            ' Second and subsequent records for a particular debt year should not overlap  - RFC526
+            ' In Standard mode, overlap not allowed regardless of tax year
+            i = 0
+            Do While (i < iNumRecs)
+                If bStandard Then
+                    iTaxYear = iDummyTaxYear
+                Else
+                    iTaxYear = CInt(mySet![RemTaxYear])
+                End If
+                If (aRemTaxYear(i) = -1) Then
+                    ' Tax year not already encountered, so store details about it
+                    aRemTaxYear(i) = iTaxYear
+                    aLastEndDate(i) = mySet![End]
+                    i = iNumRecs   ' set to exit loop
+                ElseIf (aRemTaxYear(i) = iTaxYear) Then
+                    'Tax year already encountered, check for overlap
+                    If (mySet![Start] <= aLastEndDate(i)) Then
+                        Beep
+                        strMessage = "Remission Start dates must be later than previous "
+                        If bStandard Then
+                            strMessage = strMessage & "End dates"
+                        Else
+                            strMessage = strMessage & Chr$(13) & "End dates for the same tax year"
+                        End If
+                        MsgBox (strMessage)
+                        bRemissionPeriodsCorrect = False
+                        GoTo Exit_Record_Check
+                    Else
+                        aLastEndDate(i) = mySet![End]
+                    End If
+                End If
+                i = i + 1
+            Loop
+            
+            mySet.MoveNext
+        Loop
+
+        If bStandard Then
+            strSelect = "SELECT Min(Start) FROM " & strTableName & ";"
+            Set MyStart = myDB.OpenRecordset(strSelect)
+            Set MyDebt = myDB.OpenRecordset("SELECT Min(TaxYear) FROM tblInterestLateUnpaidClass1;")
+            iStartYear = nTaxYear(MyStart.Fields(0))
+            iDebtYear = MyDebt.Fields(0) + 1
+            If iStartYear + 1900 < iDebtYear Then
+                GoTo Err_MinDebtYear
+            End If
+        End If
+
+Exit_Record_Check:
+
+    End If
+
+    Erase aRemTaxYear      'Free-up memory
+    Erase aLastEndDate
+    
+    mySet.Close
+
+
+Exit_bRemissionPeriodsCorrect:
+    Exit Function
+    
+Err_bRemissionPeriodsCorrect:
+    MsgBox Error$
+    Resume Exit_bRemissionPeriodsCorrect
+
+Err_MinDebtYear:
+    Beep
+    MsgBox ("Remission Periods must be 1 year after Debt Periods")
+    bRemissionPeriodsCorrect = False
+    GoTo Exit_Record_Check
+
+End Function
+
+Private Function bValidInterestLateCalculation() As Integer
+' Author        : Mustaq Hussain
+' Date          : 30 January 1996
+' Fuction Name  : bValidInterestLateCalculation
+' Purpose       : Carry out calculation, return TRUE if all data valid for calculation
+' History
+' Author        : Mustaq Hussain
+' Date          : 4 June 1996
+' Purpose       : RFC 384: Remission Period
+' History
+' Author        : Mustaq Hussain
+' Date          : 5 March 1997
+' Purpose       : RFC 506 : Interest rate table check
+' History
+' Author        : Lisa Scothern
+' Date          : 4 September 1997
+' Purpose       : RFC 541 : Truncate with Fix() rather than Int()
+' History
+' Author        : Lisa Scothern
+' Date          : 16 October 1997
+' Purpose       : RFC 526 : Allow debt up to £10 million (instead of £1 million)
+' Author        : Lisa Scothern
+' Date          : 4 November 1997
+' Purpose       : STIR 807 : Allow debt up to AND INCLUDING £10 million (i.e. <= 10,000,000)
+
+
+    Dim curTotalDebt As Currency, curTotalInterest As Currency
+    Dim perPercentage As Double
+    Dim bCorrectValidation As Integer
+
+    Const gcINTEREST_UNPAID_DEBT = 1
+    Const gcINTEREST_LATE_PAID_REFUNDS = 2
+    
+    Dim myDB As Database, mySet As DAO.Recordset, MyLookUp As DAO.Recordset
+    Dim SQLQuery
+
+    On Error GoTo Err_bValidInterestLateCalculation
+
+    DoCmd.Hourglass True
+                                                               
+                       
+    ' Assume correct
+    bValidInterestLateCalculation = True
+    bCorrectValidation = True
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        
+
+    ' Check dates valid
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset("Class 1 Interest Charges")
+    
+        ' Calculate only if entries exist
+        If Not mySet.EOF Then
+            mySet.MoveFirst
+            Dim dtmPrevious
+
+            dtmPrevious = mySet![Interest Start Date]
+            mySet.MoveNext
+
+            ' Loop through each entry
+            Do Until mySet.EOF
+                If IsNull(mySet![Interest Start Date]) Then
+                    Beep
+                    MsgBox ("Start of interest rate not set")
+                    bCorrectValidation = False
+                    Exit Do
+                End If
+                If mySet![Interest Start Date] <= dtmPrevious Then
+                    Beep
+                    MsgBox ("From dates must increase")
+                    bCorrectValidation = False
+                    Exit Do
+                End If
+                dtmPrevious = mySet![Interest Start Date]
+                mySet.MoveNext
+            Loop
+    
+        Else
+            Beep
+            MsgBox ("No entries in table to carry out  calculation")
+            bCorrectValidation = False
+        End If
+
+
+        ' Miss calculation if incorrect validation
+        If bCorrectValidation = False Then
+            bValidInterestLateCalculation = False
+            Forms![frmInterestLateUnpaidClass1Main].subInterestRates.SetFocus
+            GoTo Exit_bValidInterestLateCalculation
+        End If
+
+
+    ' Check record validation
+        Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset("tblInterestLateUnpaidClass1")
+    
+        ' Calculate only if entries exist
+        If Not mySet.EOF Then
+            mySet.MoveFirst
+            
+            ' Loop through each tax year entry
+            Do Until mySet.EOF
+                If IsNull(mySet![Taxyear]) Then
+                    Beep
+                    MsgBox ("Tax Year must be set")
+                    bCorrectValidation = False
+                    Exit Do
+                End If
+                If mySet![Amount] > 10000000 Then   'RFC526
+                    Beep
+                    MsgBox ("Debt must be between : £0.00 and £10,000,000.00 (inclusive)")
+                    Forms![frmInterestLateUnpaidClass1Main].subArrears.SetFocus
+                    bCorrectValidation = False
+                    Exit Do
+                End If
+                mySet.MoveNext
+            Loop
+    
+        Else
+            Beep
+            MsgBox ("No entries in table to carry out  calculation")
+            bCorrectValidation = False
+        End If
+    
+        mySet.Close
+        myDB.Close
+    
+    ' Miss calculation if incorrect validation
+    If bCorrectValidation = False Then
+        bValidInterestLateCalculation = False
+        Forms![frmInterestLateUnpaidClass1Main].subArrears.SetFocus
+        GoTo Exit_bValidInterestLateCalculation
+    End If
+
+    ' Check Remission Periods
+    If bRemissionPeriodsCorrect() = False And bCorrectValidation = True Then
+        If Forms![frmInterestLateUnpaidClass1Main]![RemPrdMode] = 1 Then
+            Forms![frmInterestLateUnpaidClass1Main].subRemissionStd.SetFocus
+        Else
+            Forms![frmInterestLateUnpaidClass1Main].subRemissionSpecific.SetFocus
+        End If
+        bCorrectValidation = False
+    End If
+
+    ' Miss calculation if incorrect validation
+    If bCorrectValidation = False Then
+        bValidInterestLateCalculation = False
+        GoTo Exit_bValidInterestLateCalculation
+    End If
+
+
+
+    If bCalculateInterest("frmInterestLateUnpaidClass1Main", "tblInterestLateUnpaidClass1", gcINTEREST_UNPAID_DEBT, txtDateOfAssessment, 0, curTotalDebt, curTotalInterest, perPercentage) = True Then
+        ' Calculation correct
+        ' Update fields
+    
+        txtTotalDebt = curTotalDebt
+        txtTotalInterest = curTotalInterest
+        txtDailyRate = Fix(txtTotalDebt / 366 * perPercentage * 100) / 100
+        txtTotalDebtAndInterest = txtTotalDebt + txtTotalInterest
+        'Forms.[frmInterestLateUnpaidClass1Main].subArrears.Form.Requery
+        Requery
+    Else
+        ' Error in calculation
+        bValidInterestLateCalculation = False
+    End If
+
+
+Exit_bValidInterestLateCalculation:
+    DoCmd.Hourglass False
+    Exit Function
+    
+Err_bValidInterestLateCalculation:
+    MsgBox Error$
+    Resume Exit_bValidInterestLateCalculation
+
+End Function
+
+Private Sub ClearForm()
+' Author        : Mustaq Hussain
+' Date          : 31 January 1996
+' Fuction Name  : ClearForm
+' Purpose       : Clear the calculation
+' History       : Jane Mullen
+' Date          : 10 February 1997
+' Purpose       : Clear the calculation new fields,initials and NINO
+' History       : Lisa Scothern
+' Date          : 23 October 1997
+' Purpose       : RFC526: Hide Specific Rem Prd subform, and set default radio button to Standard
+
+
+    On Error GoTo Err_ClearForm
+
+    'Clear down any records
+    DoCmd.SetWarnings False
+
+    DoCmd.RunSQL "DELETE * FROM [tblInterestLateUnpaidClass1]"
+    DoCmd.RunSQL "DELETE * FROM [tblInterestLateUnpaidClass1RemissionSpecific]"
+    DoCmd.RunSQL "DELETE * FROM [tblInterestLateUnpaidClass1RemissionStandard]"
+    DoCmd.RunSQL "DELETE * FROM [tblInterestLateUnpaidClass1RemissionReport]"
+    DoCmd.RunSQL "DELETE * FROM [tblInterestLateUnpaidClass1Report]"
+    
+    With Forms![frmInterestLateUnpaidClass1Main]
+        !subArrears.Form.Requery
+        !subRemissionStd.Form.Requery
+        !subRemissionSpecific.Form.Requery
+        !subRemissionSpecific.Form.Visible = False
+        !subRemissionStd.Form.Visible = True
+        ![RemPrdMode] = 1  ' default to Standard mode
+    
+        ![txtDateOfAssessment] = Date
+        ![txtEmployeeName] = Null
+        ![txtEmployerName] = Null
+        ![Initial] = Null
+        ![NIPrefix] = Null
+        ![NInumber] = Null
+        ![NIsuffix] = Null
+        ![txtReference] = Null
+        ![txtEmployeeName].SetFocus
+    
+        ![txtTotalDebt] = Null
+        ![txtTotalInterest] = Null
+        ![txtTotalDebtAndInterest] = Null
+        ![txtDailyRate] = Null
+    End With
+
+Exit_ClearForm:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_ClearForm:
+    MsgBox Error$
+    Resume Exit_ClearForm
+
+End Sub
+
+Private Sub cmdClear_Click()
+' Author        : Mustaq Hussain
+' Date          : 31 January 1996
+' Fuction Name  : cmdClear_Click
+' Purpose       : Clear the calculation
+
+    On Error GoTo Err_cmdClear_Click
+
+    ClearForm
+
+Exit_cmdClear_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+    
+Err_cmdClear_Click:
+    MsgBox Error$
+    Resume Exit_cmdClear_Click
+
+End Sub
+
+Private Sub cmdClose_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History
+' Author        : Mustaq Hussain
+' Date          : 5 March 1997
+' Purpose       : RFC 506 : Interest rate table check, ensure incorrect dates remove
+
+
+    Dim myDB As Database, mySet As DAO.Recordset, MyLookUp As DAO.Recordset
+
+    On Error GoTo Err_close_Click
+
+
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        
+
+    ' Delete 'bad' dates
+    Set myDB = DBEngine.Workspaces(0).Databases(0)
+        Set mySet = myDB.OpenRecordset("Class 1 Interest Charges")
+    
+        ' Calculate only if entries exist
+        If Not mySet.EOF Then
+            mySet.MoveFirst
+            Dim dtmPrevious
+
+            dtmPrevious = mySet![Interest Start Date]
+            mySet.MoveNext
+
+            ' Loop through each entry
+            Do Until mySet.EOF
+                ' Remove if before
+                If mySet![Interest Start Date] <= dtmPrevious Then
+                    mySet.Edit
+                    mySet.Delete
+                Else
+                    dtmPrevious = mySet![Interest Start Date]
+                End If
+                mySet.MoveNext
+            Loop
+    
+        End If
+
+        mySet.Close
+    
+
+
+    DoCmd.SetWarnings False
+    DoCmd.Close
+
+
+Exit_close_Click:
+    Exit Sub
+Err_close_Click:
+    MsgBox Error$
+    Resume Exit_close_Click
+End Sub
+
+Private Sub cmdLate_Click()
+' Author        : Mustaq Hussain
+' Date          : 1 December 1995
+' Fuction Name  : cmdLate_Click
+' Purpose       : Close Unpaid and open Late
+
+    On Error GoTo Err_cmdLate_Click
+
+    DoCmd.OpenForm "frmInterestL/ULateMain"
+    DoCmd.Close acForm, "frmInterestL/UUnpaidMain"
+
+
+Exit_cmdLate_Click:
+    Exit Sub
+
+Err_cmdLate_Click:
+    MsgBox Error$
+    Resume Exit_cmdLate_Click
+    
+End Sub
+
+Private Sub cmdNext_Click()
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+    On Error GoTo err_cmdNext_Click
+
+    DoCmd.OpenForm "frmRepayInterestMain", A_NORMAL
+    DoCmd.Close acForm, "frmRefundInterestMain"
+
+exit_cmdNext_Click:
+    Exit Sub
+err_cmdNext_Click:
+    MsgBox Error$
+    Resume exit_cmdNext_Click
+End Sub
+
+Private Sub cmdPrint_Click()
+' Author        : Mustaq Hussain
+' Date          : 31 December 1996
+' Fuction Name  : cmdPrint_Click
+' Purpose       : Recalculate then print
+
+    On Error GoTo Err_cmdPrint_Click
+
+    If bValidInterestLateCalculation() = True Then
+        DoCmd.OpenReport "rptInterestLateUnpaidClass1", A_NORMAL
+    End If
+
+
+Exit_cmdPrint_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+
+Err_cmdPrint_Click:
+    MsgBox Error$
+    Resume Exit_cmdPrint_Click
+End Sub
+
+
+
+Private Sub Form_Load()
+' Author        : Mustaq Hussain
+' Date          : 30 January 1996
+' Fuction Name  : Form_Load
+' Purpose       : Close Unpaid and open Late
+
+    On Error GoTo err_Form_Load
+
+    DoCmd.Hourglass True
+    DoCmd.Maximize
+    
+    'Populate appropriate field
+    Forms![frmInterestLateUnpaidClass1Main]![txtPrepared By] = getinitials() & " " & getsurname()
+    
+    ClearForm
+
+exit_Form_Load:
+    DoCmd.Hourglass False
+    Exit Sub
+
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+
+
+Private Sub Form_Unload(Cancel As Integer)
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_Form_Unload
+DoCmd.SetWarnings False
+'Clear down any records
+Exit_Form_Unload:
+    Exit Sub
+Err_Form_Unload:
+    MsgBox Error$
+    Resume Exit_Form_Unload
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+        Case "F", "M"
+        
+            If MsgBox("Is the calculation for a tax year before 2005?", vbYesNo, "Tax year?") = vbNo Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Initial.SetFocus
+                NIsuffix.SetFocus
+             End If
+        Case Else
+        
+            If MsgBox("Is the calculation for a tax year before 2005?", vbYesNo, "Tax year?") = vbYes Then
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Initial.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                Initial.SetFocus
+                NIsuffix.SetFocus
+            End If
+            
+    End Select
+
+End If
+End Sub
+
+' Author    :   Lisa Scothern
+' Date      :   23 October 1997
+' Purpose   :   RFC526: Hide unwanted type of remission period table based on user choice
+'
+Private Sub RemPrdMode_AfterUpdate()
+
+    If ([RemPrdMode] = 2) Then
+        Forms![frmInterestLateUnpaidClass1Main]!subRemissionStd.Form.Visible = False
+        Forms![frmInterestLateUnpaidClass1Main]!subRemissionSpecific.Form.Visible = True
+    Else
+        Forms![frmInterestLateUnpaidClass1Main]!subRemissionSpecific.Form.Visible = False
+        Forms![frmInterestLateUnpaidClass1Main]!subRemissionStd.Form.Visible = True
+    End If
+End Sub

@@ -1,0 +1,41 @@
+
+Option Compare Database   'Use database order for string comparisons
+
+Private Const cPre2011LEL_ET  As String = "LEL-ET"
+Private Const cPre2011ET_UAP  As String = "ET-UAP"
+
+Private Const cPost2010LEL_ET As String = "LEL-PT"
+Private Const cPost2010ET_UAP As String = "PT-UAP"
+
+Private Const cPost2016ET_UEL As String = "PT-UEL"
+
+Option Explicit
+
+Private Sub Form_Load()
+
+If OpenArgs Then
+    If OpenArgs < 2011 Then
+        Form_frmSummaryClass1_2009.lblLELToET.Caption = cPre2011LEL_ET
+        Form_frmSummaryClass1_2009.lblETToUAP.Caption = cPre2011ET_UAP
+    Else
+        Form_frmSummaryClass1_2009.lblLELToET.Caption = cPost2010LEL_ET
+        Form_frmSummaryClass1_2009.lblETToUAP.Caption = cPost2010ET_UAP
+    End If
+End If
+
+End Sub
+
+Private Sub SummaryClose_Click()
+
+On Error GoTo Err_SummaryClose_Click
+
+DoCmd.Close
+
+Exit_SummaryClose_Click:
+    Exit Sub
+
+Err_SummaryClose_Click:
+    MsgBox Error$
+    Resume Exit_SummaryClose_Click
+    
+End Sub

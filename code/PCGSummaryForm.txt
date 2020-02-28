@@ -1,0 +1,28 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+Option Explicit
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+Private Sub SummaryClose_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : JASON CORDEY - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_SummaryClose_Click
+
+
+    DoCmd.Close
+
+Exit_SummaryClose_Click:
+    Exit Sub
+
+Err_SummaryClose_Click:
+    MsgBox Error$
+    Resume Exit_SummaryClose_Click
+    
+End Sub

@@ -1,0 +1,673 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
+
+Private Sub Calculate_GotFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+'History    : Jane Mullen
+'Date       : 20 May 1996
+'History    : To add message box in association with Subroutine 'validateCategory'
+On Error GoTo err_Calculate_GotFocus
+DoCmd.Hourglass True
+
+Dim fieldtest As Variant
+'Validation of input fields
+fieldtest = Forms!frmEnhance!CategoryText
+'Category
+If IsNull(fieldtest) Then
+    MsgBox "You have not input a category", 48, "Warning"
+    Forms!frmEnhance!CategoryText.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+validateCategory
+'Prevent input of contracted out rates prior to 78/79
+If (Forms!frmEnhance!CategoryText = "D" Or Forms!frmEnhance!CategoryText = "D HMF" Or Forms!frmEnhance!CategoryText = "E" Or Forms!frmEnhance!CategoryText = "E HMF") And Forms!frmEnhance!TaxYearText < 1978 Then
+    MsgBox "No contracted out rate prior to 1978/79 - please reinput", 48, "Warning"
+    Forms!frmEnhance!CategoryText.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+'Prevent input of Cat A enhancement
+If (Forms!frmEnhance!EnhanceButton.value = True And Forms!frmEnhance!Category = "A") Then
+    MsgBox "Not possible to enhance category A - please reinput", 48, "Warning"
+    Forms!frmEnhance!CategoryText.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+'Prevent input of Cat C
+If Forms!frmEnhance!Category = "C" Then
+    MsgBox "Not possible to convert category C - please reinput", 48, "Warning"
+    Forms!frmEnhance!CategoryText.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+End If
+'Primary contribution
+If Forms!frmEnhance!primcont.Enabled = True Then
+    fieldtest = Forms!frmEnhance!primcont
+    If fieldtest = 0 Or IsNull(fieldtest) Then
+        MsgBox "You have not entered a primary contribution", 48, "Warning   "
+        Forms!frmEnhance!primcont.SetFocus
+        DoCmd.Hourglass False
+        Exit Sub
+    End If
+End If
+'Primary earnings
+If Forms!frmEnhance!primcontearns.Enabled = True Then
+    fieldtest = Forms!frmEnhance!primcontearns
+    If fieldtest = 0 Or IsNull(fieldtest) Then
+        MsgBox "You have not entered primary earnings", 48, "Warning   "
+        Forms!frmEnhance!primcontearns.SetFocus
+        DoCmd.Hourglass False
+        Exit Sub
+    End If
+End If
+'Contracted out contribution
+If Forms!frmEnhance!cocont.Enabled = True Then
+    fieldtest = Forms!frmEnhance!cocont
+    If fieldtest = 0 Or IsNull(fieldtest) Then
+        MsgBox "You have not entered a contracted out contribution", 48, "Warning   "
+        Forms!frmEnhance!cocont.SetFocus
+        DoCmd.Hourglass False
+        Exit Sub
+    End If
+End If
+'Contracted out earnings
+If Forms!frmEnhance!cocontearns.Enabled = True Then
+fieldtest = Forms!frmEnhance!cocontearns
+If fieldtest = 0 Or IsNull(fieldtest) Then
+MsgBox "You have not entered contracted out earnings", 48, "Warning   "
+Forms!frmEnhance!cocontearns.SetFocus
+DoCmd.Hourglass False
+Exit Sub
+End If
+End If
+'Cross field checks
+If Forms!frmEnhance!primcont.Enabled = True And Forms!frmEnhance!cocont.Enabled = True Then
+    If Forms!frmEnhance!primcont < Forms!frmEnhance!cocont Then
+    MsgBox "Contracted out contributions must not be greater than primary contribution - please reinput", 48, "Warning"
+    Forms!frmEnhance!cocont.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+    End If
+    End If
+If Forms!frmEnhance!primcontearns.Enabled = True And Forms!frmEnhance!cocontearns.Enabled = True Then
+    If Forms!frmEnhance!primcontearns < Forms!frmEnhance!cocontearns Then
+    MsgBox "Contracted out earnings must not be greater than primary earnings", 48, "Warning"
+    Forms!frmEnhance!cocontearns.SetFocus
+    DoCmd.Hourglass False
+    Exit Sub
+    End If
+End If
+exit_Calculate_GotFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+err_Calculate_GotFocus:
+    MsgBox Error$
+    Resume exit_Calculate_GotFocus
+End Sub
+
+Private Sub CategoryText_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+'History    : Jane Mullen
+'Date       : 20 May 1997
+'Purpose    : To add Category F and G to Method B
+
+On Error GoTo err_CategoryText_Click
+DoCmd.Hourglass True
+
+'Determine whether calculation has been made ( field will be locked ). No
+'action to be taken if field locked
+With Forms!frmEnhance
+    If !CategoryText.Locked = False Then
+    'Zeroise any monetary values
+        !primcont.value = 0
+        !primcontearns.value = 0
+        !cocont.value = 0
+        !cocontearns.value = 0
+        !ConvcatText.value = "A"
+        'Initialise fields as appropriate
+        If !EnhanceButton.value = True Then
+        
+            If !CategoryText = "A" Or !CategoryText = "A HMF" Or !CategoryText = "M" Then
+                validateCategory
+                If !TaxYearText < 1987 Then
+                    !primcont.Enabled = True
+                    !primcontearns.Enabled = False
+                    !cocont.Enabled = False
+                    !cocontearns.Enabled = False
+                Else
+                    !primcont.Enabled = True
+                    !primcontearns.Enabled = True
+                    !cocont.Enabled = False
+                    !cocontearns.Enabled = False
+                End If
+            ElseIf !CategoryText = "H" Then ' probably set the boxes to visible=false?
+                validateCategory
+                    !primcont.Enabled = True
+                    !primcontearns.Enabled = True
+                    !cocont.Enabled = False
+                    !cocontearns.Enabled = False
+            ElseIf (!CategoryText = "B") Or (!CategoryText = "B HMF") Or (!CategoryText = "E") Or (!CategoryText = "G") Or (!CategoryText = "E HMF") Then
+                validateCategory
+                !primcont.Enabled = True
+                !primcontearns.Enabled = False
+                !cocont.Enabled = False
+                !cocontearns.Enabled = False
+            ElseIf (!CategoryText = "D" Or !CategoryText = "I") Then
+                If !TaxYearText < 1987 Then
+                    !primcont.Enabled = True
+                    !primcontearns.Enabled = False
+                    !cocont.Enabled = True
+                    !cocontearns.Enabled = False
+                Else
+                    !primcont.Enabled = True
+                    !primcontearns.Enabled = False
+                    !cocont.Enabled = False
+                    !cocontearns.Enabled = True
+                 End If
+            ElseIf (!CategoryText = "F") Then
+                validateCategory
+                !primcont.Enabled = True
+                !primcontearns.Enabled = False
+                !cocont.Enabled = False
+                !cocontearns.Enabled = True
+            ElseIf !CategoryText = "D HMF" Then
+                validateCategory
+                If !TaxYearText < 1987 Then
+                    !primcont.Enabled = True
+                    !primcontearns.Enabled = False
+                    !cocont.Enabled = True
+                ElseIf (!TaxYearText > 1986 And !TaxYearText < 1990) Then
+                    !primcont.Enabled = True
+                    !primcontearns.Enabled = True
+                    !cocont.Enabled = True
+                    !cocontearns.Enabled = True
+                Else
+                    !primcont.Enabled = True
+                    !primcontearns.Enabled = False
+                    !cocont.Enabled = False
+                    !cocontearns.Enabled = True
+                 End If
+            Else
+            
+                MsgBox "You have not input a contribution rate ( or have input C rate ) - please select another rate", 48, "Warning"
+                !CategoryText.SetFocus
+                DoCmd.Hourglass False
+                Exit Sub
+            
+            End If
+    
+        Else
+        
+        'De-enhancement A to A HMF
+        
+            !primcont.Enabled = True
+            !primcontearns.Enabled = False
+            !cocont.Enabled = False
+            
+        End If
+        'Set focus to next field
+        !primcont.SetFocus
+        
+    End If
+End With
+exit_CategoryText_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_CategoryText_Click:
+    MsgBox Error$
+    Resume exit_CategoryText_Click
+End Sub
+
+
+
+Private Sub Closeform_Click()
+DoCmd.Close acForm, "frmEnhance", acSaveNo
+End Sub
+
+
+
+Private Sub ConvcatText_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_ConvcatText_Click
+'Prevent user inputting any enhancement categories other than A or B
+DoCmd.Hourglass True
+If EnhanceButton.value = True Then
+    If Forms!frmEnhance!CategoryText = "B HMF" Then
+        If Forms!frmEnhance!ConvcatText <> "A" And Forms!frmEnhance!ConvcatText <> "B" Then
+            Forms!frmEnhance!ConvcatText = "A"
+        End If
+    ElseIf Forms!frmEnhance!ConvcatText <> "A" Then
+        Forms!frmEnhance!ConvcatText = "A"
+    End If
+End If
+
+exit_ConvcatText_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_ConvcatText_Click:
+    MsgBox Error$
+    Resume exit_ConvcatText_Click
+End Sub
+
+Private Sub ConvcatText_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_ConvcatText_LostFocus
+'This is the last field in the tabbing order. To prevent the user from
+'tabbing onto the first field in a new record focus is reset to the first
+'field on the current record. This ensures that the user cannot create
+'several input records for one transaction
+DoCmd.Hourglass True
+Forms!frmEnhance!EnhanceButton.SetFocus
+
+exit_ConvcatText_LostFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+err_ConvcatText_LostFocus:
+    MsgBox Error$
+    Resume exit_ConvcatText_LostFocus
+End Sub
+
+Private Sub DeEnhanceButton_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_DeEnhanceButton_Click
+'this routine checks to see if the de-enhance option is selected, if so it initialises the
+'form with the required values, disabling any non updatable fields
+
+
+
+If TaxYearText > 1995 Then
+    MsgBox "No De-Enhance after 1995"
+    Forms!frmEnhance!DeEnhanceButton.value = False
+    Exit Sub
+End If
+If TaxYearText = "" Or IsNull(TaxYearText) Then
+    MsgBox "Please enter tax year"
+    Forms!frmEnhance!DeEnhanceButton.value = False
+    Exit Sub
+End If
+
+DoCmd.Hourglass True
+With Forms!frmEnhance
+    !DeEnhanceButton.value = True
+    !EnhanceButton.value = False
+    !CategoryText.value = "A"
+    !ConvcatText.value = "A HMF"
+    !CategoryText.Enabled = False
+    !ConvcatText.Enabled = False
+    !primcont.value = 0
+    
+    If !primcontearns.Enabled = True Then
+        !primcontearns.value = 0
+    End If
+    If !cocont.Enabled = True Then
+        !cocont.value = 0
+    End If
+    If !cocontearns.Enabled = True Then
+        !cocontearns.value = 0
+    End If
+    
+    !primcont.Enabled = True
+    !primcontearns.Enabled = False
+    !cocont.Enabled = False
+    !cocontearns.Enabled = False
+End With
+exit_DeEnhanceButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_DeEnhanceButton_Click:
+    MsgBox Error$
+    Resume exit_DeEnhanceButton_Click
+End Sub
+
+Private Sub EnhanceButton_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_EnhanceButton_Click
+DoCmd.Hourglass True
+'this routine checks to see if the enhance option is selected, if so it initialises the
+'form with the required values, disabling any non updatable fields
+Forms!frmEnhance!EnhanceButton.value = True
+Forms!frmEnhance!DeEnhanceButton = False
+Forms!frmEnhance!CategoryText.value = Null
+Forms!frmEnhance!ConvcatText.value = "A"
+Forms!frmEnhance!CategoryText.Enabled = True
+Forms!frmEnhance!ConvcatText.Enabled = True
+Forms!frmEnhance!primcont.value = 0
+Forms!frmEnhance!primcont.Enabled = False
+
+exit_EnhanceButton_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_EnhanceButton_Click:
+    MsgBox Error$
+    Resume exit_EnhanceButton_Click
+End Sub
+
+
+
+Private Sub Form_Load()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_Form_Load
+Dim Sname As String
+Dim Fname As String
+
+DoCmd.Maximize
+'Obtain user details via API call to User.INI
+'Function to obtain surname
+Sname = getsurname()
+'Function to obtain initials
+Fname = getinitials()
+'Display on form
+Forms![frmEnhance]![UserDetails] = Fname & " " & Sname
+
+newcalc_Click
+
+exit_Form_Load:
+    Exit Sub
+err_Form_Load:
+    MsgBox Error$
+    Resume exit_Form_Load
+End Sub
+
+
+
+Private Sub newcalc_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+' History       :
+' Author        : Jane Mullen
+' Date          : 7 Feb 1997
+' Purpose       : RFC 515 : Addition of four fields to be cleared on click
+
+On Error GoTo err_newcalc_Click
+DoCmd.Hourglass True
+DoCmd.SetWarnings False
+'Prepare the input form for a new calculation
+    'Initialise input fields as appropriate
+    With Forms!frmEnhance
+        !Results.Visible = False
+        !result.Visible = False
+        !CategoryText.Enabled = True
+        !TaxYearText.Enabled = True
+        !primcont.Enabled = False
+        !primcontearns.Enabled = False
+        !cocont.Enabled = False
+        !cocontearns.Enabled = False
+        !ConvcatText.Enabled = True
+        !EnhanceButton.Enabled = True
+        !DeEnhanceButton.Enabled = True
+        !CategoryText.Locked = False
+        !primcont.Locked = False
+        !primcontearns.Locked = False
+        !cocont.Locked = False
+        !cocontearns.Locked = False
+        !ConvcatText.Locked = False
+        !TaxYearText.Locked = False
+        !EnhanceButton.Locked = False
+        !DeEnhanceButton.Locked = False
+        'Delete existing record
+        'DoCmd.RunMacro "deleterecords" - macro removed
+        DoCmd.RunSQL "DELETE * FROM [Input Data]"
+        .Requery
+        '!taxyear = Null
+        '!category = Null
+        '!convcat = Null
+        '!primcont = Null
+        '!primcontearns = Null
+        '!cocont = Null
+        '!cocontearns = Null
+        '!result = Null
+        !txtSurname.SetFocus
+        'Disable new calculation button
+        
+        !txtSurname = Null
+        !txtInitial = Null
+        !NIPrefix = Null
+        !NInumber = Null
+        !NIsuffix = Null
+        !txtRef = Null
+        !newcalc.Enabled = False
+    End With
+
+
+
+exit_newcalc_Click:
+    DoCmd.Hourglass False
+    DoCmd.SetWarnings True
+    Exit Sub
+err_newcalc_Click:
+    MsgBox Error$
+    Resume exit_newcalc_Click
+End Sub
+
+Private Sub NIsuffix_AfterUpdate()
+If Not IsNull(NIsuffix) Then
+
+    Select Case NIsuffix
+      
+    
+        Case "A" To "D", ""
+        
+        
+            'do nowt
+    
+        Case "F", "M"
+        
+            If TaxYearText > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                TaxYearText.SetFocus
+                NIsuffix.SetFocus
+            End If
+                
+        Case Else
+        
+            If TaxYearText > 2004 Then
+                MsgBox "Only A, B, C or D allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                TaxYearText.SetFocus
+                NIsuffix.SetFocus
+            Else
+                MsgBox "Only A, B, C, D, F or M allowed", vbOKOnly, "NI suffix"
+                NIsuffix = Null
+                TaxYearText.SetFocus
+                NIsuffix.SetFocus
+            End If
+                  
+    End Select
+
+End If
+End Sub
+
+Private Sub primcont_LostFocus()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo err_primcont_LostFocus
+DoCmd.Hourglass True
+If Forms!frmEnhance!DeEnhanceButton.value = True Then
+ Forms!frmEnhance!EnhanceButton.SetFocus
+End If
+
+exit_primcont_LostFocus:
+    DoCmd.Hourglass False
+    Exit Sub
+err_primcont_LostFocus:
+    MsgBox Error$
+    Resume exit_primcont_LostFocus
+End Sub
+
+Private Sub PRINTSCREEN_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+
+On Error GoTo Err_PRINTSCREEN_Click
+Dim DocName As String
+    DocName = "rptEnhance"
+    DoCmd.Hourglass True
+    DoCmd.OpenReport DocName, A_NORMAL
+    
+Exit_PRINTSCREEN_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+Err_PRINTSCREEN_Click:
+    MsgBox Error$
+    Resume Exit_PRINTSCREEN_Click
+End Sub
+
+'History    : Christopher Sneddon
+'Date       : 18 October 2010
+'Purpose    : Changes to categories for 2011 onwards
+
+Private Sub TaxYearText_AfterUpdate()
+
+
+If Taxyear > 2011 And Taxyear < 2015 Then
+    Form_frmEnhance!CategoryText.RowSource = "A;B;C;D;E;A HMF;B HMF;D HMF;E HMF"
+ElseIf Taxyear > 2015 Then
+    Form_frmEnhance!CategoryText.RowSource = "A;B;C;H;M;A HMF;B HMF;D HMF;E HMF"
+ElseIf Taxyear > 2014 Then
+    Form_frmEnhance!CategoryText.RowSource = "A;B;C;D;E;M;I;A HMF;B HMF;D HMF;E HMF"
+Else
+    Form_frmEnhance!CategoryText.RowSource = "A;B;C;D;E;F;G;A HMF;B HMF;D HMF;E HMF"
+End If
+
+
+
+End Sub
+
+Private Sub TaxYearText_Click()
+
+            '''''''''''''''''''''''''''''''''''''''''''
+            ' AUTHOR : BRIAN SHARRATT - I.T.S.A. 1995 '
+            '''''''''''''''''''''''''''''''''''''''''''
+'History    : Jane Mullen
+'Date       : 20 May 1997
+'Purpose    : To add Category F and G to Method B
+
+On Error GoTo err_TaxYearText_Click
+DoCmd.Hourglass True
+
+'Determine whether calculation has been made ( field will be locked ). No action
+'to be taken if field is locked
+If Forms!frmEnhance!TaxYearText.Locked = False Then
+'Set any monetary values to zero
+Forms!frmEnhance!primcont.value = 0
+Forms!frmEnhance!primcontearns.value = 0
+Forms!frmEnhance!cocont.value = 0
+Forms!frmEnhance!cocontearns.value = 0
+'Initialise fields on form as appropriate
+If Forms!frmEnhance!EnhanceButton.value = True Then
+validateCategory
+If Forms!frmEnhance!CategoryText = "A" Or Forms!frmEnhance!CategoryText = "A HMF" Then
+    validateCategory
+    If Forms!frmEnhance!TaxYearText < 1987 Then
+        Forms!frmEnhance!primcont.Enabled = True
+        Forms!frmEnhance!primcontearns.Enabled = False
+        Forms!frmEnhance!cocont.Enabled = False
+        Forms!frmEnhance!cocontearns.Enabled = False
+    Else
+        Forms!frmEnhance!primcont.Enabled = True
+        Forms!frmEnhance!primcontearns.Enabled = True
+        Forms!frmEnhance!cocont.Enabled = False
+        Forms!frmEnhance!cocontearns.Enabled = False
+    End If
+ElseIf (Forms!frmEnhance!CategoryText = "B") Or (Forms!frmEnhance!CategoryText = "B HMF") Or (Forms!frmEnhance!CategoryText = "E") Or (Forms!frmEnhance!CategoryText = "G") Or (Forms!frmEnhance!CategoryText = "E HMF") Then
+    validateCategory
+    Forms!frmEnhance!primcont.Enabled = True
+    Forms!frmEnhance!primcontearns.Enabled = False
+    Forms!frmEnhance!cocont.Enabled = False
+    Forms!frmEnhance!cocontearns.Enabled = False
+ElseIf Forms!frmEnhance!CategoryText = "D" Then
+    If Forms!frmEnhance!TaxYearText < 1987 Then
+        Forms!frmEnhance!primcont.Enabled = True
+        Forms!frmEnhance!primcontearns.Enabled = False
+        Forms!frmEnhance!cocont.Enabled = True
+        Forms!frmEnhance!cocontearns.Enabled = False
+    Else
+        Forms!frmEnhance!primcont.Enabled = True
+        Forms!frmEnhance!primcontearns.Enabled = False
+        Forms!frmEnhance!cocont.Enabled = False
+        Forms!frmEnhance!cocontearns.Enabled = True
+    End If
+ElseIf (Forms!frmEnhance!CategoryText = "F") Then
+    validateCategory
+    Forms!frmEnhance!primcont.Enabled = True
+    Forms!frmEnhance!primcontearns.Enabled = False
+    Forms!frmEnhance!cocont.Enabled = False
+    Forms!frmEnhance!cocontearns.Enabled = True
+ElseIf Forms!frmEnhance!CategoryText = "D HMF" Then
+    validateCategory
+    If Forms!frmEnhance!TaxYearText < 1987 Then
+        Forms!frmEnhance!primcont.Enabled = True
+        Forms!frmEnhance!primcontearns.Enabled = False
+        Forms!frmEnhance!cocont.Enabled = True
+        Forms!frmEnhance!cocontearns.Enabled = False
+    ElseIf (Forms!frmEnhance!TaxYearText > 1986 And Forms!frmEnhance!TaxYearText < 1990) Then
+        Forms!frmEnhance!primcont.Enabled = True
+        Forms!frmEnhance!primcontearns.Enabled = True
+        Forms!frmEnhance!cocont.Enabled = True
+        Forms!frmEnhance!cocontearns.Enabled = True
+    Else
+        Forms!frmEnhance!primcont.Enabled = True
+        Forms!frmEnhance!primcontearns.Enabled = False
+        Forms!frmEnhance!cocont.Enabled = False
+        Forms!frmEnhance!cocontearns.Enabled = True
+    End If
+End If
+
+'Set focus to next field on form
+Forms!frmEnhance!CategoryText.SetFocus
+Else
+'De-enhancement A to A HMF
+    Forms!frmEnhance!primcont.Enabled = True
+    Forms!frmEnhance!primcontearns.Enabled = False
+    Forms!frmEnhance!cocont.Enabled = False
+    Forms!frmEnhance!cocontearns.Enabled = False
+End If
+End If
+
+NIsuffix_AfterUpdate
+
+
+exit_TaxYearText_Click:
+    DoCmd.Hourglass False
+    Exit Sub
+err_TaxYearText_Click:
+    MsgBox Error$
+    Resume exit_TaxYearText_Click
+End Sub

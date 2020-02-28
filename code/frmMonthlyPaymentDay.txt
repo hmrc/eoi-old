@@ -1,0 +1,59 @@
+Option Compare Database
+
+
+Private Sub Form_Close()
+'MsgBox StartPayPeriod_SAP_SPP
+End Sub
+
+Private Sub FramePaymentDay_AfterUpdate()
+If FramePaymentDay = 4 Then
+    txtSpecifiedDate.Visible = True
+Else
+    txtSpecifiedDate.Visible = False
+    
+End If
+
+End Sub
+Private Sub cmdOK_Click()
+On Error GoTo Err_cmdOK_Click
+
+If FramePaymentDay = 3 Then
+    If IsNull(grpPayDay) Then
+        MsgBox "Please select a day"
+        End
+    End If
+End If
+
+If FramePaymentDay = 4 Then
+    If IsNull(txtSpecifiedDate) Then
+        MsgBox "Please enter a date"
+        End
+    End If
+End If
+
+
+Select Case FramePaymentDay
+    Case 1
+            PaymentType = 1
+    Case 2
+            PaymentType = 2
+    Case 3
+            PaymentType = 3
+            PaymentDay = grpPayDay
+    Case 4
+            PaymentType = 4
+            PaymentDate = txtSpecifiedDate
+
+End Select
+        
+
+    DoCmd.Close
+
+Exit_cmdOK_Click:
+    Exit Sub
+
+Err_cmdOK_Click:
+    MsgBox Err.Description
+    Resume Exit_cmdOK_Click
+    
+End Sub

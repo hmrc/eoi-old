@@ -1,0 +1,4 @@
+
+
+
+Option Compare Database   'Use database order for string comparisons
